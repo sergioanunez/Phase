@@ -82,8 +82,8 @@ export async function GET(request: NextRequest) {
         const entityId = log.entityId
         if (!entityId) continue
 
-        // Get task from map
-        const task = taskMap.get(entityId)
+        // Get task from map (entityId is string here; assert for strict build)
+        const task = taskMap.get(entityId as string)
         if (!task) continue
 
         // Determine action type based on status changes
