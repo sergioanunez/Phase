@@ -45,8 +45,10 @@ export async function GET(request: NextRequest) {
       take: 10,
     })
 
-    // Get all task IDs from audit logs
-    const taskIds = auditLogs.map((log) => log.entityId)
+    // Get all task IDs from audit logs (filter out null entityId)
+    const taskIds = auditLogs
+      .map((log) => log.entityId)
+      .filter((id): id is string => id != null)
 
     // Fetch all tasks in one query
     const tasks = await prisma.homeTask.findMany({
