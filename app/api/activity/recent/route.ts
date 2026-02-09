@@ -79,10 +79,11 @@ export async function GET(request: NextRequest) {
         const after = log.afterJson ? JSON.parse(log.afterJson) : null
 
         if (!after) continue
-        if (!log.entityId) continue
+        const entityId = log.entityId
+        if (!entityId) continue
 
         // Get task from map
-        const task = taskMap.get(log.entityId)
+        const task = taskMap.get(entityId)
         if (!task) continue
 
         // Determine action type based on status changes
