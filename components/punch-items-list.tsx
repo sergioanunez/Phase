@@ -1,0 +1,405 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { PunchItemModal } from "@/components/punch-item-modal"
+import { PunchStatus } from "@prisma/client"
+import { format } from "date-fns"
+import { Plus, Edit2, Filter, MessageSquare, Check, Trash2 } from "lucide-react"
+
+interface Contractor {
+  id: string
+  companyName: string
+}
+
+interface PunchItem {
+  id: string
+  title: string
+  description: string | null
+  assignedContractorId: string | null
+  assignedContractor: {
+    id: string
+    companyName: string
+  } | null
+  status: PunchStatus
+  dueDate: string | null
+  createdAt: string
+  createdBy: {
+    id: string
+    name: string
+  }
+  closedAt: string | null
+  closedBy: {
+    id: string
+    name: string
+  } | null
+}
+
+interface PunchItemsListProps {
+  taskId: string
+  taskName: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onUpdate: () => void
+}
+
+export function PunchItemsList({
+  taskId,
+  taskName,
+  open,
+  onOpenChange,
+  onUpdate,
+}: PunchItemsListProps) {
+  const [punchItems, setPunchItems] = useState<PunchItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sendingSMS, setSendingSMS] = useState(false)
+  const [filter, setFilter] = useState<"all" | "open" | "closed">("all")
+  const [editingPunchItem, setEditingPunchItem] = useState<PunchItem | null>(null)
+  const [punchModalOpen, setPunchModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      fetchPunchItems()
+    }
+  }, [open, taskId])
+
+  const fetchPunchItems = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/punch-items`)
+      if (res.ok) {
+        const data = await res.json()
+        setPunchItems(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch punch items:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredItems = punchItems.filter((item) => {
+    if (filter === "open") {
+      return item.status === "Open" || item.status === "ReadyForReview"
+    }
+    if (filter === "closed") {
+      return item.status === "Closed" || item.status === "Canceled"
+    }
+    return true
+  })
+
+  const getStatusColor = (status: PunchStatus) => {
+    switch (status) {
+      case "Open":
+        return "destructive"
+      case "ReadyForReview":
+        return "default"
+      case "Closed":
+        return "success"
+      case "Canceled":
+        return "outline"
+      default:
+        return "outline"
+    }
+  }
+
+  const handleEdit = (item: PunchItem) => {
+    setEditingPunchItem(item)
+    setPunchModalOpen(true)
+  }
+
+  const handlePunchSuccess = () => {
+    fetchPunchItems()
+    onUpdate()
+    setPunchModalOpen(false)
+    setEditingPunchItem(null)
+  }
+
+  const handleSendPunchListSMS = async () => {
+    const openItems = punchItems.filter(
+      (item) => item.status === "Open" || item.status === "ReadyForReview"
+    )
+
+    if (openItems.length === 0) {
+      alert("No open punch items to send")
+      return
+    }
+
+    if (
+      !confirm(
+        `Send ${openItems.length} punch item(s) to assigned contractors?`
+      )
+    ) {
+      return
+    }
+
+    setSendingSMS(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/punch-items/send-sms`, {
+        method: "POST",
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        if (data.errors && data.errors.length > 0) {
+          const errorMessages = data.errors
+            .map((e: any) => `${e.contractor}: ${e.error}`)
+            .join("\n")
+          const successMessages = data.results
+            .map((r: any) => `✓ ${r.contractor}: ${r.itemsCount} item(s) sent`)
+            .join("\n")
+          alert(
+            `SMS Results:\n\n${successMessages}\n\nErrors:\n${errorMessages}`
+          )
+        } else {
+          const successMessages = data.results
+            .map((r: any) => `✓ ${r.contractor}: ${r.itemsCount} item(s) sent`)
+            .join("\n")
+          alert(`SMS sent successfully:\n\n${successMessages}`)
+        }
+      } else {
+        alert(data.error || "Failed to send punch list SMS")
+      }
+    } catch (err: any) {
+      console.error("Failed to send punch list SMS:", err)
+      alert("Failed to send punch list SMS")
+    } finally {
+      setSendingSMS(false)
+    }
+  }
+
+  const handleMarkComplete = async (itemId: string) => {
+    if (!confirm("Mark this punch item as complete?")) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/punch-items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Closed" }),
+      })
+
+      if (res.ok) {
+        fetchPunchItems()
+        onUpdate()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to mark punch item as complete")
+      }
+    } catch (err: any) {
+      console.error("Failed to mark punch item as complete:", err)
+      alert("Failed to mark punch item as complete")
+    }
+  }
+
+  const handleDelete = async (itemId: string, itemTitle: string) => {
+    if (!confirm(`Delete punch item "${itemTitle}"? This cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/punch-items/${itemId}`, {
+        method: "DELETE",
+      })
+
+      if (res.ok) {
+        fetchPunchItems()
+        onUpdate()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to delete punch item")
+      }
+    } catch (err: any) {
+      console.error("Failed to delete punch item:", err)
+      alert("Failed to delete punch item")
+    }
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Punch Items: {taskName}</DialogTitle>
+            <DialogDescription>
+              Manage QA items for this task
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-2">
+                <Button
+                  variant={filter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filter === "open" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("open")}
+                >
+                  Open
+                </Button>
+                <Button
+                  variant={filter === "closed" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("closed")}
+                >
+                  Closed
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendPunchListSMS}
+                  disabled={sendingSMS || punchItems.filter(i => i.status === "Open" || i.status === "ReadyForReview").length === 0}
+                  title="Send all open punch items to assigned contractors"
+                >
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  {sendingSMS ? "Sending..." : "Send to Contractors"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditingPunchItem(null)
+                    setPunchModalOpen(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Punch
+                </Button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : filteredItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No punch items found
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border rounded-lg p-4 space-y-2 hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium">{item.title}</h4>
+                          <Badge variant={getStatusColor(item.status)}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                        {item.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {item.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                          <span>
+                            Created: {format(new Date(item.createdAt), "MM/dd/yyyy")} by {item.createdBy.name}
+                          </span>
+                          {item.assignedContractor && (
+                            <span>Assigned: {item.assignedContractor.companyName}</span>
+                          )}
+                          {item.dueDate && (
+                            <span>
+                              Due: {format(new Date(item.dueDate), "MM/dd/yyyy")}
+                            </span>
+                          )}
+                          {item.closedAt && item.closedBy && (
+                            <span>
+                              Closed: {format(new Date(item.closedAt), "MM/dd/yyyy")} by {item.closedBy.name}
+                            </span>
+                          )}
+                        </div>
+                        {item.photos && item.photos.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {item.photos.slice(0, 5).map((photo) => (
+                              <a
+                                key={photo.id}
+                                href={photo.imageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block w-12 h-12 rounded border overflow-hidden bg-muted flex-shrink-0"
+                                title="View attachment"
+                              >
+                                {photo.imageUrl.toLowerCase().endsWith(".pdf") ? (
+                                  <span className="w-full h-full flex items-center justify-center text-xs">PDF</span>
+                                ) : (
+                                  <img src={photo.imageUrl} alt="" className="w-full h-full object-cover" />
+                                )}
+                              </a>
+                            ))}
+                            {item.photos.length > 5 && (
+                              <span className="text-xs text-muted-foreground self-center">+{item.photos.length - 5}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {(item.status === "Open" || item.status === "ReadyForReview") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleMarkComplete(item.id)}
+                            className="text-green-600 hover:text-green-700 dark:text-green-400"
+                            title="Mark as complete"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(item)}
+                          title="Edit punch item"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(item.id, item.title)}
+                          className="text-destructive hover:text-destructive"
+                          title="Delete punch item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <PunchItemModal
+        taskId={taskId}
+        taskName={taskName}
+        open={punchModalOpen}
+        onOpenChange={setPunchModalOpen}
+        onSuccess={handlePunchSuccess}
+        editingPunchItem={editingPunchItem}
+      />
+    </>
+  )
+}

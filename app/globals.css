@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Phase logo palette: blue #5076DB, charcoal #2A2F3B */
+    --background: 0 0% 100%;
+    --foreground: 222 17% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 17% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 17% 20%;
+    --primary: 224 66% 59%;
+    --primary-hover: 224 66% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 17% 20%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 222 12% 45%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 17% 20%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 66% 59%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-gray-100 text-foreground;
+  }
+}
+
+/* Responsive app container - use on main content areas */
+@layer components {
+  .app-container {
+    @apply mx-auto w-full max-w-[420px] px-4 sm:max-w-xl sm:px-6 md:max-w-2xl md:px-8 lg:max-w-3xl;
+  }
+  .app-header-nav-width {
+    @apply max-w-[420px] sm:max-w-xl md:max-w-2xl lg:max-w-3xl;
+  }
+}
+
+@keyframes pricing-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pricing-panel-in {
+  animation: pricing-panel-in 0.2s ease-out;
+}

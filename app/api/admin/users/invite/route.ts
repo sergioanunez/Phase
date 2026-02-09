@@ -1,0 +1,126 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { requireTenantPermission } from "@/lib/rbac"
+import { createAuditLog } from "@/lib/audit"
+import {
+  generateInviteToken,
+  hashInviteToken,
+  getInviteExpiresAt,
+  sendInviteEmail,
+} from "@/lib/invite"
+import { z } from "zod"
+
+const inviteUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  role: z.enum(["Admin", "Superintendent", "Manager"]),
+})
+
+export async function POST(request: NextRequest) {
+  try {
+    const ctx = await requireTenantPermission("users:write")
+    const body = await request.json()
+    const data = inviteUserSchema.parse(body)
+
+    const existing = await prisma.user.findUnique({
+      where: { email: data.email },
+    })
+    if (existing) {
+      return NextResponse.json(
+        { error: "A user with this email already exists" },
+        { status: 400 }
+      )
+    }
+
+    const token = generateInviteToken()
+    const tokenHash = hashInviteToken(token)
+    const expiresAt = getInviteExpiresAt()
+
+    const newUser = await prisma.user.create({
+      data: {
+        companyId: ctx.companyId,
+        name: data.name,
+        email: data.email,
+        passwordHash: null,
+        role: data.role,
+        status: "INVITED",
+        contractorId: null,
+        isActive: true,
+      },
+    })
+
+    const userInvite = await prisma.userInvite.create({
+      data: {
+        companyId: ctx.companyId,
+        userId: newUser.id,
+        email: data.email,
+        tokenHash,
+        expiresAt,
+        createdByUserId: ctx.userId,
+      },
+    })
+
+    const appUrl = process.env.APP_URL || "http://localhost:3000"
+    const inviteLink = `${appUrl}/auth/accept-invite?token=${encodeURIComponent(token)}`
+
+    const emailResult = await sendInviteEmail({
+      to: data.email,
+      name: data.name,
+      inviteLink,
+      expiresAt,
+    })
+
+    if (!emailResult.ok) {
+      await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
+        userId: newUser.id,
+        email: data.email,
+        emailError: emailResult.error,
+      }, ctx.companyId)
+      return NextResponse.json(
+        {
+          user: {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            status: newUser.status,
+          },
+          warning: `User created but email failed: ${emailResult.error}. Share this link manually: ${inviteLink}`,
+        },
+        { status: 201 }
+      )
+    }
+
+    await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
+      userId: newUser.id,
+      email: data.email,
+    }, ctx.companyId)
+
+    const { passwordHash: _, ...safeUser } = newUser
+    return NextResponse.json(safeUser, { status: 201 })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.errors.map((e) => e.message).join(", ") },
+        { status: 400 }
+      )
+    }
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { error: "Email already exists" },
+        { status: 400 }
+      )
+    }
+    if (error?.message === "Unauthorized" || error?.message === "Forbidden") {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Unauthorized" ? 401 : 403 }
+      )
+    }
+    console.error("User invite error:", error)
+    return NextResponse.json(
+      { error: error?.message || "Failed to send invite" },
+      { status: 500 }
+    )
+  }
+}

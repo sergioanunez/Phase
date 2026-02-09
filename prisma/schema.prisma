@@ -1,0 +1,572 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PricingTier {
+  SMALL
+  MID
+  LARGE
+  WHITE_LABEL
+}
+
+enum UserRole {
+  Admin
+  Superintendent
+  Manager
+  Subcontractor
+  PlatformAdmin
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum TaskStatus {
+  Unscheduled
+  Scheduled
+  PendingConfirm
+  Confirmed
+  Declined
+  InProgress
+  Completed
+  Canceled
+}
+
+enum SmsDirection {
+  Inbound
+  Outbound
+}
+
+enum SmsStatus {
+  Sent
+  Delivered
+  Failed
+  Received
+}
+
+enum GateScope {
+  DownstreamOnly
+  AllScheduling
+}
+
+enum GateBlockMode {
+  ScheduleOnly
+  ScheduleAndConfirm
+}
+
+enum PunchCategory {
+  Structural
+  Framing
+  MEP
+  Drywall
+  Trim
+  Paint
+  Cabinets
+  Flooring
+  Fixtures
+  Exterior
+  Other
+}
+
+enum PunchSeverity {
+  Minor
+  Major
+}
+
+enum PunchStatus {
+  Open
+  ReadyForReview
+  Closed
+  Canceled
+}
+
+enum PlanFileType {
+  PDF
+  IMAGE
+}
+
+enum CompanyStatus {
+  ACTIVE
+  TRIAL
+  DISABLED
+  PAST_DUE
+}
+
+enum BillingStatus {
+  OK
+  PAST_DUE
+  CANCELED
+}
+
+model Company {
+  id              String       @id @default(cuid())
+  name            String
+  pricingTier     PricingTier  @default(SMALL)
+  maxActiveHomes  Int?         // null = unlimited
+  status          CompanyStatus @default(ACTIVE)
+  timezone        String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Billing (MVP manual)
+  monthlyPriceCents Int?
+  renewalDate       DateTime?
+  billingStatus     BillingStatus?
+  notes             String?
+
+  // White label (brandLogoUrl kept for legacy; prefer brandLogoPath from uploads)
+  brandAppName       String?
+  brandLogoUrl       String?
+  brandLogoPath      String?   // Supabase path: companies/{id}/branding/logo.{ext}
+  brandFaviconPath   String?   // Supabase path: companies/{id}/branding/favicon.{ext}
+  brandPrimaryColor  String?
+  brandAccentColor   String?
+
+  // Trial
+  trialStartsAt     DateTime?
+  trialEndsAt       DateTime?
+
+  users             User[]
+  memberships       CompanyMembership[]
+  homes         Home[]
+  subdivisions  Subdivision[]
+  contractors   Contractor[]
+  templateItems WorkTemplateItem[]
+  templateDeps  TemplateDependency[]
+  homeTasks     HomeTask[]
+  punchItems    PunchItem[]
+  auditLogs     AuditLog[]
+  contractorAssignments ContractorAssignment[]
+  homeAssignments HomeAssignment[]
+  userInvites   UserInvite[]
+  categoryGates CategoryGate[]
+  smsMessages   SmsMessage[]
+  smsMessageLogs SmsMessageLog[]
+
+  @@index([pricingTier])
+  @@index([status])
+  @@index([billingStatus])
+}
+
+model SmsMessageLog {
+  id           String   @id @default(cuid())
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  direction    String   // SEND | RECEIVE
+  to           String?
+  from         String?
+  status       String   // sent | delivered | failed | etc.
+  errorCode    String?
+  errorMessage String?
+  twilioSid    String?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model User {
+  id           String      @id @default(cuid())
+  companyId    String?
+  company      Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  email        String      @unique
+  passwordHash String?
+  role         UserRole
+  status       UserStatus  @default(ACTIVE)
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // NextAuth fields
+  emailVerified DateTime?
+  image         String?
+
+  // Relations
+  memberships          CompanyMembership[]
+  homeAssignments     HomeAssignment[]
+  auditLogs           AuditLog[]
+  createdPunchItems   PunchItem[]      @relation("PunchItemCreator")
+  closedPunchItems     PunchItem[]      @relation("PunchItemCloser")
+  planUploadedHomes   Home[]           @relation("PlanUploader")
+  invitesCreated      UserInvite[]     @relation("InvitesCreatedBy")
+  invites             UserInvite[]     @relation("UserInvites")
+
+  @@index([companyId])
+  @@index([email])
+  @@index([contractorId])
+  @@index([role])
+  @@index([status])
+}
+
+model CompanyMembership {
+  id           String   @id @default(cuid())
+  companyId    String
+  userId       String
+  role         UserRole
+  contractorId String?
+  createdAt    DateTime @default(now())
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractor Contractor?  @relation(fields: [contractorId], references: [id])
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId])
+}
+
+model UserInvite {
+  id                String    @id @default(cuid())
+  companyId         String?
+  company           Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User      @relation("UserInvites", fields: [userId], references: [id], onDelete: Cascade)
+  email             String
+  tokenHash         String
+  expiresAt         DateTime
+  usedAt            DateTime?
+  createdAt         DateTime  @default(now())
+  createdByUserId  String
+  createdBy         User      @relation("InvitesCreatedBy", fields: [createdByUserId], references: [id])
+  resendCount       Int       @default(0)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([email])
+  @@index([tokenHash])
+}
+
+model Subdivision {
+  id        String   @id @default(cuid())
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  homes Home[]
+
+  @@index([companyId])
+  @@index([companyId, name])
+  @@index([name])
+}
+
+model Home {
+  id                   String      @id @default(cuid())
+  companyId            String?
+  company              Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subdivisionId        String
+  subdivision          Subdivision @relation(fields: [subdivisionId], references: [id], onDelete: Cascade)
+  addressOrLot         String
+  /// Projected construction start date (used as day 0 for forecasting).
+  /// Treated as a working-day anchor (Mon–Fri only in current implementation).
+  startDate            DateTime?
+  /// Target completion date entered by admin (optional).
+  targetCompletionDate DateTime?
+  /// Forecast completion date based on working-day durations and dependencies.
+  forecastCompletionDate DateTime?
+  /// Total forecast duration in working days (from startDate).
+  forecastTotalWorkingDays Int?
+  /// When the forecast fields were last computed.
+  forecastComputedAt   DateTime?
+  /// Floor plan: display name (e.g. "Plan 1875", "Model A").
+  planName             String?
+  /// Floor plan variant (e.g. "A", "B", "Reversed", "Elevation C").
+  planVariant          String?
+  /// Supabase Storage path only; do not store public URLs.
+  planStoragePath      String?
+  /// Original filename of uploaded plan (for display); independent from planName.
+  planFileName         String?
+  planFileType         PlanFileType?
+  planUploadedAt       DateTime?
+  planUploadedByUserId String?
+  planUploadedBy       User?       @relation("PlanUploader", fields: [planUploadedByUserId], references: [id])
+  /// House thumbnail image for listing/detail (Supabase Storage path only).
+  thumbnailStoragePath String?
+  /// Original filename of uploaded thumbnail (for display only).
+  thumbnailFileName    String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  tasks       HomeTask[]
+  assignments HomeAssignment[]
+  punchItems  PunchItem[]
+  contractorAssignments ContractorAssignment[]
+
+  @@index([companyId])
+  @@index([companyId, startDate])
+  @@index([subdivisionId])
+  @@index([targetCompletionDate])
+  @@index([startDate])
+}
+
+model WorkTemplateItem {
+  id                  String        @id @default(cuid())
+  companyId           String?
+  company             Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                String
+  /// Default duration in WORKING DAYS (Mon–Fri).
+  defaultDurationDays Int
+  sortOrder           Int
+  optionalCategory    String?
+  isDependency        Boolean       @default(false)
+  isCriticalGate      Boolean       @default(false)
+  gateScope           GateScope     @default(DownstreamOnly)
+  gateBlockMode       GateBlockMode @default(ScheduleOnly)
+  gateName            String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  homeTasks HomeTask[]
+  // Template-level dependencies
+  // Items this template item depends ON
+  dependencies TemplateDependency[] @relation("TemplateItemDependencies")
+  // Items that depend on this template item
+  dependents   TemplateDependency[] @relation("TemplateItemPrerequisites")
+
+  @@index([companyId])
+  @@index([companyId, sortOrder])
+  @@index([sortOrder])
+  @@index([isCriticalGate])
+}
+
+model HomeTask {
+  id                   String           @id @default(cuid())
+  companyId            String?
+  company              Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  homeId               String
+  home                 Home             @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  templateItemId       String
+  templateItem         WorkTemplateItem @relation(fields: [templateItemId], references: [id])
+  nameSnapshot         String
+  /// Snapshot of template duration in WORKING DAYS (Mon–Fri).
+  durationDaysSnapshot Int
+  sortOrderSnapshot    Int
+  scheduledDate        DateTime?
+  contractorId         String?
+  contractor           Contractor?      @relation(fields: [contractorId], references: [id])
+  status               TaskStatus       @default(Unscheduled)
+  lastConfirmationAt   DateTime?
+  completedAt          DateTime?
+  notes                String?
+  hasOpenPunch         Boolean          @default(false)
+  punchOpenCount       Int              @default(0)
+  /// Forecast early start offset from home.startDate in working days.
+  forecastEarlyStartOffsetWorkingDays  Int?
+  /// Forecast early finish offset from home.startDate in working days.
+  forecastEarlyFinishOffsetWorkingDays Int?
+  /// True if this task lies on at least one critical path (zero slack).
+  isCriticalPath       Boolean          @default(false)
+  /// Convenience counter of how many prerequisites this task has.
+  blockedByCount       Int              @default(0)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  smsMessages SmsMessage[]
+  punchItems  PunchItem[]
+
+  @@index([homeId])
+  @@index([contractorId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([templateItemId])
+  @@index([hasOpenPunch])
+}
+
+/// Template-level dependencies between work items (DAG).
+/// A TemplateDependency defines that templateItemId depends on dependsOnItemId.
+model TemplateDependency {
+  id              String @id @default(cuid())
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templateItemId  String
+  dependsOnItemId String
+  createdAt       DateTime @default(now())
+
+  templateItem     WorkTemplateItem @relation("TemplateItemDependencies", fields: [templateItemId], references: [id])
+  dependsOnItem    WorkTemplateItem @relation("TemplateItemPrerequisites", fields: [dependsOnItemId], references: [id])
+
+  @@unique([templateItemId, dependsOnItemId])
+  @@index([companyId])
+  @@index([templateItemId])
+  @@index([dependsOnItemId])
+}
+
+model Contractor {
+  id                  String   @id @default(cuid())
+  companyId           String?
+  company             Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyName         String
+  contactName         String
+  phone               String
+  email               String?
+  trade               String?
+  active              Boolean  @default(true)
+  smsEnabled          Boolean  @default(true)
+  preferredNoticeDays Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users               User[]
+  memberships          CompanyMembership[]
+  homeTasks            HomeTask[]
+  assignedPunchItems   PunchItem[]
+  contractorAssignments ContractorAssignment[]
+
+  @@index([companyId])
+  @@index([companyId, active])
+  @@index([phone])
+  @@index([active])
+}
+
+model ContractorAssignment {
+  id           String     @id @default(cuid())
+  companyId    String?
+  company      Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  homeId       String
+  home         Home       @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([contractorId, homeId])
+  @@index([companyId])
+  @@index([contractorId])
+  @@index([homeId])
+  @@index([companyId, contractorId])
+}
+
+model SmsMessage {
+  id               String       @id @default(cuid())
+  companyId        String?
+  company          Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  direction        SmsDirection
+  to               String
+  from             String
+  body             String
+  status           SmsStatus
+  homeTaskId       String?
+  homeTask         HomeTask?   @relation(fields: [homeTaskId], references: [id])
+  confirmationCode String?
+  createdAt        DateTime    @default(now())
+
+  @@index([companyId])
+  @@index([to])
+  @@index([from])
+  @@index([homeTaskId])
+  @@index([confirmationCode])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  entityType  String?
+  entityId    String?
+  action      String
+  beforeJson  String?
+  afterJson   String?
+  metaJson    Json?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([companyId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model HomeAssignment {
+  id                   String   @id @default(cuid())
+  companyId            String?
+  company              Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  homeId               String
+  home                 Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  superintendentUserId String
+  superintendent       User     @relation(fields: [superintendentUserId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+
+  @@unique([homeId, superintendentUserId])
+  @@index([companyId])
+  @@index([homeId])
+  @@index([superintendentUserId])
+}
+
+model PunchItem {
+  id                   String        @id @default(cuid())
+  companyId            String?
+  company              Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  homeId               String
+  home                 Home          @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  relatedHomeTaskId    String
+  relatedHomeTask      HomeTask      @relation(fields: [relatedHomeTaskId], references: [id], onDelete: Cascade)
+  createdByUserId      String
+  createdBy            User          @relation("PunchItemCreator", fields: [createdByUserId], references: [id])
+  assignedContractorId String?
+  assignedContractor   Contractor?   @relation(fields: [assignedContractorId], references: [id])
+  category             PunchCategory
+  severity             PunchSeverity
+  title                String
+  description          String?
+  status               PunchStatus   @default(Open)
+  dueDate              DateTime?
+  closedAt             DateTime?
+  closedByUserId       String?
+  closedBy             User?         @relation("PunchItemCloser", fields: [closedByUserId], references: [id])
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  photos PunchPhoto[]
+
+  @@index([homeId])
+  @@index([relatedHomeTaskId])
+  @@index([createdByUserId])
+  @@index([assignedContractorId])
+  @@index([status])
+  @@index([category])
+}
+
+model PunchPhoto {
+  id          String    @id @default(cuid())
+  punchItemId String
+  punchItem   PunchItem @relation(fields: [punchItemId], references: [id], onDelete: Cascade)
+  imageUrl    String
+  createdAt   DateTime  @default(now())
+
+  @@index([punchItemId])
+}
+
+model CategoryGate {
+  id                String        @id @default(cuid())
+  companyId         String?
+  company           Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryName      String
+  gateScope         GateScope     @default(DownstreamOnly)
+  gateBlockMode     GateBlockMode @default(ScheduleOnly)
+  gateName          String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([companyId, categoryName])
+  @@index([companyId])
+  @@index([categoryName])
+}
