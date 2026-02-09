@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
         const after = log.afterJson ? JSON.parse(log.afterJson) : null
 
         if (!after) continue
+        if (!log.entityId) continue
 
         // Get task from map
         const task = taskMap.get(log.entityId)
