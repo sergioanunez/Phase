@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
-import { handleInboundSMS } from "@/lib/twilio"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
+
 // This route should be publicly accessible (no auth required)
 export async function POST(request: NextRequest) {
   try {
+    if (isBuild()) {
+      // During build, never touch Twilio or DB; just return a benign TwiML.
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message>Service unavailable.</Message>
+</Response>`
+      return new NextResponse(twiml, {
+        status: 200,
+        headers: { "Content-Type": "text/xml" },
+      })
+    }
+
+    const { handleInboundSMS } = await import("@/lib/twilio")
+
     const formData = await request.formData()
     const from = formData.get("From") as string
     const to = formData.get("To") as string
@@ -20,7 +36,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await handleInboundSMS(from, to, body)
+    await handleInboundSMS(from, to, body)
 
     // Twilio expects a TwiML response
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
