@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { requirePermission } from "@/lib/rbac"
 import { z } from "zod"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updateDependenciesSchema = z.object({
   dependsOnItemIds: z.array(z.string()).optional().default([]),
@@ -14,6 +17,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { getServerSession } = await import("next-auth")
+    const { authOptions } = await import("@/lib/auth")
+    const { prisma } = await import("@/lib/prisma")
+    const { requirePermission } = await import("@/lib/rbac")
+
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -53,7 +64,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requirePermission("templates:write")
+    if (isBuild()) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { prisma } = await import("@/lib/prisma")
+    const { requirePermission } = await import("@/lib/rbac")
+
+    await requirePermission("templates:write")
     const body = await request.json()
     const data = updateDependenciesSchema.parse(body)
 
