@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { hashInviteToken } from "@/lib/invite"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 /**
  * GET /api/auth/invite/validate?token=...
@@ -12,6 +13,12 @@ export const fetchCache = "force-no-store"
  */
 export async function GET(request: NextRequest) {
   try {
+    if (isBuild()) {
+      return NextResponse.json({ valid: false }, { status: 200 })
+    }
+    const { prisma } = await import("@/lib/prisma")
+    const { hashInviteToken } = await import("@/lib/invite")
+
     const token = request.nextUrl.searchParams.get("token")
     if (!token || token.length < 10) {
       return NextResponse.json({ valid: false }, { status: 200 })
