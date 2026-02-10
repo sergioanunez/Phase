@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 // Avoid build-time execution: no prisma/auth imports at top level (Vercel build has no DB/session)
 export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
 
 interface TaskActivity {
   id: string
@@ -23,12 +25,12 @@ export async function GET(request: NextRequest) {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return NextResponse.json([])
   }
-  // Load only at request time so build never runs DB/auth code
-  const { requireTenantPermission } = await import("@/lib/rbac")
-  const { prisma } = await import("@/lib/prisma")
-  const { handleApiError } = await import("@/lib/api-response")
-
   try {
+    // Load only at request time so build never runs DB/auth code
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { prisma } = await import("@/lib/prisma")
+    const { handleApiError } = await import("@/lib/api-response")
+
     const ctx = await requireTenantPermission("tasks:read")
 
     // Get last 10 audit logs for HomeTask entities (tenant-scoped)
@@ -147,6 +149,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(activities)
   } catch (error: any) {
     console.error("Failed to fetch recent activity:", error)
-    return handleApiError(error)
+    // Build-time (Vercel/CI): return 200 + [] so "collect page data" succeeds
+    const isBuild = process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
+    if (isBuild) {
+      return NextResponse.json([])
+    }
+    try {
+      const { handleApiError } = await import("@/lib/api-response")
+      return handleApiError(error)
+    } catch (_) {
+      return NextResponse.json([])
+    }
   }
 }
