@@ -6,6 +6,10 @@ import { createAuditLog } from "@/lib/audit"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const createHomeSchema = z.object({
   subdivisionId: z.string(),
   addressOrLot: z.string().min(1),

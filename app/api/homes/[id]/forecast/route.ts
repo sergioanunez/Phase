@@ -6,6 +6,10 @@ import { requirePermission } from "@/lib/rbac"
 import { computeHomeForecast } from "@/lib/forecast"
 import { getTaskSchedulingBlockReasonsBatch } from "@/lib/scheduling-block"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

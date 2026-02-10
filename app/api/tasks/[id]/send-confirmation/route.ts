@@ -7,6 +7,10 @@ import { checkGateBlocking } from "@/lib/gates"
 import { sendConfirmationSMS } from "@/lib/twilio"
 import { format } from "date-fns"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

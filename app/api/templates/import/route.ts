@@ -5,6 +5,10 @@ import { createAuditLog } from "@/lib/audit"
 import * as XLSX from "xlsx"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const templateRowSchema = z.object({
   name: z.string().min(1),
   defaultDurationDays: z.union([z.number(), z.string()]).transform((val) => {

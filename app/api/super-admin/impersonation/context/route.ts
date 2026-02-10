@@ -3,6 +3,10 @@ import { cookies } from "next/headers"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const IMPERSONATION_COOKIE = "buildflow_impersonation"
 
 /**

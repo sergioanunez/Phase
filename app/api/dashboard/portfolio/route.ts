@@ -4,6 +4,10 @@ import { requireTenantPermission } from "@/lib/rbac"
 import { getScheduleStatus, type ScheduleStatus } from "@/lib/schedule-status"
 import { handleApiError } from "@/lib/api-response"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 export interface PortfolioResponse {
   activeHomesCount: number
   statusCounts: { onTrack: number; atRisk: number; behind: number }

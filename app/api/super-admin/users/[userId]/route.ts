@@ -4,6 +4,10 @@ import { requireSuperAdmin } from "@/lib/super-admin"
 import { createSuperAdminAuditLog } from "@/lib/audit"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const patchSchema = z.object({
   isActive: z.boolean().optional(),
   status: z.enum(["INVITED", "ACTIVE", "DISABLED"]).optional(),

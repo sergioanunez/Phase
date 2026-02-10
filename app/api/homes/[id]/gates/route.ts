@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth"
 import { requirePermission } from "@/lib/rbac"
 import { getHomeGateStatus } from "@/lib/gates"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 // GET /api/homes/[id]/gates - Get gate statuses for a home
 export async function GET(
   request: NextRequest,

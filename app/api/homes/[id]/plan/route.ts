@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { requirePermission } from "@/lib/rbac"
 import { getSupabaseServerClient, HOME_PLANS_BUCKET } from "@/lib/supabase-server"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const SIGNED_URL_EXPIRES_IN = 60 * 15 // 15 minutes
 
 /**

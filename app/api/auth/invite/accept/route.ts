@@ -5,6 +5,10 @@ import { createAuditLog } from "@/lib/audit"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const acceptSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(6, "Password must be at least 6 characters"),

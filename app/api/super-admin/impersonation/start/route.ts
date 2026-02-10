@@ -5,6 +5,10 @@ import { createSuperAdminAuditLog } from "@/lib/audit"
 import { z } from "zod"
 import { cookies } from "next/headers"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const bodySchema = z.object({ companyId: z.string(), userIdToImpersonate: z.string() })
 
 const IMPERSONATION_COOKIE = "buildflow_impersonation"

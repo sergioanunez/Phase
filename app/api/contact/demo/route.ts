@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const demoRequestSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   volumePerYear: z.string().optional(),

@@ -5,6 +5,10 @@ import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 import { GateScope, GateBlockMode } from "@prisma/client"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const createCategoryGateSchema = z.object({
   categoryName: z.string().min(1),
   gateScope: z.nativeEnum(GateScope).optional(),

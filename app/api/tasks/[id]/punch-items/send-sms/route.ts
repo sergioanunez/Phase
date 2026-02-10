@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { requirePermission } from "@/lib/rbac"
 import { sendPunchListSMS } from "@/lib/twilio"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 // POST /api/tasks/[id]/punch-items/send-sms - Send punch list to contractors
 export async function POST(
   request: NextRequest,

@@ -5,6 +5,10 @@ import { getAssignedHomeIdsForContractor } from "@/lib/tenant"
 import { getScheduleStatus } from "@/lib/schedule-status"
 import { handleApiError } from "@/lib/api-response"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 export type CalendarEventType = "inspection" | "delivery" | "trade" | "milestone"
 
 export interface CalendarEvent {

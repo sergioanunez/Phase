@@ -9,6 +9,10 @@ import { checkGateBlocking } from "@/lib/gates"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const updateTaskSchema = z.object({
   scheduledDate: z.string().datetime().optional().nullable(),
   contractorId: z.string().optional().nullable(),

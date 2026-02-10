@@ -4,6 +4,10 @@ import { requireTenantPermission } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/audit"
 import { handleApiError } from "@/lib/api-response"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 /**
  * POST /api/templates/claim-orphans
  * Attach all work template items with companyId null to the current user's company.

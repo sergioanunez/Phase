@@ -7,6 +7,10 @@ import { createAuditLog } from "@/lib/audit"
 import { checkGateBlocking } from "@/lib/gates"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const rescheduleSchema = z.object({
   scheduledDate: z.string().datetime(),
   contractorId: z.string().optional().nullable(),

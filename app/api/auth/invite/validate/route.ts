@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashInviteToken } from "@/lib/invite"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 /**
  * GET /api/auth/invite/validate?token=...
  * Public. Returns minimal user info if token is valid (not used, not expired).

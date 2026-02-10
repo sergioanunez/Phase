@@ -7,6 +7,10 @@ import { createAuditLog } from "@/lib/audit"
 import * as XLSX from "xlsx"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const homeRowSchema = z.object({
   addressOrLot: z.string().min(1),
   targetCompletionDate: z

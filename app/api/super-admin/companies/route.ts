@@ -4,6 +4,10 @@ import { requireSuperAdmin } from "@/lib/super-admin"
 import { createSuperAdminAuditLog } from "@/lib/audit"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const MAX_ACTIVE_HOMES_BY_TIER: Record<string, number | null> = {
   SMALL: 25,
   MID: 100,

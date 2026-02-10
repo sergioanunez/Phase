@@ -4,6 +4,10 @@ import { requirePermission } from "@/lib/rbac"
 import { sendCancellationSMS } from "@/lib/twilio"
 import { format } from "date-fns"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 function jsonResponse(body: unknown, status: number) {
   try {
     const text = JSON.stringify(body)

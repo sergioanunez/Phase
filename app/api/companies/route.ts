@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { requireSuperAdmin } from "@/lib/super-admin"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 /**
  * GET /api/companies
  * Returns all builder companies. SUPER_ADMIN only.

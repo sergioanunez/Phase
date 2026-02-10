@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { requireSuperAdmin } from "@/lib/super-admin"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 /** Max active homes per tier. WHITE_LABEL = unlimited (null). */
 const MAX_ACTIVE_HOMES_BY_TIER: Record<string, number | null> = {
   SMALL: 25,

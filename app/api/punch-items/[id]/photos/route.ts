@@ -5,6 +5,10 @@ import { createId } from "@paralleldrive/cuid2"
 import path from "path"
 import fs from "fs/promises"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const UPLOAD_DIR = "public/uploads/punch-photos"
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 

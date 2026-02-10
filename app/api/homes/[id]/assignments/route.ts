@@ -4,6 +4,10 @@ import { requireTenantPermission } from "@/lib/rbac"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const putSchema = z.object({
   superintendentUserIds: z.array(z.string()),
 })

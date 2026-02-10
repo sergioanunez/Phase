@@ -7,6 +7,10 @@ import { getSessionUserWithCompany } from "@/lib/tenant"
 import { seedTrialCompany } from "@/lib/trial-seed"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const provisionSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(200).transform((s) => s.trim()),
   selectedPlan: z.enum(["starter", "growth"]),

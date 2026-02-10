@@ -3,6 +3,10 @@ import { requireSuperAdmin } from "@/lib/super-admin"
 import { createSuperAdminAuditLog } from "@/lib/audit"
 import { cookies } from "next/headers"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const IMPERSONATION_COOKIE = "buildflow_impersonation"
 
 /**

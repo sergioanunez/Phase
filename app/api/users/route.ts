@@ -6,6 +6,10 @@ import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),

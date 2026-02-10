@@ -6,6 +6,10 @@ import { handleApiError } from "@/lib/api-response"
 import { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } from "@/lib/supabase-server"
 import { z } from "zod"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 const updateBrandingSchema = z.object({
   brandAppName: z.string().optional().nullable(),
   brandLogoUrl: z.union([z.string().url(), z.literal("")]).optional().nullable(),
