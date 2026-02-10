@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { requireTenantPermission } from "@/lib/rbac"
 import { handleApiError } from "@/lib/api-response"
 
+// Avoid build-time execution (no DB/auth on Vercel build)
+export const dynamic = "force-dynamic"
+
 interface TaskActivity {
   id: string
   action: string
