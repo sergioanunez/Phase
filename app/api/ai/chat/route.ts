@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import OpenAI from "openai"
 import { TaskStatus } from "@prisma/client"
+import type { PrismaClient } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
-// AI tools based on user role
-async function getHomes(filter: any, userId: string, role: string) {
+// AI tools based on user role (prisma passed to avoid load at build time)
+async function getHomes(prisma: PrismaClient, filter: any, userId: string, role: string) {
   const where: any = {}
   if (filter.subdivisionId) where.subdivisionId = filter.subdivisionId
 
@@ -41,7 +38,7 @@ async function getHomes(filter: any, userId: string, role: string) {
   })
 }
 
-async function getHomeDetails(homeId: string, userId: string, role: string) {
+async function getHomeDetails(prisma: PrismaClient, homeId: string, userId: string, role: string) {
   const home = await prisma.home.findUnique({
     where: { id: homeId },
     include: {
@@ -72,6 +69,7 @@ async function getHomeDetails(homeId: string, userId: string, role: string) {
 }
 
 async function getTasks(
+  prisma: PrismaClient,
   filters: {
     homeId?: string
     contractorId?: string
@@ -114,7 +112,7 @@ async function getTasks(
   })
 }
 
-async function summarizeDelays(userId: string, role: string) {
+async function summarizeDelays(prisma: PrismaClient, userId: string, role: string) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -148,6 +146,14 @@ async function summarizeDelays(userId: string, role: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (isBuild()) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { getServerSession } = await import("next-auth")
+    const { authOptions } = await import("@/lib/auth")
+    const { prisma } = await import("@/lib/prisma")
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -259,6 +265,7 @@ export async function POST(request: NextRequest) {
           switch (call.function.name) {
             case "getHomes":
               result = await getHomes(
+                prisma,
                 args.filter || {},
                 session.user.id,
                 session.user.role
@@ -266,6 +273,7 @@ export async function POST(request: NextRequest) {
               break
             case "getHomeDetails":
               result = await getHomeDetails(
+                prisma,
                 args.homeId,
                 session.user.id,
                 session.user.role
@@ -273,6 +281,7 @@ export async function POST(request: NextRequest) {
               break
             case "getTasks":
               result = await getTasks(
+                prisma,
                 args.filters || {},
                 session.user.id,
                 session.user.role,
@@ -280,7 +289,7 @@ export async function POST(request: NextRequest) {
               )
               break
             case "summarizeDelays":
-              result = await summarizeDelays(session.user.id, session.user.role)
+              result = await summarizeDelays(prisma, session.user.id, session.user.role)
               break
             default:
               result = { error: "Unknown tool" }
