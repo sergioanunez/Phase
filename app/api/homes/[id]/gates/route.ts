@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getHomeGateStatus } from "@/lib/gates"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -15,9 +14,12 @@ export async function GET(
 ) {
   try {
     if (isBuild()) return NextResponse.json([], { status: 200 })
+
     const { getServerSession } = await import("next-auth/next")
     const { authOptions } = await import("@/lib/auth")
     const { requirePermission } = await import("@/lib/rbac")
+    const { getHomeGateStatus } = await import("@/lib/gates")
+
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
