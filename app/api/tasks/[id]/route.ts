@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
 
@@ -7,9 +8,6 @@ export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updateTaskSchema = z.object({
   scheduledDate: z.string().datetime().optional().nullable(),
@@ -38,7 +36,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission, hasPermission } = await import("@/lib/rbac")
     const { getAssignedHomeIdsForContractor } = await import("@/lib/tenant")
@@ -92,7 +90,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { hasPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
-// Avoid build-time execution: no prisma/auth imports at top level (Vercel build has no DB/session)
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
@@ -22,10 +22,7 @@ interface TaskActivity {
 }
 
 export async function GET(request: NextRequest) {
-  // During Vercel build, do not load DB/auth (no session or DB)
-  if (process.env.NEXT_PHASE === "phase-production-build") {
-    return NextResponse.json([])
-  }
+  if (isBuildTime) return buildGuardResponse()
   try {
     // Load only at request time so build never runs DB/auth code
     const { requireTenantPermission } = await import("@/lib/rbac")
@@ -150,11 +147,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(activities)
   } catch (error: any) {
     console.error("Failed to fetch recent activity:", error)
-    // Build-time (Vercel/CI): return 200 + [] so "collect page data" succeeds
-    const isBuild = process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
-    if (isBuild) {
-      return NextResponse.json([])
-    }
+    if (isBuildTime) return buildGuardResponse()
     try {
       const { handleApiError } = await import("@/lib/api-response")
       return handleApiError(error)

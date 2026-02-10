@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -30,7 +31,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireSuperAdmin } = await import("@/lib/super-admin")
     const check = await requireSuperAdmin()
@@ -71,7 +72,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireSuperAdmin } = await import("@/lib/super-admin")
     const check = await requireSuperAdmin()

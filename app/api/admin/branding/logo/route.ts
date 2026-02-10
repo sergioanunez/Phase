@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -22,9 +23,7 @@ function getExt(mime: string, filename: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
@@ -136,9 +135,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE() {
   try {
-    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")

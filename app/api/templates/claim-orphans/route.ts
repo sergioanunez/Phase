@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 /**
  * POST /api/templates/claim-orphans
@@ -15,7 +13,7 @@ const isBuild = () =>
  */
 export async function POST() {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")

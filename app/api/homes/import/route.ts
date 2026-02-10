@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import * as XLSX from "xlsx"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -38,7 +39,7 @@ const homeRowSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")

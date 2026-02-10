@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -14,8 +15,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (isBuild()) return NextResponse.json([], { status: 200 })
-
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth/next")
     const { authOptions } = await import("@/lib/auth")
     const { requirePermission } = await import("@/lib/rbac")

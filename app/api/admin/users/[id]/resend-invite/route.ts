@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const RESEND_RATE_LIMIT_PER_HOUR = 3
 
@@ -15,9 +13,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
@@ -139,9 +135,7 @@ export async function POST(
       message: "Invite email sent.",
     })
   } catch (error: any) {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     try {
       const { handleApiError } = await import("@/lib/api-response")
       return handleApiError(error)

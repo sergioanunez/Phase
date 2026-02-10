@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -21,6 +22,7 @@ const demoRequestSchema = z.object({
  * TODO: Store in DB or send to CRM/email.
  */
 export async function POST(request: NextRequest) {
+  if (isBuildTime) return buildGuardResponse()
   try {
     const body = await request.json()
     const data = demoRequestSchema.parse(body)

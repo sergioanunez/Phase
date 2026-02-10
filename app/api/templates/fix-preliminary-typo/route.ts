@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
-
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     const user = await requirePermission("templates:write")

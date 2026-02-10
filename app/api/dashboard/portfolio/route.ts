@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getScheduleStatus, type ScheduleStatus } from "@/lib/schedule-status"
 import { handleApiError } from "@/lib/api-response"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -20,7 +21,7 @@ export interface PortfolioResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ activeHomesCount: 0, statusCounts: { onTrack: 0, atRisk: 0, behind: 0 }, bottlenecks: [], inspectionsUpcoming: [], kpis: [] }, { status: 200 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("dashboard:view")

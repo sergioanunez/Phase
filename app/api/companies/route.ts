@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -15,7 +16,7 @@ const isBuild = () =>
  */
 export async function GET() {
   try {
-    if (isBuild()) return NextResponse.json([], { status: 200 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireSuperAdmin } = await import("@/lib/super-admin")
     const check = await requireSuperAdmin()
@@ -69,7 +70,7 @@ const MAX_ACTIVE_HOMES_BY_TIER: Record<string, number | null> = {
  */
 export async function POST(req: Request) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireSuperAdmin } = await import("@/lib/super-admin")
     const check = await requireSuperAdmin()

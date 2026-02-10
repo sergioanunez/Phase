@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -16,7 +17,7 @@ const createSubdivisionSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json([], { status: 200 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("subdivisions:read")
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")

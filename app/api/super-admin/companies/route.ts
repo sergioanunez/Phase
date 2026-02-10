@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const MAX_ACTIVE_HOMES_BY_TIER: Record<string, number | null> = {
   SMALL: 25,
@@ -26,7 +24,7 @@ const createCompanySchema = z.object({
  * List companies with optional search/filters. SUPER_ADMIN only.
  */
 export async function GET(req: Request) {
-  if (isBuild()) return NextResponse.json([], { status: 200 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { prisma } = await import("@/lib/prisma")
   const check = await requireSuperAdmin()
@@ -86,7 +84,7 @@ export async function GET(req: Request) {
  * Create a new company. SUPER_ADMIN only. Audited.
  */
 export async function POST(req: Request) {
-  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { prisma } = await import("@/lib/prisma")
   const { createSuperAdminAuditLog } = await import("@/lib/audit")

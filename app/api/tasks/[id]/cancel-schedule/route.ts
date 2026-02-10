@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 function jsonResponse(body: unknown, status: number) {
   try {
@@ -29,7 +27,7 @@ export async function POST(
   context: { params?: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (isBuild()) return jsonResponse({ error: "Unavailable" }, 503)
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     let taskId: string

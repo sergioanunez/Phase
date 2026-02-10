@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { parseISO, format } from "date-fns"
 import { TaskStatus } from "@prisma/client"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -42,7 +43,7 @@ function endOfWeekUTC(mondayUTC: Date): Date {
 
 export async function GET(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ events: [], weekStart: null, weekEnd: null }, { status: 200 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { getAssignedHomeIdsForContractor } = await import("@/lib/tenant")

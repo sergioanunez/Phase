@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -23,7 +24,7 @@ const signupSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const body = await request.json()
     const parsed = signupSchema.safeParse(body)

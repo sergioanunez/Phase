@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PlanFileType } from "@prisma/client"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]
@@ -53,9 +51,7 @@ export async function POST(
   { params }: { params: { homeId: string } | Promise<{ homeId: string }> }
 ) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
@@ -203,9 +199,7 @@ export async function PATCH(
   { params }: { params: { homeId: string } | Promise<{ homeId: string }> }
 ) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
@@ -278,9 +272,7 @@ export async function DELETE(
   { params }: { params: { homeId: string } | Promise<{ homeId: string }> }
 ) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")

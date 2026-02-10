@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 /**
  * GET /api/super-admin/companies/:companyId/users
@@ -16,7 +14,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ companyId: string }> }
 ) {
-  if (isBuild()) return NextResponse.json([], { status: 200 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { prisma } = await import("@/lib/prisma")
   const check = await requireSuperAdmin()

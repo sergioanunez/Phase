@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -13,9 +14,7 @@ const MAX_SIZE = 300 * 1024 // 300 KB
  */
 export async function POST(request: NextRequest) {
   try {
-    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
@@ -105,9 +104,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ brandFaviconPath: storagePath })
   } catch (error: any) {
-    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     try {
       const { handleApiError } = await import("@/lib/api-response")
       return handleApiError(error)

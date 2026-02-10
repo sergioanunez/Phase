@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { TaskStatus } from "@prisma/client"
 import type { PrismaClient } from "@prisma/client"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 // AI tools based on user role (prisma passed to avoid load at build time)
 async function getHomes(prisma: PrismaClient, filter: any, userId: string, role: string) {
@@ -147,9 +145,7 @@ async function summarizeDelays(prisma: PrismaClient, userId: string, role: strin
 
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")

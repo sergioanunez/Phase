@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -13,6 +14,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (isBuildTime) return buildGuardResponse()
   return NextResponse.json(
     {
       home: {

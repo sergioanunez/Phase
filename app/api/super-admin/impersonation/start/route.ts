@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const bodySchema = z.object({ companyId: z.string(), userIdToImpersonate: z.string() })
 
@@ -20,7 +18,7 @@ const COOKIE_MAX_AGE = 60 * 60 * 8 // 8 hours
  * Set impersonation context (httpOnly cookie). SUPER_ADMIN only. Audited.
  */
 export async function POST(req: Request) {
-  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { prisma } = await import("@/lib/prisma")
   const { createSuperAdminAuditLog } = await import("@/lib/audit")

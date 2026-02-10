@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -10,6 +11,7 @@ export const fetchCache = "force-no-store"
  * Returns an empty dashboard payload so Vercel build cannot fail here.
  */
 export async function GET(_request: NextRequest) {
+  if (isBuildTime) return buildGuardResponse()
   return NextResponse.json(
     {
       homes: [],

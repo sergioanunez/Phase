@@ -1,63 +1,42 @@
-import { NextResponse } from "next/server"
-import { z } from "zod"
+import { NextRequest, NextResponse } from "next/server"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
-
-const patchSchema = z.object({
-  isActive: z.boolean().optional(),
-  status: z.enum(["INVITED", "ACTIVE", "DISABLED"]).optional(),
-  role: z.enum(["Admin", "Superintendent", "Manager", "Subcontractor"]).optional(),
-})
-
 /**
- * PATCH /api/super-admin/users/:userId
- * Disable/enable user or change role. SUPER_ADMIN only. Audited.
+ * GET /api/super-admin/users/:userId
+ * Get one user by id. SUPER_ADMIN only.
  */
-export async function PATCH(
-  req: Request,
+export async function GET(
+  _req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { prisma } = await import("@/lib/prisma")
-  const { createSuperAdminAuditLog } = await import("@/lib/audit")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
-  const actorId = check.id
 
   const { userId } = await params
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { company: { select: { name: true } } } })
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
-  if (user.role === "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Cannot modify super-admin users" }, { status: 403 })
-  }
-
-  const body = await req.json()
-  const parsed = patchSchema.safeParse(body)
-  if (!parsed.success) {
-    const msg = parsed.error.flatten().formErrors?.[0] || "Invalid input"
-    return NextResponse.json({ error: msg }, { status: 400 })
-  }
-
-  const before = { isActive: user.isActive, status: user.status, role: user.role }
-  const updated = await prisma.user.update({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
-    data: parsed.data as never,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      isActive: true,
+      companyId: true,
+      contractorId: true,
+      createdAt: true,
+      company: { select: { name: true } },
+      contractor: { select: { companyName: true } },
+    },
   })
-
-  await createSuperAdminAuditLog(actorId, "USER_UPDATED_BY_SUPER_ADMIN", {
-    userId,
-    userEmail: user.email,
-    companyId: user.companyId,
-    before,
-    after: { isActive: updated.isActive, status: updated.status, role: updated.role },
-  }, user.companyId ?? undefined, "User", userId)
-
-  return NextResponse.json(updated)
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+  return NextResponse.json(user)
 }

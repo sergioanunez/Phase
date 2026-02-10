@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const acceptSchema = z.object({
   token: z.string().min(1),
@@ -21,9 +19,7 @@ const acceptSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) {
-      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
-    }
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { hashInviteToken } = await import("@/lib/invite")
     const { createAuditLog } = await import("@/lib/audit")

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updateBrandingSchema = z.object({
   brandAppName: z.string().optional().nullable(),
@@ -36,7 +34,7 @@ async function getPublicUrlForPath(path: string | null): Promise<string | null> 
  */
 export async function GET() {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantContext } = await import("@/lib/tenant")
     const ctx = await requireTenantContext()
@@ -77,7 +75,7 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { requireTenantContext } = await import("@/lib/tenant")

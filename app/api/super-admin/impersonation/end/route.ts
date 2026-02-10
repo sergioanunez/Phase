@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const IMPERSONATION_COOKIE = "buildflow_impersonation"
 
@@ -16,13 +13,14 @@ const IMPERSONATION_COOKIE = "buildflow_impersonation"
  * Clear impersonation cookie. SUPER_ADMIN only. Audited.
  */
 export async function POST() {
-  if (isBuild()) return NextResponse.json({ success: true }, { status: 200 })
+  if (isBuildTime) return buildGuardResponse()
   const { requireSuperAdmin } = await import("@/lib/super-admin")
   const { createSuperAdminAuditLog } = await import("@/lib/audit")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
   const actorId = check.id
 
+  const { cookies } = await import("next/headers")
   const cookieStore = await cookies()
   const existing = cookieStore.get(IMPERSONATION_COOKIE)?.value
   let meta: Record<string, unknown> = {}

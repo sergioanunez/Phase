@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
-import { getSessionUserWithCompany } from "@/lib/tenant"
-import { seedTrialCompany } from "@/lib/trial-seed"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const provisionSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(200).transform((s) => s.trim()),
@@ -30,10 +26,12 @@ const PLAN_CONFIG = {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
+    const { getSessionUserWithCompany } = await import("@/lib/tenant")
+    const { seedTrialCompany } = await import("@/lib/trial-seed")
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

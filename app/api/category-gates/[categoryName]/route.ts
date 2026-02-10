@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 import { GateScope, GateBlockMode } from "@prisma/client"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -23,7 +24,7 @@ export async function PATCH(
   { params }: { params: { categoryName: string } }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("templates:write")

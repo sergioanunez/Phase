@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createId } from "@paralleldrive/cuid2"
 import path from "path"
 import fs from "fs/promises"
+import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -36,7 +37,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     await requirePermission("homes:write")
