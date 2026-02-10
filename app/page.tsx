@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { LandingPage } from "@/components/landing/landing-page"
 
 export default async function Home() {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return <LandingPage />
+  }
+  const { getServerSession } = await import("next-auth")
+  const { authOptions } = await import("@/lib/auth")
   const session = await getServerSession(authOptions)
 
   if (session?.user) {
