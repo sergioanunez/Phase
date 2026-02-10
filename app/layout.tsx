@@ -1,8 +1,5 @@
 import type { Metadata } from "next"
-import { headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { Inter, Cormorant_Garamond } from "next/font/google"
 import "./globals.css"
 
@@ -48,6 +45,24 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return (
+      <html lang="en">
+        <body className={`${inter.className} ${cormorantGaramond.variable}`}>
+          <Providers>
+            <ImpersonationBanner />
+            <AppHeader />
+            <UserMenu />
+            {children}
+            <AIAssistant />
+          </Providers>
+        </body>
+      </html>
+    )
+  }
+  const { headers } = await import("next/headers")
+  const { getServerSession } = await import("next-auth")
+  const { authOptions } = await import("@/lib/auth")
   const pathname = (await headers()).get("x-pathname") ?? ""
   const isPublic = pathname === "" || PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/auth")
   if (!isPublic) {
