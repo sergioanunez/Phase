@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkGateBlocking } from "@/lib/gates"
-import { sendConfirmationSMS } from "@/lib/twilio"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
@@ -222,6 +220,7 @@ export async function POST(
 
     const dateStr = format(new Date(task.scheduledDate), "MM/dd/yyyy")
 
+    const { sendConfirmationSMS } = await import("@/lib/twilio")
     await sendConfirmationSMS(
       task.id,
       phone,
