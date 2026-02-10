@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { sendPunchListSMS } from "@/lib/twilio"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -105,6 +104,7 @@ export async function POST(
       }
 
       try {
+        const { sendPunchListSMS } = await import("@/lib/twilio")
         await sendPunchListSMS(
           params.id,
           data.contractor.phone,
