@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAssignedHomeIdsForContractor } from "@/lib/tenant"
 import { handleApiError } from "@/lib/api-response"
 import { parseISO, format } from "date-fns"
 import { TaskStatus } from "@prisma/client"
@@ -45,6 +44,7 @@ export async function GET(request: NextRequest) {
     if (isBuild()) return NextResponse.json({ events: [], weekStart: null, weekEnd: null }, { status: 200 })
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
+    const { getAssignedHomeIdsForContractor } = await import("@/lib/tenant")
     const ctx = await requireTenantPermission("my-week:view")
 
     if (!ctx.contractorId) {
