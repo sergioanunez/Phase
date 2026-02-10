@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { createAuditLog } from "@/lib/audit"
-import { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } from "@/lib/supabase-server"
-import { handleApiError } from "@/lib/api-response"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
 
 const MAX_SIZE = 1024 * 1024 // 1 MB
 const ALLOWED_TYPES = ["image/svg+xml", "image/png"]
@@ -23,6 +21,16 @@ function getExt(mime: string, filename: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { getServerSession } = await import("next-auth")
+    const { authOptions } = await import("@/lib/auth")
+    const { prisma } = await import("@/lib/prisma")
+    const { createAuditLog } = await import("@/lib/audit")
+    const { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase-server")
+    const { handleApiError } = await import("@/lib/api-response")
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -108,8 +116,16 @@ export async function POST(request: NextRequest) {
     )
 
     return NextResponse.json({ brandLogoPath: storagePath })
-  } catch (error) {
-    return handleApiError(error)
+  } catch (error: any) {
+    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    try {
+      const { handleApiError } = await import("@/lib/api-response")
+      return handleApiError(error)
+    } catch (_) {
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
   }
 }
 
@@ -119,6 +135,16 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE() {
   try {
+    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { getServerSession } = await import("next-auth")
+    const { authOptions } = await import("@/lib/auth")
+    const { prisma } = await import("@/lib/prisma")
+    const { createAuditLog } = await import("@/lib/audit")
+    const { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase-server")
+    const { handleApiError } = await import("@/lib/api-response")
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -171,7 +197,15 @@ export async function DELETE() {
     )
 
     return NextResponse.json({ brandLogoPath: null })
-  } catch (error) {
-    return handleApiError(error)
+  } catch (error: any) {
+    if (process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    try {
+      const { handleApiError } = await import("@/lib/api-response")
+      return handleApiError(error)
+    } catch (_) {
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
   }
 }
