@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
-import { createAuditLog } from "@/lib/audit"
-import { handleApiError } from "@/lib/api-response"
-import {
-  generateInviteToken,
-  hashInviteToken,
-  getInviteExpiresAt,
-  sendInviteEmail,
-} from "@/lib/invite"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const RESEND_RATE_LIMIT_PER_HOUR = 3
 
@@ -17,6 +14,20 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { createAuditLog } = await import("@/lib/audit")
+    const { handleApiError } = await import("@/lib/api-response")
+    const {
+      generateInviteToken,
+      hashInviteToken,
+      getInviteExpiresAt,
+      sendInviteEmail,
+    } = await import("@/lib/invite")
+
     const ctx = await requireTenantPermission("users:write")
     const userId = params.id
 
@@ -127,6 +138,14 @@ export async function POST(
       message: "Invite email sent.",
     })
   } catch (error: any) {
-    return handleApiError(error)
+    if (isBuild()) {
+      return NextResponse.json({ error: "Unavailable during build" }, { status: 503 })
+    }
+    try {
+      const { handleApiError } = await import("@/lib/api-response")
+      return handleApiError(error)
+    } catch (_) {
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
   }
 }
