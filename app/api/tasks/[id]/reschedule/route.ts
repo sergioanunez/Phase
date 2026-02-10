@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkGateBlocking } from "@/lib/gates"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -62,6 +61,7 @@ export async function POST(
     const newScheduledDate = new Date(data.scheduledDate)
 
     // Check gate blocking for the new date (same as scheduling)
+    const { checkGateBlocking } = await import("@/lib/gates")
     const gateCheck = await checkGateBlocking(
       before.homeId,
       params.id,
