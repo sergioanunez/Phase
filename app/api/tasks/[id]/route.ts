@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireTenantContext } from "@/lib/tenant"
-import { getAssignedHomeIdsForContractor } from "@/lib/tenant"
 import { handleApiError } from "@/lib/api-response"
-import { checkGateBlocking } from "@/lib/gates"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
 
@@ -44,6 +41,7 @@ export async function GET(
     if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission, hasPermission } = await import("@/lib/rbac")
+    const { getAssignedHomeIdsForContractor } = await import("@/lib/tenant")
     const ctx = await requireTenantPermission("tasks:read")
 
     const task = await prisma.homeTask.findFirst({
@@ -98,6 +96,7 @@ export async function PATCH(
     const { prisma } = await import("@/lib/prisma")
     const { hasPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
+    const { requireTenantContext } = await import("@/lib/tenant")
     const ctx = await requireTenantContext()
     const body = await request.json()
     const data = updateTaskSchema.parse(body)
@@ -283,6 +282,7 @@ export async function PATCH(
       }
 
       // Check gate blocking
+      const { checkGateBlocking } = await import("@/lib/gates")
       const gateCheck = await checkGateBlocking(
         before.homeId,
         params.id,
