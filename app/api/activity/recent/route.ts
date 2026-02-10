@@ -23,6 +23,10 @@ interface TaskActivity {
 
 export async function GET(request: NextRequest) {
   try {
+    // Skip DB/auth during Vercel build (no session or DB available)
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      return NextResponse.json([])
+    }
     const ctx = await requireTenantPermission("tasks:read")
 
     // Get last 10 audit logs for HomeTask entities (tenant-scoped)
