@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { requirePermission } from "@/lib/rbac"
 import { checkGateBlocking } from "@/lib/gates"
 import { sendConfirmationSMS } from "@/lib/twilio"
 import { format } from "date-fns"
@@ -11,11 +7,17 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requirePermission } = await import("@/lib/rbac")
     const user = await requirePermission("sms:send")
 
     const task = await prisma.homeTask.findUnique({

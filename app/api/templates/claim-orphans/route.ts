@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
-import { createAuditLog } from "@/lib/audit"
 import { handleApiError } from "@/lib/api-response"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 /**
  * POST /api/templates/claim-orphans
@@ -14,6 +14,10 @@ export const fetchCache = "force-no-store"
  */
 export async function POST() {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { createAuditLog } = await import("@/lib/audit")
     const ctx = await requireTenantPermission("templates:write")
 
     const result = await prisma.workTemplateItem.updateMany({

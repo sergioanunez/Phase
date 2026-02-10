@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireSuperAdmin } from "@/lib/super-admin"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 /**
  * GET /api/super-admin/sms/health
  * SMS delivery metrics. SUPER_ADMIN only.
  */
 export async function GET() {
+  if (isBuild()) return NextResponse.json({ last24h: { sent: 0, delivered: 0, failed: 0 }, last7d: { sent: 0, failed: 0, failureRatePercent: 0 }, errorsByCompany: [], recentFailures: [] }, { status: 200 })
+  const { requireSuperAdmin } = await import("@/lib/super-admin")
+  const { prisma } = await import("@/lib/prisma")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
 

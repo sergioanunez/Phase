@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireRole } from "@/lib/rbac"
 import { format, parseISO } from "date-fns"
 import { TaskStatus } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 export type ContractorScheduleEventStatus =
   | "scheduled"
@@ -58,6 +59,9 @@ function taskStatusToEventStatus(status: TaskStatus): ContractorScheduleEventSta
 
 export async function GET(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json([], { status: 200 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireRole } = await import("@/lib/rbac")
     const user = await requireRole("Subcontractor")
 
     if (!user.contractorId) {

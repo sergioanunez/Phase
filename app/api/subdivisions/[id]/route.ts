@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requirePermission, requireTenantPermission } from "@/lib/rbac"
-import { createAuditLog } from "@/lib/audit"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updateSubdivisionSchema = z.object({
   name: z.string().min(1).optional(),
@@ -18,6 +18,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("subdivisions:read")
 
     const subdivision = await prisma.subdivision.findFirst({
@@ -42,6 +45,10 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requirePermission } = await import("@/lib/rbac")
+    const { createAuditLog } = await import("@/lib/audit")
     const user = await requirePermission("subdivisions:write")
     const body = await request.json()
     const data = updateSubdivisionSchema.parse(body)
@@ -90,6 +97,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { createAuditLog } = await import("@/lib/audit")
     const ctx = await requireTenantPermission("subdivisions:write")
 
     const before = await prisma.subdivision.findFirst({

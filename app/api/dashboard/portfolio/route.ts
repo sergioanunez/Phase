@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
 import { getScheduleStatus, type ScheduleStatus } from "@/lib/schedule-status"
 import { handleApiError } from "@/lib/api-response"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 export interface PortfolioResponse {
   activeHomesCount: number
@@ -18,6 +19,9 @@ export interface PortfolioResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json({ activeHomesCount: 0, statusCounts: { onTrack: 0, atRisk: 0, behind: 0 }, bottlenecks: [], inspectionsUpcoming: [], kpis: [] }, { status: 200 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("dashboard:view")
 
     const where: Record<string, unknown> = { companyId: ctx.companyId }

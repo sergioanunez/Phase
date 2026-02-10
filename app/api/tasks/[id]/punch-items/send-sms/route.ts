@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { requirePermission } from "@/lib/rbac"
 import { sendPunchListSMS } from "@/lib/twilio"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 // POST /api/tasks/[id]/punch-items/send-sms - Send punch list to contractors
 export async function POST(
@@ -15,6 +14,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requirePermission } = await import("@/lib/rbac")
     const user = await requirePermission("homes:write")
     
     const task = await prisma.homeTask.findUnique({

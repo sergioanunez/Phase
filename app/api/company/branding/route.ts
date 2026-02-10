@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantContext } from "@/lib/tenant"
-import { requireTenantPermission } from "@/lib/rbac"
 import { handleApiError } from "@/lib/api-response"
-import { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } from "@/lib/supabase-server"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updateBrandingSchema = z.object({
   brandAppName: z.string().optional().nullable(),
@@ -17,9 +16,10 @@ const updateBrandingSchema = z.object({
   brandAccentColor: z.string().optional().nullable(),
 })
 
-function getPublicUrlForPath(path: string | null): string | null {
+async function getPublicUrlForPath(path: string | null): Promise<string | null> {
   if (!path) return null
   try {
+    const { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase-server")
     const supabase = getSupabaseServerClient()
     const { data } = supabase.storage.from(COMPANY_ASSETS_BUCKET).getPublicUrl(path)
     return data?.publicUrl ?? null
@@ -35,6 +35,9 @@ function getPublicUrlForPath(path: string | null): string | null {
  */
 export async function GET() {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantContext } = await import("@/lib/tenant")
     const ctx = await requireTenantContext()
     const company = await prisma.company.findUnique({
       where: { id: ctx.companyId },
@@ -54,8 +57,8 @@ export async function GET() {
       return NextResponse.json({ error: "Company not found" }, { status: 404 })
     }
     const logoUrl =
-      getPublicUrlForPath(company.brandLogoPath) || (company.brandLogoUrl || null)
-    const faviconUrl = getPublicUrlForPath(company.brandFaviconPath)
+      (await getPublicUrlForPath(company.brandLogoPath)) || (company.brandLogoUrl || null)
+    const faviconUrl = await getPublicUrlForPath(company.brandFaviconPath)
     return NextResponse.json({
       ...company,
       logoUrl: logoUrl || null,
@@ -73,6 +76,10 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { requireTenantContext } = await import("@/lib/tenant")
     await requireTenantPermission("users:write")
     const ctx = await requireTenantContext()
     const company = await prisma.company.findUnique({

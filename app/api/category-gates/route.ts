@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 import { GateScope, GateBlockMode } from "@prisma/client"
@@ -8,6 +6,9 @@ import { GateScope, GateBlockMode } from "@prisma/client"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const createCategoryGateSchema = z.object({
   categoryName: z.string().min(1),
@@ -25,6 +26,9 @@ const updateCategoryGateSchema = z.object({
 // GET /api/category-gates - Get all category gates (tenant-scoped)
 export async function GET(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json([], { status: 200 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("templates:read")
 
     const categoryGates = await prisma.categoryGate.findMany({
@@ -41,6 +45,9 @@ export async function GET(request: NextRequest) {
 // POST /api/category-gates - Create a new category gate (tenant-scoped)
 export async function POST(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("templates:write")
     const body = await request.json()
     const data = createCategoryGateSchema.parse(body)
@@ -73,6 +80,9 @@ export async function POST(request: NextRequest) {
 // DELETE /api/category-gates?categoryName=... - Delete a category gate (tenant-scoped)
 export async function DELETE(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("templates:write")
     const { searchParams } = new URL(request.url)
     const categoryName = searchParams.get("categoryName")

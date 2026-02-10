@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
 import { getAssignedHomeIdsForContractor } from "@/lib/tenant"
 import { getScheduleStatus } from "@/lib/schedule-status"
 import { handleApiError } from "@/lib/api-response"
@@ -8,6 +6,9 @@ import { handleApiError } from "@/lib/api-response"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 export type CalendarEventType = "inspection" | "delivery" | "trade" | "milestone"
 
@@ -37,6 +38,9 @@ function inferEventType(name: string, category: string | null): CalendarEventTyp
 
 export async function GET(request: NextRequest) {
   try {
+    if (isBuild()) return NextResponse.json([], { status: 200 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("homes:read")
 
     const { searchParams } = new URL(request.url)

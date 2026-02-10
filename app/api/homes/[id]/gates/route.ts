@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { requirePermission } from "@/lib/rbac"
 import { getHomeGateStatus } from "@/lib/gates"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 // GET /api/homes/[id]/gates - Get gate statuses for a home
 export async function GET(
@@ -14,6 +14,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (isBuild()) return NextResponse.json([], { status: 200 })
+    const { getServerSession } = await import("next-auth/next")
+    const { authOptions } = await import("@/lib/auth")
+    const { requirePermission } = await import("@/lib/rbac")
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

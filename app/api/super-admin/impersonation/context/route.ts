@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const IMPERSONATION_COOKIE = "buildflow_impersonation"
 
@@ -14,6 +15,9 @@ const IMPERSONATION_COOKIE = "buildflow_impersonation"
  * Returns current impersonation context if active (for banner). No SUPER_ADMIN check so banner can show.
  */
 export async function GET() {
+  if (isBuild()) return NextResponse.json({ active: false }, { status: 200 })
+  const { getServerSession } = await import("next-auth")
+  const { authOptions } = await import("@/lib/auth")
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ active: false })
 

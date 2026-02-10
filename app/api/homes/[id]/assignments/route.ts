@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const putSchema = z.object({
   superintendentUserIds: z.array(z.string()),
@@ -21,6 +22,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (isBuild()) return NextResponse.json([], { status: 200 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("homes:read")
     const { id: homeId } = await params
 
@@ -60,6 +64,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+    const { prisma } = await import("@/lib/prisma")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("homes:write")
     const { id: homeId } = await params
 

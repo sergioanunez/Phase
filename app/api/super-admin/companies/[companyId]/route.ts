@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireSuperAdmin } from "@/lib/super-admin"
-import { createSuperAdminAuditLog } from "@/lib/audit"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
+
+const isBuild = () =>
+  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -39,6 +39,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ companyId: string }> }
 ) {
+  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  const { requireSuperAdmin } = await import("@/lib/super-admin")
+  const { prisma } = await import("@/lib/prisma")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
 
@@ -85,6 +88,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ companyId: string }> }
 ) {
+  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  const { requireSuperAdmin } = await import("@/lib/super-admin")
+  const { prisma } = await import("@/lib/prisma")
+  const { createSuperAdminAuditLog } = await import("@/lib/audit")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
   const actorId = check.id
@@ -131,6 +138,10 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ companyId: string }> }
 ) {
+  if (isBuild()) return NextResponse.json({ error: "Unavailable" }, { status: 503 })
+  const { requireSuperAdmin } = await import("@/lib/super-admin")
+  const { prisma } = await import("@/lib/prisma")
+  const { createSuperAdminAuditLog } = await import("@/lib/audit")
   const check = await requireSuperAdmin()
   if ("error" in check) return check.error
   const actorId = check.id
