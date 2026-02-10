@@ -3,6 +3,7 @@ import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
@@ -19,8 +20,8 @@ const updateBrandingSchema = z.object({
 async function getPublicUrlForPath(path: string | null): Promise<string | null> {
   if (!path) return null
   try {
-    const { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase-server")
-    const supabase = getSupabaseServerClient()
+    const { createSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase/server")
+    const supabase = createSupabaseServerClient()
     const { data } = supabase.storage.from(COMPANY_ASSETS_BUCKET).getPublicUrl(path)
     return data?.publicUrl ?? null
   } catch {

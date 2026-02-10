@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
@@ -48,7 +49,7 @@ export async function POST(
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
     const { createAuditLog } = await import("@/lib/audit")
-    const { getSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase-server")
+    const { createSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase/server")
 
     const resolved = await Promise.resolve(params)
     const homeId = resolved?.homeId
@@ -95,7 +96,7 @@ export async function POST(
       file.name ||
       null
 
-    const supabase = getSupabaseServerClient()
+    const supabase = createSupabaseServerClient()
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabase.storage
@@ -157,7 +158,7 @@ export async function DELETE(
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
     const { createAuditLog } = await import("@/lib/audit")
-    const { getSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase-server")
+    const { createSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase/server")
 
     const { homeId } = await Promise.resolve(params)
     if (!homeId) {
@@ -176,7 +177,7 @@ export async function DELETE(
     }
 
     if (home.thumbnailStoragePath) {
-      const supabase = getSupabaseServerClient()
+      const supabase = createSupabaseServerClient()
       await supabase.storage
         .from(HOME_PLANS_BUCKET)
         .remove([home.thumbnailStoragePath])

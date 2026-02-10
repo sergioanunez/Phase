@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
     const { createAuditLog } = await import("@/lib/audit")
-    const { getSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase-server")
+    const { createSupabaseServerClient, COMPANY_ASSETS_BUCKET } = await import("@/lib/supabase/server")
     const { handleApiError } = await import("@/lib/api-response")
 
     const session = await getServerSession(authOptions)
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const storagePath = `companies/${company.id}/branding/favicon.png`
 
-    const supabase = getSupabaseServerClient()
+    const supabase = createSupabaseServerClient()
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabase.storage

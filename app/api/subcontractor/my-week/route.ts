@@ -4,6 +4,7 @@ import { parseISO, format } from "date-fns"
 import { TaskStatus } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 

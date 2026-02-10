@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
@@ -23,7 +24,7 @@ export async function GET(
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
-    const { getSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase-server")
+    const { createSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase/server")
     const resolved = await Promise.resolve(params)
     const homeId = resolved?.id
     if (!homeId) {
@@ -61,7 +62,7 @@ export async function GET(
       return NextResponse.json({ exists: false })
     }
 
-    const supabase = getSupabaseServerClient()
+    const supabase = createSupabaseServerClient()
     const { data: signed, error: signedError } = await supabase.storage
       .from(HOME_PLANS_BUCKET)
       .createSignedUrl(home.thumbnailStoragePath, SIGNED_URL_EXPIRES_IN)
