@@ -28,6 +28,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# secrets / credentials (never commit)
+GitHubPass.txt
+Credentials.txt
+
 # vercel
 .vercel
 

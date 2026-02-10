@@ -51,7 +51,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           contractorId: user.contractorId,
-          companyId: user.companyId ?? null,
+          companyId: user.companyId ?? undefined,
         }
       }
     })
@@ -64,7 +64,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role
         token.contractorId = user.contractorId
-        token.companyId = user.companyId
+        token.companyId = user.companyId ?? null
       }
       return token
     },

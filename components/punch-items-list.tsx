@@ -41,6 +41,7 @@ interface PunchItem {
     id: string
     name: string
   } | null
+  photos?: { id: string; imageUrl: string; createdAt?: string }[]
 }
 
 interface PunchItemsListProps {

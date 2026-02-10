@@ -80,10 +80,9 @@ export async function GET(request: NextRequest) {
 
         if (!after) continue
         const entityId = log.entityId
-        if (!entityId) continue
-
-        // Get task from map (entityId is string here; assert for strict build)
-        const task = taskMap.get(entityId as string)
+        if (entityId === null || entityId === undefined) continue
+        // entityId is string here; look up task (satisfies strict TypeScript)
+        const task = taskMap.get(entityId)
         if (!task) continue
 
         // Determine action type based on status changes

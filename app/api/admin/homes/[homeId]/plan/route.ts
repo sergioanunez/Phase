@@ -188,9 +188,15 @@ export async function POST(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { homeId: string } }
+  { params }: { params: { homeId: string } | Promise<{ homeId: string }> }
 ) {
   try {
+    const resolved = await Promise.resolve(params)
+    const homeId = resolved?.homeId
+    if (!homeId) {
+      return NextResponse.json({ error: "Home ID is required" }, { status: 400 })
+    }
+
     const session = await getServerSession(authOptions)
     const authError = requireAdmin(session)
     if (authError) return NextResponse.json({ error: authError.error }, { status: authError.status })

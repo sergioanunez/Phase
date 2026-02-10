@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
+import { requirePermission, requireTenantPermission } from "@/lib/rbac"
 import { createAuditLog } from "@/lib/audit"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"

@@ -1,7 +1,7 @@
 import twilio from "twilio"
 import { prisma } from "./prisma"
 import { generateConfirmationCode } from "./utils"
-import { TaskStatus } from "@prisma/client"
+import { TaskStatus, PricingTier } from "@prisma/client"
 
 let _client: ReturnType<typeof twilio> | null = null
 
@@ -15,6 +15,20 @@ function getClient(): ReturnType<typeof twilio> {
     _client = twilio(sid, token)
   }
   return _client
+}
+
+/** Default "Phase"; for WHITE_LABEL tier use company brand name. */
+async function getSmsSenderName(companyId: string | null): Promise<string> {
+  if (!companyId) return "Phase"
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { pricingTier: true, brandAppName: true, name: true },
+  })
+  if (!company) return "Phase"
+  if (company.pricingTier === PricingTier.WHITE_LABEL) {
+    return company.brandAppName?.trim() || company.name
+  }
+  return "Phase"
 }
 
 export async function sendConfirmationSMS(
@@ -48,8 +62,13 @@ export async function sendConfirmationSMS(
   }
 
   const confirmationCode = generateConfirmationCode()
+  const taskRow = await prisma.homeTask.findUnique({
+    where: { id: homeTaskId },
+    select: { companyId: true },
+  })
+  const senderName = await getSmsSenderName(taskRow?.companyId ?? null)
 
-  const message = `Cullers Scheduling:
+  const message = `${senderName}:
 Please confirm (Y/N):
 ${subdivision} ${home} – ${task} on ${date}
 Reply Y or N
@@ -138,7 +157,13 @@ export async function sendCancellationSMS(
     }
   }
 
-  const message = `Cullers Scheduling:
+  const taskForSender = await prisma.homeTask.findUnique({
+    where: { id: homeTaskId },
+    select: { companyId: true },
+  })
+  const senderName = await getSmsSenderName(taskForSender?.companyId ?? null)
+
+  const message = `${senderName}:
 CANCELLED: ${subdivision} ${home} – ${task} scheduled for ${date} has been cancelled.
 We apologize for any inconvenience.`
 
@@ -321,6 +346,12 @@ export async function sendPunchListSMS(
     }
   }
 
+  const taskForSender = await prisma.homeTask.findUnique({
+    where: { id: taskId },
+    select: { companyId: true },
+  })
+  const senderName = await getSmsSenderName(taskForSender?.companyId ?? null)
+
   // Format punch items list
   const itemsList = punchItems
     .map((item, index) => {
@@ -331,7 +362,7 @@ export async function sendPunchListSMS(
     })
     .join("\n")
 
-  const message = `Cullers Scheduling - Punch List:
+  const message = `${senderName} - Punch List:
 ${subdivision} ${home} – ${task}
 
 Punch Items:

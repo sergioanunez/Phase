@@ -72,6 +72,28 @@ export default function SuperAdminCompaniesPage() {
     }
   }
 
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!createName.trim()) return
+    setCreateError("")
+    setCreateLoading(true)
+    fetch("/api/super-admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: createName.trim(), pricingTier: createTier }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error)
+        setCreateOpen(false)
+        setCreateName("")
+        setCreateTier("SMALL")
+        fetchCompanies()
+      })
+      .catch((err) => setCreateError(err instanceof Error ? err.message : "Failed to create company"))
+      .finally(() => setCreateLoading(false))
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold text-gray-900 md:text-2xl">Company Directory</h1>

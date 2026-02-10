@@ -34,9 +34,9 @@ export interface JobRowProps {
 export function JobRow({ event, onClick, className }: JobRowProps) {
   const statusIcon =
     event.status === "completed" ? (
-      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" aria-hidden title="Completed" />
+      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" aria-hidden />
     ) : (
-      <Circle className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden title="Not complete" />
+      <Circle className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
     )
 
   const punchCount = event.punchOpenCount ?? event.punchItems?.length ?? 0

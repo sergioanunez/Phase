@@ -59,6 +59,7 @@ export async function POST(
           select: {
             isCriticalGate: true,
             gateBlockMode: true,
+            optionalCategory: true,
           },
         },
       },
@@ -84,7 +85,7 @@ export async function POST(
     })
 
     // Category-based blocking: all tasks in previous categories must be completed
-    const currentTaskCategory = task.templateItem?.optionalCategory || "Uncategorized"
+    const currentTaskCategory = taskWithTemplate?.templateItem?.optionalCategory || "Uncategorized"
     const currentTaskIndex = allTasks.findIndex((t) => t.id === task.id)
 
     // Category order (same as in UI)

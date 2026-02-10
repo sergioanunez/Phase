@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
       data: {
         companyId: ctx.companyId,
         categoryName: data.categoryName,
-        gateScope: data.gateScope || "DownstreamOnly",
-        gateBlockMode: data.gateBlockMode || "ScheduleOnly",
+        gateScope: data.gateScope ?? GateScope.DownstreamOnly,
+        gateBlockMode: data.gateBlockMode ?? GateBlockMode.ScheduleOnly,
         gateName: data.gateName || null,
       },
     })

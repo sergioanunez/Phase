@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         optionalCategory: data.optionalCategory,
         isDependency: data.isDependency || false,
         isCriticalGate: data.isCriticalGate || false,
-        gateScope: data.gateScope || "DownstreamOnly",
-        gateBlockMode: data.gateBlockMode || "ScheduleOnly",
+        gateScope: data.gateScope ?? GateScope.DownstreamOnly,
+        gateBlockMode: data.gateBlockMode ?? GateBlockMode.ScheduleOnly,
         gateName: data.gateName || null,
       },
     })

@@ -136,11 +136,11 @@ export default function SuperAdminAuditPage() {
                       {new Date(log.createdAt).toLocaleString()}
                     </span>
                   </div>
-                  {log.metaJson && (
+                  {log.metaJson != null ? (
                     <pre className="mt-1 overflow-x-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
                       {JSON.stringify(log.metaJson, null, 2)}
                     </pre>
-                  )}
+                  ) : null}
                 </li>
               ))
             )}

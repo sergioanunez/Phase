@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
 
 export async function createAuditLog(
@@ -40,7 +41,7 @@ export async function createSuperAdminAuditLog(
       data: {
         userId: actorUserId,
         action,
-        metaJson: metaJson ?? undefined,
+        metaJson: metaJson != null ? (metaJson as Prisma.InputJsonValue) : undefined,
         companyId: companyId ?? undefined,
         entityType: entityType ?? undefined,
         entityId: entityId ?? undefined,

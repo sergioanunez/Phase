@@ -56,7 +56,6 @@ export function CreateTemplateDialog({
       setDefaultDurationDays("")
       setSortOrder("")
       setOptionalCategory("")
-      setIsDependency(false)
       onSuccess()
       onOpenChange(false)
     } catch (err: any) {

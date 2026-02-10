@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns"
 import { TaskStatus } from "@prisma/client"
+import { ClipboardList } from "lucide-react"
 
 interface Task {
   id: string
@@ -21,6 +22,12 @@ interface Task {
     }
   }
   notes: string | null
+  punchItems?: Array<{
+    id: string
+    title: string
+    status: string
+    severity: string
+  }>
 }
 
 interface MyWeekData {

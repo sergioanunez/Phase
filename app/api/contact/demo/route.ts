@@ -7,6 +7,7 @@ const demoRequestSchema = z.object({
   phone: z.string().min(1, "Contact number is required"),
   email: z.string().email("Valid email is required"),
   notes: z.string().optional(),
+  plan: z.string().optional(),
 })
 
 /**

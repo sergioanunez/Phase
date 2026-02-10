@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, GateScope, GateBlockMode } from "@prisma/client"
 import bcrypt from "bcryptjs"
 
 const prisma = new PrismaClient()
@@ -179,8 +179,8 @@ async function main() {
         sortOrder: item.sortOrder,
         isCriticalGate: item.isCriticalGate || false,
         gateName: item.gateName || null,
-        gateScope: item.gateScope || "DownstreamOnly",
-        gateBlockMode: item.gateBlockMode || "ScheduleOnly",
+        gateScope: (item.gateScope as GateScope) ?? GateScope.DownstreamOnly,
+        gateBlockMode: (item.gateBlockMode as GateBlockMode) ?? GateBlockMode.ScheduleOnly,
       },
     })
     createdTemplates.push(template)

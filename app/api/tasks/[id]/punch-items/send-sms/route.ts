@@ -70,7 +70,7 @@ export async function POST(
       }
       acc[contractorId].items.push({
         title: item.title,
-        dueDate: item.dueDate,
+        dueDate: item.dueDate ? item.dueDate.toISOString() : null,
         photoUrls: (item.photos || []).map((p) => `${baseUrl}${p.imageUrl}`),
       })
       return acc

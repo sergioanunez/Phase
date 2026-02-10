@@ -34,7 +34,7 @@ export function AppHeader() {
         <Link href="/homes" className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
           {useCustomLogo ? (
             <img
-              src={branding.brandingUpdatedAt ? `${branding.logoUrl}?v=${new Date(branding.brandingUpdatedAt).getTime()}` : branding.logoUrl}
+              src={branding.brandingUpdatedAt ? `${branding.logoUrl ?? ""}?v=${new Date(branding.brandingUpdatedAt).getTime()}` : (branding.logoUrl ?? "")}
               alt={logoAlt}
               className="h-12 w-auto max-w-[12rem] object-contain object-left"
             />

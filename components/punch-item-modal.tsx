@@ -16,6 +16,7 @@ import { Camera, ImagePlus, X, FileText } from "lucide-react"
 interface Contractor {
   id: string
   companyName: string
+  active?: boolean
 }
 
 interface PunchItem {
@@ -78,7 +79,7 @@ export function PunchItemModal({
       fetch("/api/contractors")
         .then((res) => res.json())
         .then((data) => {
-          setContractors(data.filter((c: Contractor) => c.active))
+          setContractors(data.filter((c: Contractor) => c.active !== false))
         })
         .catch((err) => console.error("Failed to fetch contractors:", err))
 

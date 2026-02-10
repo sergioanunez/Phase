@@ -90,7 +90,7 @@ export async function PATCH(
       },
     })
 
-    await createAuditLog(admin.id, "User", params.id, "UPDATE", {
+    await createAuditLog(ctx.userId, "User", params.id, "UPDATE", {
       ...before,
       passwordHash: "[REDACTED]",
     }, {

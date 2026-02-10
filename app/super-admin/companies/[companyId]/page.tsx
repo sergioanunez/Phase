@@ -131,12 +131,12 @@ export default function SuperAdminCompanyDetailPage() {
       .finally(() => setSaving(false))
   }
 
-  const handleImpersonate = () => {
-    if (!impersonateUserId) return
+  const handleImpersonate = (userId: string) => {
+    if (!userId) return
     fetch("/api/super-admin/impersonation/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId, userIdToImpersonate: uid }),
+      body: JSON.stringify({ companyId, userIdToImpersonate: userId }),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -604,11 +604,11 @@ export default function SuperAdminCompanyDetailPage() {
                         {log.user?.name ?? "—"} · {log.createdAt ? new Date(log.createdAt).toLocaleString() : ""}
                       </span>
                     </div>
-                    {log.metaJson && (
+                    {log.metaJson != null ? (
                       <pre className="mt-1 overflow-x-auto rounded bg-gray-50 p-2 text-xs text-gray-600">
                         {JSON.stringify(log.metaJson, null, 2)}
                       </pre>
-                    )}
+                    ) : null}
                   </li>
                 ))
               )}
