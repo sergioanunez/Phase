@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireTenantPermission } from "@/lib/rbac"
-import { handleApiError } from "@/lib/api-response"
 
-// Avoid build-time execution (no DB/auth on Vercel build)
+// Avoid build-time execution: no prisma/auth imports at top level (Vercel build has no DB/session)
 export const dynamic = "force-dynamic"
 
 interface TaskActivity {
@@ -22,11 +19,16 @@ interface TaskActivity {
 }
 
 export async function GET(request: NextRequest) {
+  // During Vercel build, do not load DB/auth (no session or DB)
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json([])
+  }
+  // Load only at request time so build never runs DB/auth code
+  const { requireTenantPermission } = await import("@/lib/rbac")
+  const { prisma } = await import("@/lib/prisma")
+  const { handleApiError } = await import("@/lib/api-response")
+
   try {
-    // Skip DB/auth during Vercel build (no session or DB available)
-    if (process.env.NEXT_PHASE === "phase-production-build") {
-      return NextResponse.json([])
-    }
     const ctx = await requireTenantPermission("tasks:read")
 
     // Get last 10 audit logs for HomeTask entities (tenant-scoped)
