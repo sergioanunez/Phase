@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { sendCancellationSMS } from "@/lib/twilio"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
@@ -84,6 +83,7 @@ export async function POST(
     // Send cancellation SMS if task is Confirmed and has a contractor
     if (task.status === "Confirmed" && task.contractor) {
       try {
+        const { sendCancellationSMS } = await import("@/lib/twilio")
         const dateStr = format(new Date(task.scheduledDate), "MM/dd/yyyy")
         await sendCancellationSMS(
           task.id,
