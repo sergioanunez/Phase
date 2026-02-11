@@ -88,5 +88,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/signin",
+    error: "/auth/signin", // avoid /api/auth/error (can 500 if env/DB issues); show error on signin via ?error=
   },
 }

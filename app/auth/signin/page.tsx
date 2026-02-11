@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -12,14 +12,36 @@ import logoImage from "../../../public/logo.png"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Eye, EyeOff } from "lucide-react"
 
+const ERROR_MESSAGES: Record<string, string> = {
+  CredentialsSignin: "Invalid email or password.",
+  Configuration: "Server configuration error. Please try again later.",
+  AccessDenied: "Access denied.",
+  Verification: "Verification failed or link expired.",
+  Default: "Something went wrong. Please try again.",
+}
+
 export default function SignInPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Show error from URL when redirected from NextAuth (e.g. after pages.error redirect)
+  useEffect(() => {
+    const err = searchParams.get("error")
+    if (err) {
+      setError(ERROR_MESSAGES[err] ?? ERROR_MESSAGES.Default)
+      // Clear ?error= from URL without reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete("error")
+      url.searchParams.delete("callbackUrl")
+      window.history.replaceState({}, "", url.pathname + (url.search || ""))
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
