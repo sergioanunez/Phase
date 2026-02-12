@@ -55,6 +55,7 @@ function SignInForm() {
         email,
         password,
         tenantSlug,
+        callbackUrl: "/dashboard",
         redirect: false,
       })
 
@@ -62,7 +63,7 @@ function SignInForm() {
         setFailedAttempts((n) => n + 1)
         setError(result.error === "CredentialsSignin" ? "Invalid email or password" : result.error)
       } else {
-        router.push("/")
+        router.push(result?.url ?? "/dashboard")
         router.refresh()
       }
     } catch (err) {

@@ -56,6 +56,10 @@ async function resolveTenantForSignIn(
   return null
 }
 
+if (typeof process !== "undefined" && process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_URL) {
+  console.warn("[auth] NEXTAUTH_URL is missing in production; cookies may not work correctly.")
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   providers: [
@@ -156,6 +160,16 @@ export const authOptions: NextAuthOptions = {
         session.user.companyId = companyId
       }
       return session
+    },
+    redirect({ url, baseUrl }) {
+      if (typeof url === "string" && url.startsWith("/")) return `${baseUrl}${url}`
+      try {
+        const u = new URL(url, baseUrl)
+        if (u.origin === new URL(baseUrl).origin) return url
+      } catch {
+        // ignore
+      }
+      return `${baseUrl}/dashboard`
     },
   },
   pages: {
