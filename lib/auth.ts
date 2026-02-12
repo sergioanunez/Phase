@@ -5,6 +5,57 @@ import { prisma } from "./prisma"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 
+const MAIN_DOMAIN = "usephase.app"
+
+function isMainDomain(): boolean {
+  const url = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || ""
+  return url.includes(MAIN_DOMAIN)
+}
+
+/** Resolve tenant (Company) by slug or by email domain. Returns null if no tenant required. */
+async function resolveTenantForSignIn(
+  email: string,
+  tenantSlug?: string | null
+): Promise<{ companyId: string; resolution: "slug" | "email_domain" } | null> {
+  const emailLower = email.trim().toLowerCase()
+  const domain = emailLower.includes("@") ? emailLower.split("@")[1]! : ""
+
+  if (tenantSlug?.trim()) {
+    const company = await prisma.company.findUnique({
+      where: { slug: tenantSlug.trim() },
+      select: { id: true },
+    })
+    if (company) {
+      if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+        console.log("[auth] tenant_resolution=slug slug=" + tenantSlug.trim())
+      }
+      return { companyId: company.id, resolution: "slug" }
+    }
+    throw new Error("No tenant found for slug \"" + tenantSlug.trim() + "\". Please check the URL or contact support.")
+  }
+
+  if (domain) {
+    const company = await prisma.company.findFirst({
+      where: { allowedEmailDomains: { has: domain } },
+      select: { id: true },
+    })
+    if (company) {
+      if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+        console.log("[auth] tenant_resolution=email_domain domain=" + domain)
+      }
+      return { companyId: company.id, resolution: "email_domain" }
+    }
+    if (isMainDomain()) {
+      throw new Error("No tenant found for email domain \"" + domain + "\". Please contact your administrator.")
+    }
+  }
+
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    console.log("[auth] tenant_resolution=none")
+  }
+  return null
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   providers: [
@@ -12,20 +63,41 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        tenantSlug: { label: "Tenant", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { contractor: true }
-        })
+        const emailLower = credentials.email.trim().toLowerCase()
+        const tenantSlug = (credentials as { tenantSlug?: string }).tenantSlug?.trim() || null
+        const tenant = await resolveTenantForSignIn(credentials.email, tenantSlug)
 
-        if (!user) {
-          return null
+        let user: Awaited<ReturnType<typeof prisma.user.findUnique>> = null
+        if (tenant) {
+          const found = await prisma.user.findFirst({
+            where: {
+              email: emailLower,
+              companyId: tenant.companyId,
+            },
+            include: { contractor: true },
+          })
+          user = found
+          if (!user) {
+            throw new Error(
+              "No user found for this email in tenant. Please check the email or contact your administrator."
+            )
+          }
+        } else {
+          user = await prisma.user.findUnique({
+            where: { email: emailLower },
+            include: { contractor: true },
+          })
+          if (!user) {
+            return null
+          }
         }
 
         if (user.status === "INVITED") {

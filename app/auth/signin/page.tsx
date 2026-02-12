@@ -48,10 +48,13 @@ function SignInForm() {
     setError("")
     setLoading(true)
 
+    const tenantSlug = searchParams.get("tenant") ?? undefined
+
     try {
       const result = await signIn("credentials", {
         email,
         password,
+        tenantSlug,
         redirect: false,
       })
 

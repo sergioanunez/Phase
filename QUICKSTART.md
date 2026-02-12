@@ -12,7 +12,8 @@
    cp .env.example .env
    ```
    Edit `.env` and add:
-   - `DATABASE_URL` - Your PostgreSQL connection string
+   - `DATABASE_URL` - PostgreSQL connection string (Supabase: use transaction pooler, port 6543; must include `?sslmode=require&pgbouncer=true`)
+   - `DIRECT_URL` - Direct connection (Supabase: port 5432, `?sslmode=require`); required for migrations
    - `NEXTAUTH_SECRET` - Run `openssl rand -base64 32` to generate
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
    - `OPENAI_API_KEY`
@@ -84,8 +85,8 @@ Click the floating message icon to open the AI assistant. Try:
 ## Troubleshooting
 
 **Database connection errors:**
-- Verify `DATABASE_URL` is correct
-- Ensure PostgreSQL is running
+- Verify `DATABASE_URL` includes `?sslmode=require&pgbouncer=true` and uses pooler (port 6543); `DIRECT_URL` uses port 5432
+- Ensure PostgreSQL / Supabase project is running (resume if paused)
 - Run `npm run db:push` if migrations fail
 
 **SMS not working:**

@@ -1,22 +1,106 @@
 import { PrismaClient, GateScope, GateBlockMode } from "@prisma/client"
 import bcrypt from "bcryptjs"
 
-const prisma = new PrismaClient()
+// Force seed to use DATABASE_URL (pooler) only, so it never uses DIRECT_URL (5432) which may be unreachable.
+const databaseUrl = process.env.DATABASE_URL
+const prisma = new PrismaClient(
+  databaseUrl
+    ? { datasources: { db: { url: databaseUrl } } }
+    : undefined
+)
+
+const DEFAULT_TENANT_SLUG = "cullers"
+const DEFAULT_TENANT_NAME = "Cullers Homes"
+const DEFAULT_ALLOWED_EMAIL_DOMAINS = ["cullers.com"]
+const ADMIN_EMAIL = "admin@cullers.com"
 
 async function main() {
   console.log("Seeding database...")
+  if (databaseUrl) {
+    try {
+      const u = new URL(databaseUrl)
+      const port = u.port || "5432"
+      console.log("Using DATABASE_URL host:", u.hostname, "port:", port)
+      if (port === "5432" && u.hostname.includes("supabase.co") && !u.hostname.includes("pooler")) {
+        console.error("\nERROR: DATABASE_URL is set to the direct Supabase URL (port 5432), which is often unreachable from your network.")
+        console.error("In your .env file, set DATABASE_URL to the Supabase POOLER URL (port 6543) instead.")
+        console.error("In Supabase Dashboard: Connect → Connection string → Transaction pooler → copy that URI and add ?sslmode=require&pgbouncer=true")
+        process.exit(1)
+      }
+    } catch {
+      // ignore
+    }
+  }
 
-  // Create default Company (single tenant for seed)
-  const company = await prisma.company.create({
-    data: {
-      name: "Cullers Homes",
-      pricingTier: "SMALL",
-      maxActiveHomes: null,
-      status: "ACTIVE",
+  // Idempotent: upsert default tenant (Company) by slug, or by name for existing DBs without slug
+  let company = await prisma.company.findUnique({
+    where: { slug: DEFAULT_TENANT_SLUG },
+  })
+  if (!company) {
+    company = await prisma.company.findFirst({
+      where: { name: DEFAULT_TENANT_NAME },
+    })
+    if (company) {
+      company = await prisma.company.update({
+        where: { id: company.id },
+        data: { slug: DEFAULT_TENANT_SLUG, allowedEmailDomains: DEFAULT_ALLOWED_EMAIL_DOMAINS },
+      })
+    } else {
+      company = await prisma.company.create({
+        data: {
+          name: DEFAULT_TENANT_NAME,
+          slug: DEFAULT_TENANT_SLUG,
+          allowedEmailDomains: DEFAULT_ALLOWED_EMAIL_DOMAINS,
+          pricingTier: "SMALL",
+          maxActiveHomes: null,
+          status: "ACTIVE",
+        },
+      })
+    }
+  } else {
+    company = await prisma.company.update({
+      where: { id: company.id },
+      data: { name: DEFAULT_TENANT_NAME, allowedEmailDomains: DEFAULT_ALLOWED_EMAIL_DOMAINS },
+    })
+  }
+  const companyId = company.id
+  console.log("Upserted tenant:", company.name, "slug:", company.slug)
+
+  // Idempotent: upsert default admin user by email
+  const adminPassword = await bcrypt.hash("admin123", 10)
+  const admin = await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    create: {
+      companyId,
+      name: "Admin User",
+      email: ADMIN_EMAIL,
+      passwordHash: adminPassword,
+      role: "Admin",
+      isActive: true,
+    },
+    update: {
+      companyId,
+      name: "Admin User",
+      passwordHash: adminPassword,
+      role: "Admin",
+      isActive: true,
     },
   })
-  const companyId = company.id
-  console.log("Created company:", company.name)
+  console.log("Upserted admin user:", admin.email)
+
+  // Optional: bootstrap full demo data only if this tenant has no subdivisions yet
+  const existingSubdivisions = await prisma.subdivision.count({
+    where: { companyId },
+  })
+  if (existingSubdivisions > 0) {
+    console.log("Demo data already present for tenant; skipping full seed.")
+    console.log("\nTest accounts (if already created):")
+    console.log("Admin:", ADMIN_EMAIL, "/ admin123")
+    console.log("Superintendent: super@cullers.com / super123")
+    console.log("Manager: manager@cullers.com / manager123")
+    console.log("Subcontractor: sub@cullers.com / sub123")
+    return
+  }
 
   // Create Subdivisions
   const subdivision1 = await prisma.subdivision.create({
@@ -35,9 +119,10 @@ async function main() {
 
   console.log("Created subdivisions")
 
-  // Create Contractors
+  // Create Contractors (scoped to default tenant)
   const contractor1 = await prisma.contractor.create({
     data: {
+      companyId,
       companyName: "ABC Plumbing",
       contactName: "John Smith",
       phone: "+15551234567",
@@ -50,6 +135,7 @@ async function main() {
 
   const contractor2 = await prisma.contractor.create({
     data: {
+      companyId,
       companyName: "XYZ Electrical",
       contactName: "Jane Doe",
       phone: "+15559876543",
@@ -62,6 +148,7 @@ async function main() {
 
   const contractor3 = await prisma.contractor.create({
     data: {
+      companyId,
       companyName: "Best Roofing",
       contactName: "Bob Johnson",
       phone: "+15555555555",
@@ -74,21 +161,7 @@ async function main() {
 
   console.log("Created contractors")
 
-  // Create or update Users (idempotent so seed can be re-run)
-  const adminPassword = await bcrypt.hash("admin123", 10)
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@cullers.com" },
-    create: {
-      companyId,
-      name: "Admin User",
-      email: "admin@cullers.com",
-      passwordHash: adminPassword,
-      role: "Admin",
-      isActive: true,
-    },
-    update: { companyId, name: "Admin User", passwordHash: adminPassword, role: "Admin", isActive: true },
-  })
-
+  // Create or update remaining Users (idempotent; admin already upserted above)
   const superPassword = await bcrypt.hash("super123", 10)
   const superintendent = await prisma.user.upsert({
     where: { email: "super@cullers.com" },
@@ -174,6 +247,7 @@ async function main() {
   for (const item of templateItems) {
     const template = await prisma.workTemplateItem.create({
       data: {
+        companyId,
         name: item.name,
         defaultDurationDays: item.defaultDurationDays,
         sortOrder: item.sortOrder,

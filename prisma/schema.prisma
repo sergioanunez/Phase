@@ -5,9 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Runtime Prisma Client uses only DATABASE_URL (pooler). directUrl is used only for migrations/introspection.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum PricingTier {
@@ -110,9 +112,11 @@ enum BillingStatus {
 }
 
 model Company {
-  id              String       @id @default(cuid())
-  name            String
-  pricingTier     PricingTier  @default(SMALL)
+  id                   String       @id @default(cuid())
+  name                 String
+  slug                 String?      @unique  // e.g. "cullers" for tenant resolution on main domain
+  allowedEmailDomains  String[]     @default([])  // e.g. ["cullers.com"] for sign-in by email domain
+  pricingTier          PricingTier  @default(SMALL)
   maxActiveHomes  Int?         // null = unlimited
   status          CompanyStatus @default(ACTIVE)
   timezone        String?

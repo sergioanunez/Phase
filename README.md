@@ -49,7 +49,8 @@ cp .env.example .env
 ```
 
 Required environment variables:
-- `DATABASE_URL`: PostgreSQL connection string
+- `DATABASE_URL`: PostgreSQL connection string for **runtime** (Supabase: use transaction pooler, port 6543). Must include `?sslmode=require&pgbouncer=true`.
+- `DIRECT_URL`: Direct connection to primary (Supabase: port 5432, `?sslmode=require`). Used only for migrations.
 - `NEXTAUTH_URL`: Your app URL (e.g., `http://localhost:3000`)
 - `NEXTAUTH_SECRET`: Random secret for NextAuth (generate with `openssl rand -base64 32`)
 - `TWILIO_ACCOUNT_SID`: Your Twilio Account SID
@@ -253,7 +254,49 @@ npm run db:seed
 
 ## Deployment
 
-1. Set up PostgreSQL database (e.g., on Vercel, Railway, or Supabase)
+### Vercel
+
+Prisma migrations run automatically on every deploy: the **Build Command** runs `prisma generate && prisma migrate deploy && next build`. Ensure your Vercel project has:
+
+- **Build Command**: `npm run build` (or leave default; it uses `package.json` scripts)
+- **Environment variables**: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and any other required vars (see below).
+
+No need to set a custom Build Command if you use the project’s `build` script as-is.
+
+### Production database: migrations and seed (from local machine)
+
+Run these against your **production** database (e.g. Supabase) when provisioning or after schema changes:
+
+```bash
+# 1. Point to production DB (set env or use .env.production)
+export DATABASE_URL="postgresql://...?sslmode=require"   # use pooler URL (port 6543) for app
+export DIRECT_URL="postgresql://...?sslmode=require"    # primary (port 5432) for migrations
+
+# 2. Run pending migrations
+npx prisma migrate deploy
+
+# 3. Seed default tenant and admin (idempotent; safe to re-run)
+npx prisma db seed
+```
+
+Or with a single env file:
+
+```bash
+# Ensure .env (or .env.production) has DATABASE_URL and DIRECT_URL set to production
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+**Env vars for migrations and seed**
+
+- `DATABASE_URL` – PostgreSQL connection string for runtime (Supabase: **transaction pooler**, port 6543). Must include `?sslmode=require&pgbouncer=true`.
+- `DIRECT_URL` – Direct connection to primary (Supabase: port 5432, `?sslmode=require`). Required for `prisma migrate deploy`. If port 5432 is unreachable from your network, you can temporarily set `DIRECT_URL` to the same pooler URL as `DATABASE_URL` to run migrations, or run the migration SQL manually in Supabase (see below).
+
+No other env vars are required for migrations or seed. The seed creates/updates the default tenant (Cullers Homes, slug `cullers`, allowed email domain `cullers.com`) and admin user `admin@cullers.com`.
+
+### Other platforms
+
+1. Set up PostgreSQL database (e.g., on Railway or Supabase)
 2. Set all environment variables in your hosting platform
 3. Configure Twilio webhook URL to point to your production domain
 4. Deploy to Vercel, Railway, or your preferred platform
