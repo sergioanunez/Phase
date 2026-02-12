@@ -25,7 +25,7 @@ function isAuthErrorPath(pathname: string): boolean {
   return pathname === "/api/auth/error" || pathname.endsWith("/api/auth/error")
 }
 
-function authErrorResponse(message: string): Response {
+function authErrorResponse(message: string): Response | null {
   if (
     message.includes("Can't reach database server") ||
     message.includes("P1001") ||
