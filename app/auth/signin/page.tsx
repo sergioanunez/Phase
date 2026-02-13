@@ -16,12 +16,15 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
+import { sanitizeTenantSlug } from "@/lib/sanitize-tenant";
 
 const ERROR_MESSAGES: Record<string, string> = {
   CredentialsSignin: "Invalid email or password.",
   Configuration: "Server configuration error. Please try again later.",
   AccessDenied: "Access denied.",
   Verification: "Verification failed or link expired.",
+  TenantRequired:
+    "Multiple tenants exist. Please sign in from your tenant URL (e.g. /auth/signin?tenant=your-tenant) or use an email from your organization.",
   Default: "Something went wrong. Please try again.",
 };
 
@@ -54,13 +57,13 @@ function SignInForm() {
     setLoading(true);
 
     const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
-    const tenantSlug = searchParams.get("tenant") ?? undefined;
+    const tenantSlug = sanitizeTenantSlug(searchParams.get("tenant"));
 
     try {
       const result = await signIn("credentials", {
         email,
         password,
-        tenantSlug,
+        ...(tenantSlug !== undefined && { tenantSlug }),
         callbackUrl,
         redirect: false,
       });
@@ -68,9 +71,10 @@ function SignInForm() {
       if (result?.error) {
         setFailedAttempts((n) => n + 1);
         setError(
-          result.error === "CredentialsSignin"
-            ? "Invalid email or password"
-            : result.error,
+          ERROR_MESSAGES[result.error] ??
+            (result.error === "CredentialsSignin"
+              ? "Invalid email or password"
+              : result.error),
         );
       } else {
         router.replace(result?.url ?? callbackUrl);
