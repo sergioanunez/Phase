@@ -125,3 +125,15 @@ export function openWhatsAppShare(text: string): void {
   const url = `${WHATSAPP_URL}/?text=${encodeURIComponent(text)}`
   window.open(url, "_blank", "noopener,noreferrer")
 }
+
+/**
+ * Opens the default mail client with pre-filled subject and body. Client-only.
+ * Reuse the same message text from buildPunchlistWhatsAppText / buildWorkItemWhatsAppText for body.
+ */
+export function openEmailShare(body: string, subject?: string): void {
+  if (typeof window === "undefined") return
+  const params = new URLSearchParams()
+  if (subject) params.set("subject", subject)
+  params.set("body", body)
+  window.open(`mailto:?${params.toString()}`, "_blank", "noopener,noreferrer")
+}
