@@ -93,7 +93,7 @@ export default function NotificationsPage() {
       .then((res) => (res.ok ? res.json() : {}))
       .then((data: { kind?: "hierarchy" | "activity"; notifications?: HierarchyNotification[] | NotificationItem[] }) => {
         setKind(data.kind ?? "activity")
-        setHierarchyList(data.kind === "hierarchy" ? (data.notifications ?? []) : [])
+        setHierarchyList(data.kind === "hierarchy" ? (data.notifications ?? []) as HierarchyNotification[] : [])
         setActivityList((data.notifications ?? []) as NotificationItem[])
       })
       .catch(() => {
