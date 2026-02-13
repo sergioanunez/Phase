@@ -84,29 +84,25 @@ export default function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
 
-  // Normalize: forecast API may return { home, tasks } or a flat home object
-  const normalizeHome = (data: any): Home | null => {
-    if (!data) return null
-    if (data.home != null) {
-      return {
-        ...data.home,
-        tasks: Array.isArray(data.tasks) ? data.tasks : (data.home.tasks ?? []),
-      } as Home
-    }
-    return data as Home
-  }
-
   useEffect(() => {
     if (params.id) {
-      fetch(`/api/homes/${params.id}/forecast`)
-        .then((res) => res.json())
+      // Load full home (address, subdivision, tasks) from GET /api/homes/[id]; forecast API is a stub and returns no real data
+      fetch(`/api/homes/${params.id}`)
+        .then((res) => {
+          if (!res.ok) {
+            setHome(null)
+            setLoading(false)
+            return
+          }
+          return res.json()
+        })
         .then((data) => {
-          const homeData = normalizeHome(data)
-          setHome(homeData)
+          if (data != null) setHome(data)
           setLoading(false)
         })
         .catch((err) => {
           console.error(err)
+          setHome(null)
           setLoading(false)
         })
 
@@ -163,10 +159,10 @@ export default function HomeDetailPage() {
 
   const handleTaskUpdate = () => {
     if (params.id) {
-      fetch(`/api/homes/${params.id}/forecast`)
-        .then((res) => res.json())
+      fetch(`/api/homes/${params.id}`)
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          setHome(normalizeHome(data) ?? data)
+          if (data) setHome(data)
         })
       
       // Refresh gate statuses
@@ -203,9 +199,11 @@ export default function HomeDetailPage() {
       })
       .then(() => {
         if (params.id) {
-          fetch(`/api/homes/${params.id}/forecast`)
-            .then((res) => res.json())
-            .then((data) => setHome(normalizeHome(data) ?? data))
+          fetch(`/api/homes/${params.id}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data) setHome(data)
+            })
           fetch(`/api/homes/${params.id}/gates`)
             .then((res) => res.json())
             .then((data) => setGateStatuses(data))
