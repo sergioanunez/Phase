@@ -44,7 +44,8 @@ export async function sendInviteEmail(params: {
   expiresAt: Date
 }): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY
-  const appUrl = process.env.APP_URL || "http://localhost:3000"
+  const { getServerAppUrl } = await import("./env")
+  const appUrl = getServerAppUrl()
   const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
 
   if (!apiKey) {

@@ -15,3 +15,13 @@ export const env = {
   DIRECT_URL: requireEnv("DIRECT_URL"),
 }
 
+/** Base URL for invite/email links. Use in API routes only. Prefer NEXT_PUBLIC_APP_URL so production links point to usephase.app, not localhost. */
+export function getServerAppUrl(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.APP_URL ||
+    "http://localhost:3000"
+  return raw.replace(/\/$/, "")
+}
+

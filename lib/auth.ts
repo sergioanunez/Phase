@@ -63,8 +63,19 @@ async function resolveTenantForSignIn(
         }
         return null
       }
-      throw new Error("No tenant found for email domain \"" + domain + "\". Please contact your administrator.")
     }
+    // Unknown domain (e.g. gmail.com): if a user exists with this email and a companyId (e.g. invited subcontractor), use that tenant
+    const existingUser = await prisma.user.findFirst({
+      where: { email: emailLower, companyId: { not: null } },
+      select: { companyId: true },
+    })
+    if (existingUser?.companyId) {
+      if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+        console.log("[auth] tenant_resolution=user_lookup domain=" + domain)
+      }
+      return { companyId: existingUser.companyId, resolution: "email_domain" }
+    }
+    throw new Error("No tenant found for email domain \"" + domain + "\". Please contact your administrator.")
   }
 
   const count = await prisma.company.count()

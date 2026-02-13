@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000"
-    const inviteLink = `${appUrl}/auth/accept-invite?token=${encodeURIComponent(token)}`
+    const { getServerAppUrl } = await import("@/lib/env")
+    const inviteLink = `${getServerAppUrl()}/auth/accept-invite?token=${encodeURIComponent(token)}`
 
     const emailResult = await sendInviteEmail({
       to: data.email,
