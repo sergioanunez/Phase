@@ -56,7 +56,7 @@ function SignInForm() {
     setError("");
     setLoading(true);
 
-    const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+    const callbackUrl = searchParams.get("callbackUrl") ?? "/";
     const tenantSlug = sanitizeTenantSlug(searchParams.get("tenant"));
 
     try {
@@ -77,8 +77,8 @@ function SignInForm() {
               : result.error),
         );
       } else {
-        router.replace(result?.url ?? callbackUrl);
-        router.refresh();
+        // Full page load to "/" so the server sees the new session and runs role-based redirect (SUPER_ADMIN → /super-admin, etc.)
+        window.location.href = "/";
       }
     } catch (err) {
       setFailedAttempts((n) => n + 1);

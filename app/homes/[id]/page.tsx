@@ -50,10 +50,10 @@ interface HomeTask {
 interface Home {
   id: string
   addressOrLot: string
-  subdivision: {
+  subdivision?: {
     id: string
     name: string
-  }
+  } | null
   startDate: string | null
   targetCompletionDate?: string | null
   forecastCompletionDate?: string | null
@@ -84,12 +84,25 @@ export default function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
 
+  // Normalize: forecast API may return { home, tasks } or a flat home object
+  const normalizeHome = (data: any): Home | null => {
+    if (!data) return null
+    if (data.home != null) {
+      return {
+        ...data.home,
+        tasks: Array.isArray(data.tasks) ? data.tasks : (data.home.tasks ?? []),
+      } as Home
+    }
+    return data as Home
+  }
+
   useEffect(() => {
     if (params.id) {
       fetch(`/api/homes/${params.id}/forecast`)
         .then((res) => res.json())
         .then((data) => {
-          setHome(data)
+          const homeData = normalizeHome(data)
+          setHome(homeData)
           setLoading(false)
         })
         .catch((err) => {
@@ -153,7 +166,7 @@ export default function HomeDetailPage() {
       fetch(`/api/homes/${params.id}/forecast`)
         .then((res) => res.json())
         .then((data) => {
-          setHome(data)
+          setHome(normalizeHome(data) ?? data)
         })
       
       // Refresh gate statuses
@@ -192,7 +205,7 @@ export default function HomeDetailPage() {
         if (params.id) {
           fetch(`/api/homes/${params.id}/forecast`)
             .then((res) => res.json())
-            .then((data) => setHome(data))
+            .then((data) => setHome(normalizeHome(data) ?? data))
           fetch(`/api/homes/${params.id}/gates`)
             .then((res) => res.json())
             .then((data) => setGateStatuses(data))
@@ -267,7 +280,7 @@ export default function HomeDetailPage() {
   // Group tasks by category (guard against missing tasks)
   const tasksList = home.tasks ?? []
   const tasksByCategory = tasksList.reduce((acc, task) => {
-    const category = task.templateItem.optionalCategory || "Uncategorized"
+    const category = task.templateItem?.optionalCategory || "Uncategorized"
     if (!acc[category]) {
       acc[category] = []
     }
@@ -358,7 +371,7 @@ export default function HomeDetailPage() {
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold tracking-tight">{home.addressOrLot}</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {home.subdivision.name}
+                  {home.subdivision?.name ?? "—"}
                   {home.hasPlan && (home.planName || home.planVariant) && (
                     <span> • {[home.planName, home.planVariant].filter(Boolean).join(" – ")}</span>
                   )}
@@ -515,7 +528,7 @@ export default function HomeDetailPage() {
                                 {blocked && (
                                   <Lock className="h-3.5 w-3.5 shrink-0 text-orange-600" aria-hidden />
                                 )}
-                                {task.templateItem.isCriticalGate && (
+                                {task.templateItem?.isCriticalGate && (
                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
                                     Gate
                                   </Badge>
