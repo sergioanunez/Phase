@@ -83,8 +83,6 @@ export async function GET(request: NextRequest) {
     }
     // Manager, Admin, or other: allowedHomeIds stays null => all homes
 
-    const companyId = ctx.companyId!
-
     const [taskLogs, punchLogs] = await Promise.all([
       prisma.auditLog.findMany({
         where: {

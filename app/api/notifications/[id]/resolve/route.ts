@@ -10,10 +10,11 @@ const BUILDER_ROLES = ["Admin", "Manager", "Superintendent"]
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (isBuildTime) return buildGuardResponse()
   try {
+    const { id } = await params
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
@@ -33,13 +34,13 @@ export async function POST(
     }
 
     const notification = await prisma.notification.findFirst({
-      where: { id: params.id, companyId },
+      where: { id, companyId },
     })
     if (!notification) {
       return NextResponse.json({ error: "Notification not found" }, { status: 404 })
     }
 
-    await resolveNotification(params.id, session.user.id)
+    await resolveNotification(id, session.user.id)
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     console.error("Resolve notification error:", error)

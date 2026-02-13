@@ -15,16 +15,17 @@ export const fetchCache = "force-no-store"
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: homeId } = await params
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("homes:read")
 
     const homeForAccess = await prisma.home.findFirst({
-      where: { id: params.id, companyId: ctx.companyId },
+      where: { id: homeId, companyId: ctx.companyId },
       include: {
         assignments: { select: { superintendentUserId: true } },
       },
@@ -44,10 +45,10 @@ export async function GET(
     }
 
     const previousForecast = homeForAccess.forecastCompletionDate
-    await computeHomeForecast(params.id)
+    await computeHomeForecast(homeId)
 
     const home = await prisma.home.findUnique({
-      where: { id: params.id },
+      where: { id: homeId },
       include: {
         subdivision: true,
         tasks: {
@@ -77,23 +78,6 @@ export async function GET(
 
     if (!home) {
       return NextResponse.json({ error: "Home not found" }, { status: 404 })
-    }
-
-    const companyId = home.companyId
-    if (
-      companyId &&
-      previousForecast &&
-      home.forecastCompletionDate &&
-      home.forecastCompletionDate > previousForecast
-    ) {
-      const { notifyForecastSlip } = await import("@/lib/notificationRules")
-      await notifyForecastSlip({
-        companyId,
-        homeId: home.id,
-        homeLabel: home.addressOrLot ?? "Home",
-        previousForecast,
-        newForecast: home.forecastCompletionDate,
-      }).catch((err) => console.error("notifyForecastSlip:", err))
     }
 
     const companyId = home.companyId
