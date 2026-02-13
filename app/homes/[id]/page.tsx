@@ -400,17 +400,17 @@ export default function HomeDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
-      <div className="app-container">
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <Button
           variant="ghost"
           onClick={() => router.back()}
-          className="-ml-2 mb-2 text-muted-foreground hover:text-foreground"
+          className="mb-2 text-muted-foreground hover:text-foreground"
         >
           ← Homes
         </Button>
 
         {/* Header card */}
-        <Card className="mb-4">
+        <Card className="w-full mb-4">
           <CardContent className="p-5">
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex-1 min-w-0">
@@ -471,7 +471,7 @@ export default function HomeDetailPage() {
 
         {/* Timeline */}
         {home.startDate && (home.forecastCompletionDate || home.targetCompletionDate) && (
-          <Card className="mb-4">
+          <Card className="w-full mb-4">
             <CardContent className="relative p-5">
               <div className="relative flex items-end justify-between">
                 <div className="flex flex-col items-center">
@@ -508,7 +508,7 @@ export default function HomeDetailPage() {
 
         {/* Phase cards or empty state */}
         {sortedCategories.length === 0 ? (
-          <Card className="mb-4">
+          <Card className="w-full mb-4">
             <CardContent className="py-10 text-center">
               <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
               <p className="font-medium text-muted-foreground">No work items for this home</p>
@@ -524,8 +524,8 @@ export default function HomeDetailPage() {
             const { total, completed, progress } = calculateCategoryProgress(categoryTasks)
 
             return (
-              <AccordionItem key={category} value={category} className="border-none">
-                <Card>
+              <AccordionItem key={category} value={category} className="border-none w-full">
+                <Card className="w-full">
                   <AccordionTrigger className="group px-5 py-4 hover:no-underline [&>svg]:hidden [&[data-state=open]_svg]:rotate-90">
                     <div className="flex w-full flex-col items-start gap-2 text-left">
                       <div className="flex w-full items-center justify-between">
@@ -550,13 +550,13 @@ export default function HomeDetailPage() {
                     </div>
                   </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-3 pt-2">
                     {categoryTasks.map((task) => {
                       const blocked = isTaskBlocked(task)
                       return (
                         <Card
                           key={task.id}
-                          className={`rounded-lg border shadow-none ${
+                          className={`w-full rounded-lg border shadow-none ${
                             canEdit ? "cursor-pointer hover:bg-gray-50/80 transition-colors" : ""
                           } ${
                             task.status === "Completed" ? "bg-green-50/80 border-green-200" : ""
