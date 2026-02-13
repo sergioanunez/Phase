@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import logoImage from "../public/logo.png"
+import { UserMenu } from "@/components/user-menu"
 
 type Branding = { pricingTier: string; logoUrl: string | null; brandAppName: string | null; brandingUpdatedAt?: string } | null
 
@@ -59,18 +60,21 @@ export function AppHeader() {
             />
           )}
         </Link>
-        <Link
-          href="/notifications"
-          className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-100 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-          aria-label={notificationCount > 0 ? `${notificationCount} notifications` : "Notifications"}
-        >
-          <Bell className="h-5 w-5" />
-          {notificationCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
-              {notificationCount > 99 ? "99+" : notificationCount}
-            </span>
-          )}
-        </Link>
+        <div className="flex items-center gap-3 pr-4 sm:pr-6">
+          <Link
+            href="/notifications"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+            aria-label={notificationCount > 0 ? `${notificationCount} notifications` : "Notifications"}
+          >
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </span>
+            )}
+          </Link>
+          <UserMenu />
+        </div>
       </div>
     </header>
   )

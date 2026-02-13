@@ -10,7 +10,6 @@ const cormorantGaramond = Cormorant_Garamond({
 })
 import dynamic from "next/dynamic"
 import { Providers } from "./providers"
-import { UserMenu } from "@/components/user-menu"
 import { AppHeader } from "@/components/app-header"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 
@@ -52,7 +51,6 @@ export default async function RootLayout({
           <Providers>
             <ImpersonationBanner />
             <AppHeader />
-            <UserMenu />
             {children}
             <AIAssistant />
           </Providers>

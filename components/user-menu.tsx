@@ -18,19 +18,18 @@ export function UserMenu() {
   if (!session?.user) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Menu"
-          >
-            <MoreVertical className="h-5 w-5" />
-            <span className="sr-only">User menu</span>
-          </Button>
-        </DropdownMenuTrigger>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 shrink-0 rounded-full hover:bg-muted transition-colors"
+          title="Menu"
+        >
+          <MoreVertical className="h-5 w-5" />
+          <span className="sr-only">User menu</span>
+        </Button>
+      </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
@@ -51,7 +50,6 @@ export function UserMenu() {
             <span>Sign out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    </DropdownMenu>
   )
 }
