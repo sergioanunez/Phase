@@ -151,10 +151,9 @@ export default function HomeDetailPage() {
   }
 
   const handleTaskClick = (task: HomeTask) => {
-    if (session?.user?.role === "Superintendent" || session?.user?.role === "Admin") {
-      setSelectedTask(task)
-      setModalOpen(true)
-    }
+    if (!canEdit) return
+    setSelectedTask(task)
+    setModalOpen(true)
   }
 
   const handleTaskUpdate = () => {
