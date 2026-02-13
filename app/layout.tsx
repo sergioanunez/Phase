@@ -76,7 +76,6 @@ export default async function RootLayout({
         <Providers>
           <ImpersonationBanner />
           <AppHeader />
-          <UserMenu />
           {children}
           <AIAssistant />
         </Providers>
