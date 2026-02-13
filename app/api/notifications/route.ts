@@ -28,17 +28,39 @@ function getRecentSince(): Date {
   return since
 }
 
+const BUILDER_ROLES = ["Admin", "Manager", "Superintendent"]
+
 export async function GET(request: NextRequest) {
   if (isBuildTime) return buildGuardResponse()
   try {
     const { requireTenantContext } = await import("@/lib/tenant")
     const { prisma } = await import("@/lib/prisma")
     const { handleApiError } = await import("@/lib/api-response")
+    const { listNotificationsForUser, toNotificationTargetRole } = await import("@/lib/notifications")
 
     const ctx = await requireTenantContext()
-    const since = getRecentSince()
+    const companyId = ctx.companyId!
 
-    // Resolve which home IDs this user should see notifications for
+    if (BUILDER_ROLES.includes(ctx.role)) {
+      const targetRole = toNotificationTargetRole(ctx.role)
+      if (!targetRole) {
+        return NextResponse.json({ kind: "hierarchy", notifications: [], count: 0 })
+      }
+      const onlyRequiresAction = request.nextUrl.searchParams.get("onlyRequiresAction") === "true"
+      const category = request.nextUrl.searchParams.get("category") as import("@prisma/client").NotificationCategory | null
+      const list = await listNotificationsForUser({
+        userId: ctx.userId,
+        role: targetRole,
+        companyId,
+        onlyRequiresAction: onlyRequiresAction || undefined,
+        category: category || undefined,
+      })
+      const count = list.filter((n) => !n.reviewedAt).length
+      return NextResponse.json({ kind: "hierarchy", notifications: list, count })
+    }
+
+    const since = getRecentSince()
+    // Resolve which home IDs this user should see notifications for (activity feed for non-builders)
     let allowedHomeIds: string[] | null = null // null = all homes in tenant
     if (ctx.role === "Superintendent") {
       const assignments = await prisma.homeAssignment.findMany({
@@ -47,7 +69,7 @@ export async function GET(request: NextRequest) {
       })
       allowedHomeIds = assignments.map((a) => a.homeId)
       if (allowedHomeIds.length === 0) {
-        return NextResponse.json({ notifications: [], count: 0 })
+        return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
       }
     } else if (ctx.role === "Subcontractor" && ctx.contractorId) {
       const assignments = await prisma.contractorAssignment.findMany({
@@ -56,7 +78,7 @@ export async function GET(request: NextRequest) {
       })
       allowedHomeIds = assignments.map((a) => a.homeId)
       if (allowedHomeIds.length === 0) {
-        return NextResponse.json({ notifications: [], count: 0 })
+        return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
       }
     }
     // Manager, Admin, or other: allowedHomeIds stays null => all homes
@@ -191,7 +213,7 @@ export async function GET(request: NextRequest) {
     notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     const slice = notifications.slice(0, 50)
 
-    return NextResponse.json({ notifications: slice, count: slice.length })
+    return NextResponse.json({ kind: "activity", notifications: slice, count: slice.length })
   } catch (error: unknown) {
     console.error("Failed to fetch notifications:", error)
     if (isBuildTime) return buildGuardResponse()
@@ -199,7 +221,7 @@ export async function GET(request: NextRequest) {
       const { handleApiError } = await import("@/lib/api-response")
       return handleApiError(error)
     } catch {
-      return NextResponse.json({ notifications: [], count: 0 })
+      return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
     }
   }
 }

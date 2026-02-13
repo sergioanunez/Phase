@@ -398,6 +398,31 @@ export async function PATCH(
 
     await createAuditLog(ctx.userId, "HomeTask", params.id, "UPDATE", before, after, ctx.companyId)
 
+    const companyId = after.companyId ?? ctx.companyId
+    if (companyId && after.home) {
+      const { notifyTaskScheduled, notifyTaskCompleted } = await import("@/lib/notificationRules")
+      const homeLabel = (after.home as { addressOrLot?: string }).addressOrLot ?? "Home"
+      if (before.status !== "Scheduled" && after.status === "Scheduled" && after.scheduledDate) {
+        await notifyTaskScheduled({
+          companyId,
+          homeId: after.homeId,
+          taskId: params.id,
+          taskName: after.nameSnapshot,
+          homeLabel,
+          scheduledDate: after.scheduledDate,
+        }).catch((err) => console.error("notifyTaskScheduled:", err))
+      }
+      if (before.status !== "Completed" && after.status === "Completed") {
+        await notifyTaskCompleted({
+          companyId,
+          homeId: after.homeId,
+          taskId: params.id,
+          taskName: after.nameSnapshot,
+          homeLabel,
+        }).catch((err) => console.error("notifyTaskCompleted:", err))
+      }
+    }
+
     return NextResponse.json(after)
   } catch (error: any) {
     if (error instanceof z.ZodError) {

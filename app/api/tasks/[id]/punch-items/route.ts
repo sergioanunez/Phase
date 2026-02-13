@@ -197,6 +197,23 @@ export async function POST(
       result
     )
 
+    const { notifyPunchAdded } = await import("@/lib/notificationRules")
+    const task = await prisma.homeTask.findUnique({
+      where: { id: params.id },
+      include: { home: { select: { addressOrLot: true } } },
+    })
+    if (task?.home && task.companyId) {
+      await notifyPunchAdded({
+        companyId: task.companyId,
+        homeId: result.homeId,
+        punchId: result.id,
+        taskId: params.id,
+        punchTitle: result.title,
+        homeLabel: task.home.addressOrLot,
+        createdByUserId: user.id,
+      }).catch((err) => console.error("notifyPunchAdded:", err))
+    }
+
     return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
     if (error instanceof z.ZodError) {

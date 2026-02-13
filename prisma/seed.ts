@@ -437,6 +437,40 @@ async function main() {
     }
   }
 
+  // Sample notifications for builder testing (tenant-level only; no SUPER_ADMIN)
+  await prisma.notification.create({
+    data: {
+      companyId,
+      severity: "ATTENTION",
+      category: "SCHEDULE",
+      title: "Task scheduled for tomorrow",
+      message: "Framing at 123 Oakwood Drive is scheduled for tomorrow.",
+      entityType: "TASK",
+      entityId: home1Tasks.length >= 2 ? home1Tasks[1].id : null,
+      homeId: home1.id,
+      createdByUserId: admin.id,
+      targetRole: "ANY",
+      requiresAction: false,
+      createdAt: new Date(),
+    },
+  })
+  await prisma.notification.create({
+    data: {
+      companyId,
+      severity: "INFO",
+      category: "QUALITY",
+      title: "Punch item added",
+      message: "A punch item was added to Structural Walkthrough at 123 Oakwood Drive.",
+      entityType: "PUNCH",
+      entityId: null,
+      homeId: home1.id,
+      targetRole: "SUPERINTENDENT",
+      requiresAction: false,
+      createdAt: new Date(),
+    },
+  })
+  console.log("Created sample notifications for builder testing")
+
   console.log("Seeding completed!")
   console.log("\nTest accounts:")
   console.log("Admin: admin@cullers.com / admin123")

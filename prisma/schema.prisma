@@ -111,6 +111,35 @@ enum BillingStatus {
   CANCELED
 }
 
+enum NotificationSeverity {
+  CRITICAL
+  ATTENTION
+  INFO
+}
+
+enum NotificationCategory {
+  SCHEDULE
+  QUALITY
+  CONTRACTOR
+  SYSTEM
+}
+
+enum NotificationEntityType {
+  HOME
+  TASK
+  PUNCH
+  CONTRACTOR
+  USER
+  SYSTEM
+}
+
+enum NotificationTargetRole {
+  SUPERINTENDENT
+  MANAGER
+  ADMIN
+  ANY
+}
+
 model Company {
   id                   String       @id @default(cuid())
   name                 String
@@ -157,6 +186,7 @@ model Company {
   categoryGates CategoryGate[]
   smsMessages   SmsMessage[]
   smsMessageLogs SmsMessageLog[]
+  notifications Notification[]
 
   @@index([pricingTier])
   @@index([status])
@@ -209,6 +239,7 @@ model User {
   planUploadedHomes   Home[]           @relation("PlanUploader")
   invitesCreated      UserInvite[]     @relation("InvitesCreatedBy")
   invites             UserInvite[]     @relation("UserInvites")
+  createdNotifications Notification[]  @relation("NotificationCreatedBy")
 
   @@index([companyId])
   @@index([email])
@@ -573,4 +604,32 @@ model CategoryGate {
   @@unique([companyId, categoryName])
   @@index([companyId])
   @@index([categoryName])
+}
+
+model Notification {
+  id                String                   @id @default(cuid())
+  companyId         String
+  company           Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  severity          NotificationSeverity
+  category          NotificationCategory
+  title             String
+  message           String
+  entityType        NotificationEntityType
+  entityId          String?
+  homeId            String?
+  createdByUserId   String?
+  createdBy         User?                    @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  targetRole        NotificationTargetRole
+  targetUserId      String?
+  requiresAction    Boolean                  @default(false)
+  reviewedAt        DateTime?
+  resolvedAt       DateTime?
+  expiresAt        DateTime?
+  createdAt         DateTime                 @default(now())
+
+  @@index([companyId])
+  @@index([homeId])
+  @@index([targetUserId])
+  @@index([companyId, entityType, entityId, category, severity])
+  @@index([createdAt])
 }

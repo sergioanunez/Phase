@@ -108,6 +108,19 @@ export async function POST(
 
     await createAuditLog(user.id, "HomeTask", params.id, "UPDATE", before, after, before.home.companyId ?? undefined)
 
+    const companyId = before.home.companyId
+    if (companyId) {
+      const { notifyTaskRescheduled } = await import("@/lib/notificationRules")
+      await notifyTaskRescheduled({
+        companyId,
+        homeId: before.homeId,
+        taskId: params.id,
+        taskName: after.nameSnapshot,
+        homeLabel: after.home.addressOrLot,
+        isCriticalPath: before.isCriticalPath ?? false,
+      }).catch((err) => console.error("notifyTaskRescheduled:", err))
+    }
+
     return NextResponse.json(after)
   } catch (error: any) {
     if (error instanceof z.ZodError) {

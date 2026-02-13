@@ -43,6 +43,7 @@ export async function GET(
       }
     }
 
+    const previousForecast = homeForAccess.forecastCompletionDate
     await computeHomeForecast(params.id)
 
     const home = await prisma.home.findUnique({
@@ -76,6 +77,40 @@ export async function GET(
 
     if (!home) {
       return NextResponse.json({ error: "Home not found" }, { status: 404 })
+    }
+
+    const companyId = home.companyId
+    if (
+      companyId &&
+      previousForecast &&
+      home.forecastCompletionDate &&
+      home.forecastCompletionDate > previousForecast
+    ) {
+      const { notifyForecastSlip } = await import("@/lib/notificationRules")
+      await notifyForecastSlip({
+        companyId,
+        homeId: home.id,
+        homeLabel: home.addressOrLot ?? "Home",
+        previousForecast,
+        newForecast: home.forecastCompletionDate,
+      }).catch((err) => console.error("notifyForecastSlip:", err))
+    }
+
+    const companyId = home.companyId
+    if (
+      companyId &&
+      previousForecast &&
+      home.forecastCompletionDate &&
+      home.forecastCompletionDate > previousForecast
+    ) {
+      const { notifyForecastSlip } = await import("@/lib/notificationRules")
+      await notifyForecastSlip({
+        companyId,
+        homeId: home.id,
+        homeLabel: home.addressOrLot ?? "Home",
+        previousForecast,
+        newForecast: home.forecastCompletionDate,
+      }).catch((err) => console.error("notifyForecastSlip:", err))
     }
 
     return NextResponse.json(home)
