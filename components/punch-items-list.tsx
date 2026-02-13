@@ -14,6 +14,10 @@ import { PunchItemModal } from "@/components/punch-item-modal"
 import { PunchStatus } from "@prisma/client"
 import { format } from "date-fns"
 import { Plus, Edit2, Filter, MessageSquare, Check, Trash2 } from "lucide-react"
+import {
+  buildPunchlistWhatsAppText,
+  openWhatsAppShare,
+} from "@/lib/share/whatsapp"
 
 interface Contractor {
   id: string
@@ -50,6 +54,12 @@ interface PunchItemsListProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: () => void
+  /** Required for WhatsApp share deep link */
+  homeId?: string
+  /** e.g. "Lot 17" or address */
+  homeLabel?: string
+  /** e.g. "Cullers Homes" (company/subdivision name) */
+  contextLabel?: string
 }
 
 export function PunchItemsList({
@@ -58,6 +68,9 @@ export function PunchItemsList({
   open,
   onOpenChange,
   onUpdate,
+  homeId,
+  homeLabel,
+  contextLabel,
 }: PunchItemsListProps) {
   const [punchItems, setPunchItems] = useState<PunchItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,6 +135,29 @@ export function PunchItemsList({
     onUpdate()
     setPunchModalOpen(false)
     setEditingPunchItem(null)
+  }
+
+  const handleShareViaWhatsApp = () => {
+    if (punchItems.length === 0 || !homeId) return
+    const dueDates = punchItems
+      .map((i) => i.dueDate)
+      .filter((d): d is string => d != null)
+    const dueDate =
+      dueDates.length > 0
+        ? dueDates.reduce((a, b) => (a > b ? a : b))
+        : undefined
+    const text = buildPunchlistWhatsAppText({
+      contextLabel: contextLabel ?? undefined,
+      homeLabel: homeLabel ?? undefined,
+      taskName,
+      punchItems: punchItems.map((i) => ({ title: i.title })),
+      dueDate: dueDate ?? undefined,
+      homeId,
+    })
+    openWhatsAppShare(text)
+    if (typeof window !== "undefined") {
+      console.log("share_whatsapp_punchlist", { homeId, itemCount: punchItems.length })
+    }
   }
 
   const handleSendPunchListSMS = async () => {
@@ -262,7 +298,20 @@ export function PunchItemsList({
                   Closed
                 </Button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleShareViaWhatsApp}
+                  disabled={punchItems.length === 0 || !homeId}
+                  title={
+                    punchItems.length === 0 || !homeId
+                      ? "No punch items to share"
+                      : "Share punch list via WhatsApp"
+                  }
+                >
+                  Send via WhatsApp
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"

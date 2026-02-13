@@ -12,7 +12,8 @@ import { TaskModal } from "@/components/task-modal"
 import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
-import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight } from "lucide-react"
+import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Share2 } from "lucide-react"
+import { buildWorkItemWhatsAppText, openWhatsAppShare } from "@/lib/share/whatsapp"
 import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
 import { cn } from "@/lib/utils"
@@ -209,6 +210,24 @@ export default function HomeDetailPage() {
     setPunchTaskId(task.id)
     setPunchTaskName(task.nameSnapshot)
     setPunchListOpen(true)
+  }
+
+  const handleShareWorkItemWhatsApp = (e: React.MouseEvent, task: HomeTask) => {
+    e.stopPropagation()
+    const text = buildWorkItemWhatsAppText({
+      contextLabel: home.subdivision?.name ?? undefined,
+      homeLabel: home.addressOrLot,
+      taskName: task.nameSnapshot,
+      status: task.status,
+      scheduledDate: task.scheduledDate ?? undefined,
+      contractorName: task.contractor?.companyName ?? undefined,
+      homeId: home.id,
+      taskId: task.id,
+    })
+    openWhatsAppShare(text)
+    if (typeof window !== "undefined") {
+      console.log("share_whatsapp_work_item", { taskId: task.id, homeId: home.id })
+    }
   }
 
   const handleMarkCompleted = (e: React.MouseEvent, task: HomeTask) => {
@@ -651,6 +670,15 @@ export default function HomeDetailPage() {
                                     {markingTaskId === task.id ? "Saving..." : "Mark Completed"}
                                   </Button>
                                 )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleShareWorkItemWhatsApp(e, task)}
+                                className="shrink-0 min-h-[44px] h-9 px-2"
+                                title="Share via WhatsApp"
+                              >
+                                <Share2 className="h-4 w-4" />
+                              </Button>
                               {(canEdit || session?.user?.role === "Manager") && (
                                 <Button
                                   variant="outline"
@@ -694,6 +722,9 @@ export default function HomeDetailPage() {
           open={punchListOpen}
           onOpenChange={setPunchListOpen}
           onUpdate={handlePunchUpdate}
+          homeId={home.id}
+          homeLabel={home.addressOrLot}
+          contextLabel={home.subdivision?.name ?? undefined}
         />
       )}
 
