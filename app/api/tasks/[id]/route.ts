@@ -137,8 +137,14 @@ export async function PATCH(
         return NextResponse.json({ error: "Task not found" }, { status: 404 })
       }
 
+      // Include deps with companyId match or null (template deps created via Admin often have null companyId)
       const templateDeps = await prisma.templateDependency.findMany({
-        where: { companyId: ctx.companyId, templateItemId: currentTaskWithTemplate.templateItemId },
+        where: {
+          templateItemId: currentTaskWithTemplate.templateItemId,
+          OR: ctx.companyId
+            ? [{ companyId: ctx.companyId }, { companyId: null }]
+            : [{ companyId: null }],
+        },
       })
 
       if (templateDeps.length > 0) {
@@ -212,12 +218,18 @@ export async function PATCH(
 
       const currentCategoryIndex = getCategoryIndex(currentTaskCategory)
 
-      // Check category gates - only check categories that are marked as gates
-      const categoryGates = await prisma.categoryGate.findMany()
-      
+      // Check category gates for this tenant only
+      const categoryGates = await prisma.categoryGate.findMany({
+        where:
+          ctx.companyId != null ? { companyId: ctx.companyId } : { companyId: null },
+      })
+
+      const normalizeCategory = (c: string | null) =>
+        (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
+
       for (const categoryGate of categoryGates) {
         const gateCategoryIndex = getCategoryIndex(categoryGate.categoryName)
-        
+
         // Only check gates for categories before the current task's category
         if (gateCategoryIndex >= currentCategoryIndex) {
           continue
@@ -234,9 +246,11 @@ export async function PATCH(
         }
 
         if (gateApplies) {
-          // Check if all tasks in the gated category are completed
+          // Check if all tasks in the gated category are completed (match by normalized name)
+          const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
           const gatedCategoryTasks = allTasks.filter(
-            (task) => (task.templateItem?.optionalCategory || "Uncategorized") === categoryGate.categoryName
+            (task) =>
+              normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
           )
 
           const incompleteGatedTasks = gatedCategoryTasks.filter(

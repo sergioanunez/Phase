@@ -112,9 +112,13 @@ export async function POST(
 
     const currentCategoryIndex = getCategoryIndex(currentTaskCategory)
 
-    // Check category gates - only check categories that are marked as gates
-    const categoryGates = await prisma.categoryGate.findMany()
-    
+    const companyId = task.home?.companyId ?? null
+    const categoryGates = await prisma.categoryGate.findMany({
+      where: companyId != null ? { companyId } : { companyId: null },
+    })
+    const normalizeCategory = (c: string | null) =>
+      (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
+
     for (const categoryGate of categoryGates) {
       const gateCategoryIndex = getCategoryIndex(categoryGate.categoryName)
       
@@ -134,9 +138,9 @@ export async function POST(
       }
 
       if (gateApplies) {
-        // Check if all tasks in the gated category are completed
+        const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
         const gatedCategoryTasks = allTasks.filter(
-          (t) => (t.templateItem?.optionalCategory || "Uncategorized") === categoryGate.categoryName
+          (t) => normalizeCategory(t.templateItem?.optionalCategory ?? null) === gateCategoryNorm
         )
 
         const incompleteGatedTasks = gatedCategoryTasks.filter(

@@ -45,9 +45,20 @@ export async function getTaskSchedulingBlockReason(
   const currentTask = allTasks.find((t) => t.id === taskId)
   if (!currentTask) return null
 
-  // 1. Template-level dependencies
+  const home = await prisma.home.findUnique({
+    where: { id: homeId },
+    select: { companyId: true },
+  })
+  const companyId = home?.companyId ?? null
+
+  // 1. Template-level dependencies (include null companyId so Admin-created deps apply)
   const templateDeps = await prisma.templateDependency.findMany({
-    where: { templateItemId: currentTask.templateItemId },
+    where: {
+      templateItemId: currentTask.templateItemId,
+      OR: companyId
+        ? [{ companyId }, { companyId: null }]
+        : [{ companyId: null }],
+    },
   })
   if (templateDeps.length > 0) {
     const prereqTasks = allTasks.filter((t) =>
@@ -65,8 +76,13 @@ export async function getTaskSchedulingBlockReason(
   const currentTaskIndex = allTasks.findIndex((t) => t.id === taskId)
   const currentCategoryIndex = getCategoryIndex(currentTaskCategory)
 
-  // 2. Category gates
-  const categoryGates = await prisma.categoryGate.findMany()
+  // 2. Category gates (tenant-scoped)
+  const categoryGates = await prisma.categoryGate.findMany({
+    where:
+      companyId != null ? { companyId } : { companyId: null },
+  })
+  const normalizeCategory = (c: string | null) =>
+    (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
   for (const categoryGate of categoryGates) {
     const gateCategoryIndex = getCategoryIndex(categoryGate.categoryName)
     if (gateCategoryIndex >= currentCategoryIndex) continue
@@ -79,10 +95,10 @@ export async function getTaskSchedulingBlockReason(
     }
     if (!gateApplies) continue
 
+    const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
     const gatedCategoryTasks = allTasks.filter(
       (task) =>
-        (task.templateItem?.optionalCategory || "Uncategorized") ===
-        categoryGate.categoryName
+        normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
     )
     const incompleteGatedTasks = gatedCategoryTasks.filter(
       (task) => task.status !== "Completed" && task.status !== "Canceled"
@@ -136,13 +152,25 @@ export async function getTaskSchedulingBlockReasonsBatch(
   const results = new Map<string, string | null>()
   if (allTasks.length === 0) return results
 
+  const home = await prisma.home.findUnique({
+    where: { id: homeId },
+    select: { companyId: true },
+  })
+  const companyId = home?.companyId ?? null
+
   const [categoryGates, allTemplateDeps, homeTasksWithGates] = await Promise.all([
-    prisma.categoryGate.findMany(),
+    prisma.categoryGate.findMany({
+      where:
+        companyId != null ? { companyId } : { companyId: null },
+    }),
     prisma.templateDependency.findMany({
       where: {
         templateItemId: {
           in: [...new Set(allTasks.map((t) => t.templateItemId))],
         },
+        OR: companyId
+          ? [{ companyId }, { companyId: null }]
+          : [{ companyId: null }],
       },
     }),
     prisma.homeTask.findMany({
@@ -210,6 +238,8 @@ export async function getTaskSchedulingBlockReasonsBatch(
     }
 
     // 2. Category gates
+    const normalizeCategory = (c: string | null) =>
+      (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
     let categoryBlockReason: string | null = null
     for (const categoryGate of categoryGates) {
       const gateCategoryIndex = getCategoryIndex(categoryGate.categoryName)
@@ -219,10 +249,10 @@ export async function getTaskSchedulingBlockReasonsBatch(
       else if (categoryGate.gateScope === "DownstreamOnly")
         gateApplies = currentCategoryIndex > gateCategoryIndex
       if (!gateApplies) continue
+      const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
       const gatedCategoryTasks = allTasks.filter(
         (task) =>
-          (task.templateItem?.optionalCategory || "Uncategorized") ===
-          categoryGate.categoryName
+          normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
       )
       const incompleteGatedTasks = gatedCategoryTasks.filter(
         (task) => task.status !== "Completed" && task.status !== "Canceled"

@@ -110,8 +110,19 @@ export async function checkGateBlocking(
 
     const currentCategoryIndex = getCategoryIndex(taskCategory)
 
-    // Get all category gates
-    const categoryGates = await prisma.categoryGate.findMany()
+    const home = await prisma.home.findUnique({
+      where: { id: homeId },
+      select: { companyId: true },
+    })
+    const companyId = home?.companyId ?? null
+
+    // Get category gates for this tenant only
+    const categoryGates = await prisma.categoryGate.findMany({
+      where: companyId != null ? { companyId } : { companyId: null },
+    })
+
+    const normalizeCategory = (c: string | null) =>
+      (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
 
     // Check each category gate that comes before the current category
     for (const categoryGate of categoryGates) {
@@ -133,9 +144,10 @@ export async function checkGateBlocking(
       }
 
       if (gateApplies) {
-        // Check if all tasks in the gated category are completed
+        // Check if all tasks in the gated category are completed (normalized name match)
+        const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
         const gatedCategoryTasks = allTasks.filter(
-          (t) => (t.templateItem?.optionalCategory || "Uncategorized") === categoryGate.categoryName
+          (t) => normalizeCategory(t.templateItem?.optionalCategory ?? null) === gateCategoryNorm
         )
 
         const incompleteGatedTasks = gatedCategoryTasks.filter(
