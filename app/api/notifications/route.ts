@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
         timestamp: log.createdAt.toISOString(),
         userName: log.user?.name ?? "Someone",
       })
-    })
+    }
 
     notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     const slice = notifications.slice(0, 50)
