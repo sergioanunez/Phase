@@ -12,6 +12,7 @@ type Branding = { pricingTier: string; logoUrl: string | null; brandAppName: str
 export function AppHeader() {
   const pathname = usePathname()
   const [branding, setBranding] = useState<Branding>(null)
+  const [notificationCount, setNotificationCount] = useState<number>(0)
 
   useEffect(() => {
     if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
@@ -19,6 +20,14 @@ export function AppHeader() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setBranding({ pricingTier: data.pricingTier, logoUrl: data.logoUrl || null, brandAppName: data.brandAppName || null }))
       .catch(() => setBranding(null))
+  }, [pathname])
+
+  useEffect(() => {
+    if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
+    fetch("/api/notifications")
+      .then((res) => (res.ok ? res.json() : { count: 0 }))
+      .then((data) => setNotificationCount(data.count ?? 0))
+      .catch(() => setNotificationCount(0))
   }, [pathname])
 
   if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact") {
@@ -50,13 +59,18 @@ export function AppHeader() {
             />
           )}
         </Link>
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-100 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-          aria-label="Notifications"
+        <Link
+          href="/notifications"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-100 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+          aria-label={notificationCount > 0 ? `${notificationCount} notifications` : "Notifications"}
         >
           <Bell className="h-5 w-5" />
-        </button>
+          {notificationCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+              {notificationCount > 99 ? "99+" : notificationCount}
+            </span>
+          )}
+        </Link>
       </div>
     </header>
   )

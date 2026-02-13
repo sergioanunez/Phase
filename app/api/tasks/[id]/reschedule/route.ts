@@ -106,7 +106,7 @@ export async function POST(
       },
     })
 
-    await createAuditLog(user.id, "HomeTask", params.id, "UPDATE", before, after)
+    await createAuditLog(user.id, "HomeTask", params.id, "UPDATE", before, after, before.home.companyId ?? undefined)
 
     return NextResponse.json(after)
   } catch (error: any) {
