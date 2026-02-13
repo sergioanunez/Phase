@@ -214,6 +214,7 @@ export default function HomeDetailPage() {
 
   const handleShareWorkItemWhatsApp = (e: React.MouseEvent, task: HomeTask) => {
     e.stopPropagation()
+    if (!home) return
     const text = buildWorkItemWhatsAppText({
       contextLabel: home.subdivision?.name ?? undefined,
       homeLabel: home.addressOrLot,
