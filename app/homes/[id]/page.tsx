@@ -258,7 +258,10 @@ export default function HomeDetailPage() {
     )
   }
 
-  const canEdit = session?.user?.role === "Superintendent" || session?.user?.role === "Admin"
+  const canEdit =
+    session?.user?.role === "Superintendent" ||
+    session?.user?.role === "Admin" ||
+    session?.user?.role === "Manager"
   const canMarkComplete =
     session?.user?.role === "Superintendent" ||
     session?.user?.role === "Admin" ||

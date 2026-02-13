@@ -200,9 +200,19 @@ export async function POST(
     }
 
     // Validate Twilio configuration
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim()
+    if (!accountSid || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
       return NextResponse.json(
         { error: "Twilio is not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables." },
+        { status: 500 }
+      )
+    }
+    if (!accountSid.startsWith("AC")) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid TWILIO_ACCOUNT_SID: it must start with AC (from your Twilio console). Check your environment variables.",
+        },
         { status: 500 }
       )
     }
@@ -231,10 +241,13 @@ export async function POST(
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error("Failed to send confirmation:", error)
-    
+
     // Provide more specific error messages
     let errorMessage = "Failed to send confirmation SMS"
-    if (error.message) {
+    if (error?.message?.includes("accountSid must start with AC")) {
+      errorMessage =
+        "Invalid TWILIO_ACCOUNT_SID: it must start with AC (from your Twilio console). Check your environment variables."
+    } else if (error.message) {
       errorMessage = error.message
     } else if (error.code) {
       // Twilio-specific error codes

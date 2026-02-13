@@ -7,10 +7,15 @@ let _client: ReturnType<typeof twilio> | null = null
 
 function getClient(): ReturnType<typeof twilio> {
   if (_client == null) {
-    const sid = process.env.TWILIO_ACCOUNT_SID
+    const sid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim()
     const token = process.env.TWILIO_AUTH_TOKEN
     if (!sid || !token) {
-      throw new Error("Twilio credentials are not configured")
+      throw new Error("Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.")
+    }
+    if (!sid.startsWith("AC")) {
+      throw new Error(
+        "TWILIO_ACCOUNT_SID must be a valid Twilio Account SID (it should start with AC). Check your environment variables or Twilio console."
+      )
     }
     _client = twilio(sid, token)
   }
