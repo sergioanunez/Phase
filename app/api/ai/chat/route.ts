@@ -9,14 +9,21 @@ export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-// AI tools based on user role (prisma passed to avoid load at build time)
-async function getHomes(prisma: PrismaClient, filter: any, userId: string, role: string) {
-  const where: any = {}
-  if (filter.subdivisionId) where.subdivisionId = filter.subdivisionId
+// AI tools based on user role; all scoped to companyId (tenant)
+async function getHomes(
+  prisma: PrismaClient,
+  filter: any,
+  userId: string,
+  role: string,
+  companyId: string | null
+) {
+  if (!companyId) return []
+  const where: any = { companyId }
+  if (filter?.subdivisionId) where.subdivisionId = filter.subdivisionId
 
   if (role === "Superintendent") {
     const assignments = await prisma.homeAssignment.findMany({
-      where: { superintendentUserId: userId },
+      where: { superintendentUserId: userId, companyId },
       select: { homeId: true },
     })
     where.id = { in: assignments.map((a) => a.homeId) }
@@ -37,9 +44,16 @@ async function getHomes(prisma: PrismaClient, filter: any, userId: string, role:
   })
 }
 
-async function getHomeDetails(prisma: PrismaClient, homeId: string, userId: string, role: string) {
+async function getHomeDetails(
+  prisma: PrismaClient,
+  homeId: string,
+  userId: string,
+  role: string,
+  companyId: string | null
+) {
+  if (!companyId) return null
   const home = await prisma.home.findUnique({
-    where: { id: homeId },
+    where: { id: homeId, companyId },
     include: {
       subdivision: true,
       tasks: {
@@ -77,9 +91,11 @@ async function getTasks(
   },
   userId: string,
   role: string,
-  contractorId?: string | null
+  contractorId: string | null | undefined,
+  companyId: string | null
 ) {
-  const where: any = {}
+  if (!companyId) return []
+  const where: any = { home: { companyId } }
 
   if (filters.homeId) where.homeId = filters.homeId
   if (filters.contractorId) where.contractorId = filters.contractorId
@@ -91,7 +107,6 @@ async function getTasks(
     }
   }
 
-  // Subcontractor can only see their own tasks
   if (role === "Subcontractor") {
     if (!contractorId) return []
     where.contractorId = contractorId
@@ -111,18 +126,25 @@ async function getTasks(
   })
 }
 
-async function summarizeDelays(prisma: PrismaClient, userId: string, role: string) {
+async function summarizeDelays(
+  prisma: PrismaClient,
+  userId: string,
+  role: string,
+  companyId: string | null
+) {
+  if (!companyId) return []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const where: any = {
+    home: { companyId },
     status: { not: "Completed" },
     scheduledDate: { lt: today },
   }
 
   if (role === "Superintendent") {
     const assignments = await prisma.homeAssignment.findMany({
-      where: { superintendentUserId: userId },
+      where: { superintendentUserId: userId, companyId },
       select: { homeId: true },
     })
     where.homeId = { in: assignments.map((a) => a.homeId) }
@@ -149,12 +171,29 @@ export async function POST(request: NextRequest) {
     const { getServerSession } = await import("next-auth")
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const companyId = (session.user as { companyId?: string | null }).companyId ?? null
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "No company context. Sign in again or contact support." },
+        { status: 403 }
+      )
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey?.trim()) {
+      return NextResponse.json(
+        { error: "AI assistant is not configured. Contact your administrator." },
+        { status: 503 }
+      )
+    }
+
+    const openai = new OpenAI({ apiKey })
 
     const { messages } = await request.json()
 
@@ -265,7 +304,8 @@ export async function POST(request: NextRequest) {
                 prisma,
                 args.filter || {},
                 session.user.id,
-                session.user.role
+                session.user.role,
+                companyId
               )
               break
             case "getHomeDetails":
@@ -273,7 +313,8 @@ export async function POST(request: NextRequest) {
                 prisma,
                 args.homeId,
                 session.user.id,
-                session.user.role
+                session.user.role,
+                companyId
               )
               break
             case "getTasks":
@@ -282,11 +323,12 @@ export async function POST(request: NextRequest) {
                 args.filters || {},
                 session.user.id,
                 session.user.role,
-                session.user.contractorId
+                session.user.contractorId,
+                companyId
               )
               break
             case "summarizeDelays":
-              result = await summarizeDelays(prisma, session.user.id, session.user.role)
+              result = await summarizeDelays(prisma, session.user.id, session.user.role, companyId)
               break
             default:
               result = { error: "Unknown tool" }

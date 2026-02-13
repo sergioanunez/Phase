@@ -44,20 +44,30 @@ export function AIAssistant() {
         }),
       })
 
-      const data = await res.json()
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.message.content || "I'm sorry, I couldn't process that request.",
+      const data = await res.json().catch(() => ({}))
+      let content: string
+      if (res.ok && data.message?.content) {
+        content = data.message.content
+      } else {
+        content =
+          typeof data?.error === "string"
+            ? data.error
+            : !res.ok
+              ? "Something went wrong. Please try again."
+              : "I'm sorry, I couldn't process that request."
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content },
+      ])
     } catch (error) {
       console.error("AI chat error:", error)
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, an error occurred. Please try again.",
+          content: "Sorry, an error occurred. Please check your connection and try again.",
         },
       ])
     } finally {
