@@ -47,6 +47,7 @@ const BASE_FILTER_CHIPS = [
   { id: "inspection", label: "Inspections" },
   { id: "delivery", label: "Deliveries" },
   { id: "trade", label: "Trades" },
+  { id: "punchlist", label: "Punchlists" },
 ]
 const MANAGER_RISK_CHIPS = [
   { id: "at_risk", label: "At Risk" },

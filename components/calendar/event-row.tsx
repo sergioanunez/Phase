@@ -4,7 +4,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { CheckCircle2, Package, Wrench, AlertCircle, Flag } from "lucide-react"
 
-export type CalendarEventType = "inspection" | "delivery" | "trade" | "milestone"
+export type CalendarEventType = "inspection" | "delivery" | "trade" | "milestone" | "punchlist"
 export type EventStatus = "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 
 export interface EventRowData {
@@ -40,6 +40,8 @@ function EventIcon({ type, status }: { type: CalendarEventType; status?: EventSt
       return <Package className="h-5 w-5 shrink-0 text-amber-700" aria-hidden />
     case "milestone":
       return <Flag className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+    case "punchlist":
+      return <AlertCircle className="h-5 w-5 shrink-0 text-amber-700" aria-hidden />
     default:
       return <Wrench className="h-5 w-5 shrink-0 text-amber-700" aria-hidden />
   }
