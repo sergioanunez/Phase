@@ -90,8 +90,8 @@ export default function NotificationsPage() {
     if (isBuilder && onlyRequiresAction) params.set("onlyRequiresAction", "true")
     if (isBuilder && categoryFilter) params.set("category", categoryFilter)
     fetch(`/api/notifications?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : {})) as Promise<{ kind?: "hierarchy" | "activity"; notifications?: HierarchyNotification[] | NotificationItem[] }>
-      .then((data) => {
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: { kind?: "hierarchy" | "activity"; notifications?: HierarchyNotification[] | NotificationItem[] }) => {
         setKind(data.kind ?? "activity")
         setHierarchyList(data.kind === "hierarchy" ? (data.notifications ?? []) : [])
         setActivityList((data.notifications ?? []) as NotificationItem[])
