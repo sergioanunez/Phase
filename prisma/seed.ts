@@ -88,6 +88,28 @@ async function main() {
   })
   console.log("Upserted admin user:", admin.email)
 
+  // Always upsert Super Admin (platform user, no company) so it exists even when demo data is skipped
+  const superAdminPassword = await bcrypt.hash("superadmin123", 10)
+  await prisma.user.upsert({
+    where: { email: "superadmin@usephase.app" },
+    create: {
+      name: "Super Admin",
+      email: "superadmin@usephase.app",
+      passwordHash: superAdminPassword,
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+      companyId: null,
+      isActive: true,
+    },
+    update: {
+      passwordHash: superAdminPassword,
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+      isActive: true,
+    },
+  })
+  console.log("Upserted super admin: superadmin@usephase.app")
+
   // Optional: bootstrap full demo data only if this tenant has no subdivisions yet
   const existingSubdivisions = await prisma.subdivision.count({
     where: { companyId },
@@ -96,6 +118,7 @@ async function main() {
     console.log("Demo data already present for tenant; skipping full seed.")
     console.log("\nTest accounts (if already created):")
     console.log("Admin:", ADMIN_EMAIL, "/ admin123")
+    console.log("Super admin: superadmin@usephase.app / superadmin123")
     console.log("Superintendent: super@cullers.com / super123")
     console.log("Manager: manager@cullers.com / manager123")
     console.log("Subcontractor: sub@cullers.com / sub123")
@@ -203,27 +226,6 @@ async function main() {
       isActive: true,
     },
     update: { companyId, name: "Subcontractor User", passwordHash: subcontractorPassword, role: "Subcontractor", contractorId: contractor1.id, isActive: true },
-  })
-
-  // Super Admin (internal control tower; no companyId)
-  const superAdminPassword = await bcrypt.hash("superadmin123", 10)
-  await prisma.user.upsert({
-    where: { email: "superadmin@buildflow.com" },
-    create: {
-      name: "Super Admin",
-      email: "superadmin@buildflow.com",
-      passwordHash: superAdminPassword,
-      role: "SUPER_ADMIN",
-      status: "ACTIVE",
-      companyId: null,
-      isActive: true,
-    },
-    update: {
-      passwordHash: superAdminPassword,
-      role: "SUPER_ADMIN",
-      status: "ACTIVE",
-      isActive: true,
-    },
   })
 
   console.log("Created users")

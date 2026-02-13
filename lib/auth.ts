@@ -50,7 +50,19 @@ async function resolveTenantForSignIn(
       }
       return { companyId: company.id, resolution: "email_domain" }
     }
-    if (isMainDomain()) {
+    // Allow platform users (companyId: null) when domain has no tenant - e.g. superadmin@usephase.app
+    const isAppDomain = domain === MAIN_DOMAIN || (typeof process !== "undefined" && process.env.NEXTAUTH_URL?.includes(domain))
+    if (isMainDomain() || isAppDomain) {
+      const platformUser = await prisma.user.findFirst({
+        where: { email: emailLower, companyId: null },
+        select: { id: true },
+      })
+      if (platformUser) {
+        if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+          console.log("[auth] tenant_resolution=none (platform user)")
+        }
+        return null
+      }
       throw new Error("No tenant found for email domain \"" + domain + "\". Please contact your administrator.")
     }
   }
