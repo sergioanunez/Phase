@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       name: data.name,
       inviteLink,
       expiresAt,
+      invitingCompanyName: ctx.companyName,
     })
 
     if (!emailResult.ok) {

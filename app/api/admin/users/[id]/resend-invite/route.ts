@@ -110,6 +110,7 @@ export async function POST(
       name: user.name,
       inviteLink,
       expiresAt,
+      invitingCompanyName: ctx.companyName,
     })
 
     await createAuditLog(ctx.userId, "UserInvite", latestInvite.id, "INVITE_RESENT", null, {
