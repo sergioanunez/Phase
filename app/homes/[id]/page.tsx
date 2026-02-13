@@ -87,24 +87,41 @@ export default function HomeDetailPage() {
 
   useEffect(() => {
     if (params.id) {
-      // Load full home (address, subdivision, tasks) from GET /api/homes/[id]; forecast API is a stub and returns no real data
-      fetch(`/api/homes/${params.id}`)
-        .then((res) => {
-          if (!res.ok) {
+      // Load home with forecast (longest dependency chain); fall back to GET home if forecast fails (e.g. cycle)
+      fetch(`/api/homes/${params.id}/forecast`)
+        .then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })))
+        .then(({ ok, status, data }) => {
+          if (ok && data && !data.error) {
+            setHome(data)
+            setLoading(false)
+            return
+          }
+          if (status === 404 || status === 403) {
             setHome(null)
             setLoading(false)
             return
           }
-          return res.json()
-        })
-        .then((data) => {
-          if (data != null) setHome(data)
-          setLoading(false)
+          return fetch(`/api/homes/${params.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((fallback) => {
+              if (fallback) setHome(fallback)
+              else setHome(null)
+              setLoading(false)
+            })
         })
         .catch((err) => {
           console.error(err)
-          setHome(null)
-          setLoading(false)
+          fetch(`/api/homes/${params.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((fallback) => {
+              if (fallback) setHome(fallback)
+              else setHome(null)
+              setLoading(false)
+            })
+            .catch(() => {
+              setHome(null)
+              setLoading(false)
+            })
         })
 
       // Fetch gate statuses
@@ -159,11 +176,20 @@ export default function HomeDetailPage() {
 
   const handleTaskUpdate = () => {
     if (params.id) {
-      fetch(`/api/homes/${params.id}`)
+      fetch(`/api/homes/${params.id}/forecast`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data) setHome(data)
+          if (data && !data.error) setHome(data)
+          else
+            fetch(`/api/homes/${params.id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => d && setHome(d))
         })
+        .catch(() =>
+          fetch(`/api/homes/${params.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d && setHome(d))
+        )
       
       // Refresh gate statuses
       fetch(`/api/homes/${params.id}/gates`)
@@ -199,11 +225,20 @@ export default function HomeDetailPage() {
       })
       .then(() => {
         if (params.id) {
-          fetch(`/api/homes/${params.id}`)
+          fetch(`/api/homes/${params.id}/forecast`)
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
-              if (data) setHome(data)
+              if (data && !data.error) setHome(data)
+              else
+                fetch(`/api/homes/${params.id}`)
+                  .then((r) => (r.ok ? r.json() : null))
+                  .then((d) => d && setHome(d))
             })
+            .catch(() =>
+              fetch(`/api/homes/${params.id}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => d && setHome(d))
+            )
           fetch(`/api/homes/${params.id}/gates`)
             .then((res) => res.json())
             .then((data) => setGateStatuses(data))
@@ -216,11 +251,20 @@ export default function HomeDetailPage() {
 
   const handlePunchUpdate = () => {
     if (params.id) {
-      fetch(`/api/homes/${params.id}`)
-        .then((res) => res.json())
+      fetch(`/api/homes/${params.id}/forecast`)
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          setHome(data)
+          if (data && !data.error) setHome(data)
+          else
+            fetch(`/api/homes/${params.id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => d && setHome(d))
         })
+        .catch(() =>
+          fetch(`/api/homes/${params.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d && setHome(d))
+        )
     }
   }
 

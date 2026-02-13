@@ -58,8 +58,15 @@ export async function computeHomeForecast(homeId: string) {
     return
   }
 
-  // Build dependency graph from template dependencies, mapped onto this home's tasks
-  const templateDependencies = await prisma.templateDependency.findMany()
+  // Build dependency graph from template dependencies (tenant + null companyId)
+  const companyId = home.companyId ?? null
+  const templateDependencies = await prisma.templateDependency.findMany({
+    where: {
+      OR: companyId
+        ? [{ companyId }, { companyId: null }]
+        : [{ companyId: null }],
+    },
+  })
 
   const idToTask: Record<string, HomeTaskWithTemplate> = {}
   tasks.forEach((t) => {
