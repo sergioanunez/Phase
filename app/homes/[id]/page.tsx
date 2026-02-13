@@ -526,8 +526,8 @@ export default function HomeDetailPage() {
           </Card>
         )}
 
-        {/* Phase cards or empty state — padded so cards are not flush with container */}
-        <div className="px-4 sm:px-6">
+        {/* Phase cards — same width as timeline card above */}
+        <div>
         {sortedCategories.length === 0 ? (
           <Card className="mb-4">
             <CardContent className="py-10 text-center">
