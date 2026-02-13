@@ -63,6 +63,7 @@ interface Home {
   hasThumbnail?: boolean
   planName?: string | null
   planVariant?: string | null
+  planStoragePath?: string | null
   planUploadedAt?: string | null
   tasks: HomeTask[]
 }
@@ -372,7 +373,7 @@ export default function HomeDetailPage() {
                 <h1 className="text-2xl font-bold tracking-tight">{home.addressOrLot}</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {home.subdivision?.name ?? "—"}
-                  {home.hasPlan && (home.planName || home.planVariant) && (
+                  {(home.planName || home.planVariant) && (
                     <span> • {[home.planName, home.planVariant].filter(Boolean).join(" – ")}</span>
                   )}
                 </p>
@@ -383,7 +384,7 @@ export default function HomeDetailPage() {
                       {scheduleStatus.label}
                     </Badge>
                   )}
-                  {home.hasPlan && (
+                  {(home.hasPlan === true || home.planStoragePath || home.planName || home.planVariant) && (
                     <Button
                       type="button"
                       variant="outline"
