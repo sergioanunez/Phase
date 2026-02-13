@@ -8,6 +8,7 @@ import {
   NotificationCategory,
   NotificationEntityType,
   NotificationTargetRole,
+  Prisma,
 } from "@prisma/client"
 import { prisma } from "./prisma"
 
@@ -105,7 +106,7 @@ export async function listNotificationsForUser(options: ListNotificationsForUser
   const { userId, role, companyId, onlyRequiresAction, category } = options
   const now = new Date()
 
-  const where: Parameters<typeof prisma.notification.findMany>[0]["where"] = {
+  const where: Prisma.NotificationWhereInput = {
     companyId,
     resolvedAt: null,
     OR: [
