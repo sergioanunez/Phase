@@ -84,6 +84,16 @@ export default function NotificationsPage() {
 
   const isBuilder = session?.user && BUILDER_ROLES.includes(session.user.role)
 
+  const role = session?.user?.role
+  const description =
+    role === "Superintendent"
+      ? "Activity and alerts across your assigned homes. Resolve items that require attention."
+      : role === "Manager"
+        ? "Operational alerts and activity across your homes. Stay ahead of issues that require attention."
+        : role === "Admin"
+          ? "System activity and operational alerts for your organization. Review and resolve items that require action."
+          : "Recent alerts and activity. Resolve items that require attention."
+
   const fetchNotifications = useCallback(() => {
     if (status !== "authenticated") return
     const params = new URLSearchParams()
@@ -159,7 +169,7 @@ export default function NotificationsPage() {
         <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
         {isBuilder ? (
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Critical, attention, and informational notifications for your tenant. Resolve items that require action.
+            {description}
           </p>
         ) : (
           <p className="mt-1.5 text-sm text-muted-foreground">
