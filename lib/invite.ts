@@ -85,11 +85,15 @@ export async function sendInviteEmail(params: {
         <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; color: #1f2937;">
           <p style="font-size: 16px; line-height: 1.5;">Hi ${params.name},</p>
           <p style="font-size: 16px; line-height: 1.5;">${invitingText}<strong>${appName}</strong> to view and manage your scheduled work. Click the button below to set your password and activate your account.</p>
-          <p style="margin: 28px 0;">
-            <a href="${safeLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Set up your password</a>
-          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 28px 0;">
+            <tr>
+              <td style="border-radius: 8px; background-color: #2563eb;">
+                <a href="${safeLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">Set up your password</a>
+              </td>
+            </tr>
+          </table>
           <p style="color: #6b7280; font-size: 12px; line-height: 1.5;">If the button doesn't work, copy and paste this link into your browser:</p>
-          <p style="color: #2563eb; font-size: 12px; line-height: 1.5; word-break: break-all;">${safeLinkText}</p>
+          <p style="color: #2563eb; font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="${safeLink}" style="color: #2563eb;">${safeLinkText}</a></p>
           <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">This link is valid for 48 hours and expires at ${expiryStr}. Use it only once.</p>
           <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">If you didn't expect this email, you can ignore it. For help, contact ${supportContact}.</p>
         </div>
