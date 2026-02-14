@@ -69,11 +69,24 @@ export async function sendInviteEmail(params: {
       ? `${params.invitingCompanyName} has invited you to join `
       : "You've been invited to join "
 
-    // Ensure fully qualified https URL (no relative paths) for Gmail compatibility
-    let fullUrl = params.inviteLink
-    if (fullUrl.startsWith("/")) fullUrl = baseUrl + fullUrl
-    if (fullUrl.startsWith("http://") && !fullUrl.includes("localhost")) {
-      fullUrl = fullUrl.replace("http://", "https://")
+    // Sanitize inviteLink: trim, strip wrapping quotes
+    let linkInput = params.inviteLink.trim()
+    if ((linkInput.startsWith('"') && linkInput.endsWith('"')) || (linkInput.startsWith("'") && linkInput.endsWith("'"))) {
+      linkInput = linkInput.slice(1, -1).trim()
+    }
+    // Normalize path: "./auth/..." -> "/auth/..."; if neither "/" nor "http", prefix with "/"
+    if (linkInput.startsWith("./")) {
+      linkInput = "/" + linkInput.slice(2)
+    } else if (!linkInput.startsWith("/") && !linkInput.startsWith("http")) {
+      linkInput = "/" + linkInput
+    }
+    // Build final absolute URL (no string concat; avoids baseUrl quotes/path bugs)
+    const fullUrl = new URL(linkInput, baseUrl).toString()
+
+    if (process.env.NODE_ENV !== "production") {
+      if (fullUrl.includes('"') || fullUrl.includes("'") || fullUrl.includes('".') || fullUrl.includes('app".')) {
+        console.warn("[invite] fullUrl contains quotes or malformed segment:", fullUrl)
+      }
     }
 
     // Escape for HTML href: & " and ' so attribute is well-formed

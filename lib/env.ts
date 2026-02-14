@@ -15,6 +15,22 @@ export const env = {
   DIRECT_URL: requireEnv("DIRECT_URL"),
 }
 
+/**
+ * Sanitize a URL string: trim, strip wrapping quotes, ensure scheme, no trailing slash.
+ * Used so env vars like APP_URL="https://usephase.app" or NEXTAUTH_URL='"https://usephase.app"'
+ * never produce broken links in emails.
+ */
+function sanitizeBaseUrl(value: string): string {
+  let s = value.trim()
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim()
+  }
+  if (!s.startsWith("http://") && !s.startsWith("https://")) {
+    s = "https://" + s.replace(/^\/*/, "")
+  }
+  return s.replace(/\/+$/, "")
+}
+
 /** Base URL for invite/email links. Use in API routes only. Prefer NEXT_PUBLIC_APP_URL so production links point to usephase.app, not localhost. */
 export function getServerAppUrl(): string {
   const raw =
@@ -22,6 +38,6 @@ export function getServerAppUrl(): string {
     process.env.NEXTAUTH_URL ||
     process.env.APP_URL ||
     "http://localhost:3000"
-  return raw.replace(/\/$/, "")
+  return sanitizeBaseUrl(raw)
 }
 
