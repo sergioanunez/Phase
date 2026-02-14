@@ -47,7 +47,6 @@ export async function sendInviteEmail(params: {
 }): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY
   const { getServerAppUrl } = await import("./env")
-  const appUrl = getServerAppUrl()
   const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
 
   if (!apiKey) {
@@ -57,6 +56,7 @@ export async function sendInviteEmail(params: {
   try {
     const { Resend } = await import("resend")
     const resend = new Resend(apiKey)
+    const baseUrl = getServerAppUrl()
 
     const expiryStr = params.expiresAt.toLocaleString(undefined, {
       dateStyle: "medium",
@@ -68,11 +68,20 @@ export async function sendInviteEmail(params: {
     const invitingText = params.invitingCompanyName
       ? `${params.invitingCompanyName} has invited you to join `
       : "You've been invited to join "
-    // Escape for HTML: use single-quoted href so URL can contain " safely; escape ' and & in URL
-    const urlForHref = params.inviteLink
+
+    // Ensure fully qualified https URL (no relative paths) for Gmail compatibility
+    let fullUrl = params.inviteLink
+    if (fullUrl.startsWith("/")) fullUrl = baseUrl + fullUrl
+    if (fullUrl.startsWith("http://") && !fullUrl.includes("localhost")) {
+      fullUrl = fullUrl.replace("http://", "https://")
+    }
+
+    // Escape for HTML href: & " and ' so attribute is well-formed
+    const urlForHref = fullUrl
       .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;")
-    const safeLinkText = params.inviteLink
+    const safeLinkText = fullUrl
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -82,11 +91,15 @@ export async function sendInviteEmail(params: {
         <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; color: #1f2937;">
           <p style="font-size: 16px; line-height: 1.5;">Hi ${params.name},</p>
           <p style="font-size: 16px; line-height: 1.5;">${invitingText}<strong>${appName}</strong> to view and manage your scheduled work. Click the button below to set your password and activate your account.</p>
-          <p style="margin: 28px 0;">
-            <a href='${urlForHref}' style="display: block; width: 100%; max-width: 240px; padding: 14px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">Set up your password</a>
-          </p>
-          <p style="color: #6b7280; font-size: 12px; line-height: 1.5;">If the button doesn&apos;t work, use this link:</p>
-          <p style="font-size: 12px; line-height: 1.5; word-break: break-all;"><a href='${urlForHref}' style="color: #2563eb;">${safeLinkText}</a></p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 28px 0;">
+            <tr>
+              <td style="border-radius: 8px; background-color: #2563eb;">
+                <a href="${urlForHref}" style="display: inline-block; padding: 14px 28px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px;">Set up your password</a>
+              </td>
+            </tr>
+          </table>
+          <p style="color: #6b7280; font-size: 12px; line-height: 1.5;">If the button doesn&apos;t work, copy and paste this link into your browser:</p>
+          <p style="font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="${urlForHref}" style="color: #2563eb;">${safeLinkText}</a></p>
           <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">This link is valid for 48 hours and expires at ${expiryStr}. Use it only once.</p>
           <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">If you didn&apos;t expect this email, you can ignore it. For help, contact ${supportContact}.</p>
         </div>
@@ -97,7 +110,7 @@ export async function sendInviteEmail(params: {
       to: params.to,
       subject: `You're invited to ${appName} — set your password`,
       html: htmlContent,
-      text: `Hi ${params.name},\n\n${invitingText}${appName} to view and manage your scheduled work. Set your password by clicking this link:\n\n${params.inviteLink}\n\nThis link is valid for 48 hours. If you didn't expect this email, you can ignore it.`,
+      text: `Hi ${params.name},\n\n${invitingText}${appName} to view and manage your scheduled work. Set your password by clicking this link:\n\n${fullUrl}\n\nThis link is valid for 48 hours. If you didn't expect this email, you can ignore it.`,
     })
 
     if (error) {
