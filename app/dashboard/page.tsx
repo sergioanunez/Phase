@@ -41,6 +41,13 @@ export default function DashboardPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(true)
 
   useEffect(() => {
+    if (session?.user === undefined) return
+    if (!session?.user) {
+      setPortfolioLoading(false)
+      setActivitiesLoading(false)
+      return
+    }
+
     const fetchActivities = () => {
       fetch("/api/activity/recent", { credentials: "same-origin" })
         .then((res) => res.json())
@@ -51,30 +58,43 @@ export default function DashboardPage() {
         .catch(() => setActivities([]))
         .finally(() => setActivitiesLoading(false))
     }
-    Promise.all([
-      fetch("/api/dashboard/portfolio")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.error) throw new Error(data.error)
-          return data
+
+    const loadDashboard = () => {
+      setPortfolioLoading(true)
+      setActivitiesLoading(true)
+      Promise.all([
+        fetch("/api/dashboard/portfolio", { credentials: "same-origin" })
+          .then((res) => {
+            if (!res.ok) return null
+            return res.json()
+          })
+          .then((data) => {
+            if (data && typeof data === "object" && data.error) return null
+            return data ?? null
+          })
+          .catch((err) => {
+            console.error("Dashboard portfolio:", err)
+            return null
+          }),
+        fetch("/api/activity/recent", { credentials: "same-origin" })
+          .then((res) => res.json())
+          .then((data) => (Array.isArray(data) ? data : []))
+          .catch(() => []),
+      ])
+        .then(([portfolioData, activitiesData]) => {
+          setPortfolio(portfolioData ?? null)
+          setActivities(activitiesData ?? [])
         })
-        .catch((err) => {
-          console.error("Dashboard portfolio:", err)
-          return null
-        }),
-      fetch("/api/activity/recent", { credentials: "same-origin" })
-        .then((res) => res.json())
-        .then((data) => (Array.isArray(data) ? data : []))
-        .catch(() => []),
-    ]).then(([portfolioData, activitiesData]) => {
-      setPortfolio(portfolioData ?? null)
-      setActivities(activitiesData ?? [])
-      setPortfolioLoading(false)
-      setActivitiesLoading(false)
-    })
+        .finally(() => {
+          setPortfolioLoading(false)
+          setActivitiesLoading(false)
+        })
+    }
+
+    loadDashboard()
     const interval = setInterval(fetchActivities, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [session?.user])
 
   const portfolioFallback: PortfolioData = {
     activeHomesCount: 0,
@@ -89,6 +109,14 @@ export default function DashboardPage() {
     ],
   }
   const data = portfolio ?? portfolioFallback
+
+  if (portfolioLoading && !portfolio) {
+    return (
+      <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20 flex items-center justify-center">
+        <div className="text-center text-muted-foreground">Loading dashboard…</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
