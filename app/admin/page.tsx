@@ -154,6 +154,7 @@ export default function AdminPage() {
   const [thumbnailDeleting, setThumbnailDeleting] = useState(false)
   const [importHomesOpen, setImportHomesOpen] = useState(false)
   const [resendInviteUserId, setResendInviteUserId] = useState<string | null>(null)
+  const resendInviteInProgressRef = useRef(false)
   const [editingContractorId, setEditingContractorId] = useState<string | null>(null)
   const [editingContractor, setEditingContractor] = useState({
     companyName: "",
@@ -993,6 +994,8 @@ export default function AdminPage() {
   }
 
   const handleResendInvite = async (userId: string) => {
+    if (resendInviteInProgressRef.current) return
+    resendInviteInProgressRef.current = true
     setResendInviteUserId(userId)
     try {
       const res = await fetch(`/api/admin/users/${userId}/resend-invite`, {
@@ -1001,14 +1004,15 @@ export default function AdminPage() {
       const data = await res.json()
       if (res.ok) {
         handleRefresh()
-        alert("Invite email sent.")
+        alert(data.message ?? "Invite email sent.")
       } else {
-        alert(data.error || "Failed to resend invite")
+        alert(data.error ?? "Failed to resend invite")
       }
     } catch (err) {
       console.error("Resend invite error:", err)
       alert("Failed to resend invite")
     } finally {
+      resendInviteInProgressRef.current = false
       setResendInviteUserId(null)
     }
   }

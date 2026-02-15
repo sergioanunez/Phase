@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
       generateInviteToken,
       hashInviteToken,
       getInviteExpiresAt,
-      sendInviteEmail,
+      buildInviteLink,
+      sendInviteEmailWithIdempotency,
     } = await import("@/lib/invite")
 
     const ctx = await requireTenantPermission("users:write")
@@ -82,16 +83,32 @@ export async function POST(request: NextRequest) {
     })
 
     const { getServerAppUrl } = await import("@/lib/env")
-    const { buildInviteLink } = await import("@/lib/invite")
     const inviteLink = buildInviteLink(getServerAppUrl(), token)
+    const idempotencyKey = `invite:${ctx.companyId ?? ""}:${newUser.id}`
 
-    const emailResult = await sendInviteEmail({
+    const emailResult = await sendInviteEmailWithIdempotency(prisma, {
+      idempotencyKey,
+      companyId: ctx.companyId,
+      userId: newUser.id,
+      email: data.email,
       to: data.email,
       name: data.name,
       inviteLink,
       expiresAt,
       invitingCompanyName: ctx.companyName,
     })
+
+    if (emailResult.rateLimit) {
+      await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
+        userId: newUser.id,
+        email: data.email,
+        emailError: emailResult.error,
+      }, ctx.companyId)
+      return NextResponse.json(
+        { error: emailResult.error ?? "Resend rate limit reached" },
+        { status: 429 }
+      )
+    }
 
     if (!emailResult.ok) {
       await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {

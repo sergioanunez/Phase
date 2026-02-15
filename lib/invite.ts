@@ -54,7 +54,7 @@ export async function sendInviteEmail(params: {
   expiresAt: Date
   /** Name of the tenant company inviting the user (e.g. "Cullers Homes") */
   invitingCompanyName?: string
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; rateLimit?: boolean }> {
   const apiKey = process.env.RESEND_API_KEY
   const { getServerAppUrl } = await import("./env")
   const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
@@ -139,10 +139,109 @@ export async function sendInviteEmail(params: {
     })
 
     if (error) {
-      return { ok: false, error: error.message }
+      const msg = error.message || ""
+      const rateLimit =
+        msg.toLowerCase().includes("rate limit") ||
+        msg.includes("429") ||
+        msg.toLowerCase().includes("quota exceeded") ||
+        msg.toLowerCase().includes("too many requests")
+      return { ok: false, error: msg, rateLimit: !!rateLimit }
     }
     return { ok: true }
   } catch (err: any) {
-    return { ok: false, error: err?.message || "Failed to send email" }
+    const msg = err?.message || "Failed to send email"
+    const rateLimit =
+      msg.toLowerCase().includes("rate limit") ||
+      msg.includes("429") ||
+      msg.toLowerCase().includes("quota exceeded") ||
+      msg.toLowerCase().includes("too many requests")
+    return { ok: false, error: msg, rateLimit: !!rateLimit }
+  }
+}
+
+const IDEMPOTENCY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
+export type SendInviteEmailWithIdempotencyParams = {
+  idempotencyKey: string
+  companyId: string | null
+  userId: string | null
+  email: string
+  to: string
+  name: string
+  inviteLink: string
+  expiresAt: Date
+  invitingCompanyName?: string
+}
+
+export type SendInviteEmailWithIdempotencyResult = {
+  ok: boolean
+  skipped?: boolean
+  message?: string
+  error?: string
+  rateLimit?: boolean
+}
+
+/**
+ * Send invite email with idempotency: if a successful send for the same key
+ * happened in the last 5 minutes, skip Resend and return ok with message.
+ * Logs every attempt to InviteEmailLog and returns real Resend errors.
+ */
+export async function sendInviteEmailWithIdempotency(
+  prisma: { inviteEmailLog: { findFirst: any; create: any } },
+  params: SendInviteEmailWithIdempotencyParams
+): Promise<SendInviteEmailWithIdempotencyResult> {
+  const { idempotencyKey, companyId, userId, email } = params
+
+  console.log("[invite] idempotencyKey:", idempotencyKey)
+
+  const since = new Date(Date.now() - IDEMPOTENCY_WINDOW_MS)
+  const recentSent = await prisma.inviteEmailLog.findFirst({
+    where: {
+      idempotencyKey,
+      status: "SENT",
+      createdAt: { gte: since },
+    },
+  })
+
+  if (recentSent) {
+    console.log("[invite] Skipping send: recent successful send within 5 min for key:", idempotencyKey)
+    return {
+      ok: true,
+      skipped: true,
+      message: "Invite already sent recently",
+    }
+  }
+
+  const emailResult = await sendInviteEmail({
+    to: params.to,
+    name: params.name,
+    inviteLink: params.inviteLink,
+    expiresAt: params.expiresAt,
+    invitingCompanyName: params.invitingCompanyName,
+  })
+
+  await prisma.inviteEmailLog.create({
+    data: {
+      companyId,
+      userId,
+      email,
+      idempotencyKey,
+      status: emailResult.ok ? "SENT" : "FAILED",
+      errorMessage: emailResult.error ?? null,
+    },
+  })
+
+  if (!emailResult.ok) {
+    console.log("[invite] Resend error:", {
+      idempotencyKey,
+      error: emailResult.error,
+      rateLimit: emailResult.rateLimit,
+    })
+  }
+
+  return {
+    ok: emailResult.ok,
+    error: emailResult.error,
+    rateLimit: emailResult.rateLimit,
   }
 }

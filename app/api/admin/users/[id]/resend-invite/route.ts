@@ -6,8 +6,6 @@ export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const RESEND_RATE_LIMIT_PER_HOUR = 3
-
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -22,7 +20,8 @@ export async function POST(
       generateInviteToken,
       hashInviteToken,
       getInviteExpiresAt,
-      sendInviteEmail,
+      buildInviteLink,
+      sendInviteEmailWithIdempotency,
     } = await import("@/lib/invite")
 
     const ctx = await requireTenantPermission("users:write")
@@ -48,27 +47,6 @@ export async function POST(
       return NextResponse.json(
         { error: "User is not in INVITED status" },
         { status: 400 }
-      )
-    }
-
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-    const inviteIdsForUser = await prisma.userInvite.findMany({
-      where: { userId },
-      select: { id: true },
-    })
-    const recentResends = await prisma.auditLog.count({
-      where: {
-        companyId: ctx.companyId,
-        entityType: "UserInvite",
-        entityId: { in: inviteIdsForUser.map((i) => i.id) },
-        action: "INVITE_RESENT",
-        createdAt: { gte: oneHourAgo },
-      },
-    })
-    if (recentResends >= RESEND_RATE_LIMIT_PER_HOUR) {
-      return NextResponse.json(
-        { error: "Resend limit reached. Try again later." },
-        { status: 429 }
       )
     }
 
@@ -103,10 +81,14 @@ export async function POST(
     })
 
     const { getServerAppUrl } = await import("@/lib/env")
-    const { buildInviteLink } = await import("@/lib/invite")
     const inviteLink = buildInviteLink(getServerAppUrl(), token)
+    const idempotencyKey = `invite:${ctx.companyId ?? ""}:${userId}`
 
-    const emailResult = await sendInviteEmail({
+    const emailResult = await sendInviteEmailWithIdempotency(prisma, {
+      idempotencyKey,
+      companyId: ctx.companyId,
+      userId: user.id,
+      email: user.email,
       to: user.email,
       name: user.name,
       inviteLink,
@@ -120,7 +102,19 @@ export async function POST(
       resendCount: latestInvite.resendCount + 1,
       emailOk: emailResult.ok,
       emailError: emailResult.error,
+      skipped: emailResult.skipped,
     }, ctx.companyId)
+
+    if (emailResult.rateLimit) {
+      return NextResponse.json(
+        { error: emailResult.error ?? "Resend rate limit reached" },
+        { status: 429 }
+      )
+    }
+
+    if (emailResult.skipped) {
+      return NextResponse.json({ message: emailResult.message ?? "Invite already sent recently." })
+    }
 
     if (!emailResult.ok) {
       return NextResponse.json(

@@ -140,6 +140,11 @@ enum NotificationTargetRole {
   ANY
 }
 
+enum InviteEmailLogStatus {
+  SENT
+  FAILED
+}
+
 model Company {
   id                   String       @id @default(cuid())
   name                 String
@@ -183,6 +188,7 @@ model Company {
   contractorAssignments ContractorAssignment[]
   homeAssignments HomeAssignment[]
   userInvites   UserInvite[]
+  inviteEmailLogs InviteEmailLog[]
   categoryGates CategoryGate[]
   smsMessages   SmsMessage[]
   smsMessageLogs SmsMessageLog[]
@@ -284,6 +290,22 @@ model UserInvite {
   @@index([userId])
   @@index([email])
   @@index([tokenHash])
+}
+
+model InviteEmailLog {
+  id              String              @id @default(cuid())
+  companyId       String?
+  company         Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  userId          String?
+  email           String
+  idempotencyKey  String              @unique
+  status          InviteEmailLogStatus
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+
+  @@index([companyId])
+  @@index([idempotencyKey])
+  @@index([createdAt])
 }
 
 model Subdivision {
