@@ -91,14 +91,14 @@ export async function sendInviteEmail(params: {
       linkInput = "/" + linkInput
     }
     // Build final absolute URL (no string concat; avoids baseUrl quotes/path bugs)
-    const fullUrl = new URL(linkInput, baseUrl).toString()
+    let fullUrl = new URL(linkInput, baseUrl).toString().trim()
 
-    // Hard validation before sending: reject malformed links
-    if (!/^https?:\/\/[^"\s]+$/i.test(fullUrl)) {
-      throw new Error("Invalid inviteLink (bad format): " + fullUrl)
-    }
+    // Reject only known-bad patterns (quotes / dot-slash); allow send otherwise
     if (fullUrl.includes("%22") || fullUrl.includes('"') || fullUrl.includes("./")) {
       throw new Error("Invalid inviteLink (quotes or ./): " + fullUrl)
+    }
+    if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://")) {
+      throw new Error("Invalid inviteLink (missing scheme): " + fullUrl)
     }
 
     // Escape for HTML href: & " and ' so attribute is well-formed

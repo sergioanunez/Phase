@@ -21,9 +21,9 @@ export const env = {
  * never produce broken links in emails.
  */
 function sanitizeBaseUrl(value: string): string {
-  let s = value.trim()
+  let s = value.trim().replace(/\s/g, "")
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim()
+    s = s.slice(1, -1).trim().replace(/\s/g, "")
   }
   if (!s.startsWith("http://") && !s.startsWith("https://")) {
     s = "https://" + s.replace(/^\/*/, "")
