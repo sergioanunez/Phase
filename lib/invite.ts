@@ -34,6 +34,16 @@ export function getInviteExpiresAt(): Date {
 }
 
 /**
+ * Build invite link with URL() only (no string concat). Use this at all call sites.
+ * baseUrl must be sanitized (getServerAppUrl()).
+ */
+export function buildInviteLink(baseUrl: string, token: string): string {
+  const url = new URL("/auth/accept-invite", baseUrl)
+  url.searchParams.set("token", token)
+  return url.toString()
+}
+
+/**
  * Send invite email via Resend.
  * Requires RESEND_API_KEY and APP_URL.
  */
@@ -83,10 +93,12 @@ export async function sendInviteEmail(params: {
     // Build final absolute URL (no string concat; avoids baseUrl quotes/path bugs)
     const fullUrl = new URL(linkInput, baseUrl).toString()
 
-    if (process.env.NODE_ENV !== "production") {
-      if (fullUrl.includes('"') || fullUrl.includes("'") || fullUrl.includes('".') || fullUrl.includes('app".')) {
-        console.warn("[invite] fullUrl contains quotes or malformed segment:", fullUrl)
-      }
+    // Hard validation before sending: reject malformed links
+    if (!/^https?:\/\/[^"\s]+$/i.test(fullUrl)) {
+      throw new Error("Invalid inviteLink (bad format): " + fullUrl)
+    }
+    if (fullUrl.includes("%22") || fullUrl.includes('"') || fullUrl.includes("./")) {
+      throw new Error("Invalid inviteLink (quotes or ./): " + fullUrl)
     }
 
     // Escape for HTML href: & " and ' so attribute is well-formed

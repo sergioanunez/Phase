@@ -103,7 +103,8 @@ export async function POST(
     })
 
     const { getServerAppUrl } = await import("@/lib/env")
-    const inviteLink = `${getServerAppUrl()}/auth/accept-invite?token=${encodeURIComponent(token)}`
+    const { buildInviteLink } = await import("@/lib/invite")
+    const inviteLink = buildInviteLink(getServerAppUrl(), token)
 
     const emailResult = await sendInviteEmail({
       to: user.email,
