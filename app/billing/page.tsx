@@ -43,6 +43,7 @@ export default function BillingPage() {
   const searchParams = useSearchParams()
   const [data, setData] = useState<BillingData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [checkoutPlanKey, setCheckoutPlanKey] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,13 +55,20 @@ export default function BillingPage() {
     }
     if (status !== "authenticated") return
 
+    setLoadError(null)
     fetch("/api/billing", { credentials: "same-origin" })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load billing")
-        return res.json()
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(json.error || `Failed to load billing (${res.status})`)
+        }
+        return json
       })
       .then(setData)
-      .catch(() => setData(null))
+      .catch((err) => {
+        setData(null)
+        setLoadError(err instanceof Error ? err.message : "Unable to load billing. Try again later.")
+      })
       .finally(() => setLoading(false))
   }, [status, router])
 
@@ -306,7 +314,7 @@ export default function BillingPage() {
           </div>
         ) : (
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <p className="text-muted-foreground">Unable to load billing. Try again later.</p>
+            <p className="text-muted-foreground">{loadError || "Unable to load billing. Try again later."}</p>
           </div>
         )}
       </div>
