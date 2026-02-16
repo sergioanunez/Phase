@@ -57,6 +57,19 @@ export async function GET(req: Request) {
     },
   })
 
+  const companyIds = companies.map((c) => c.id)
+  const activeCounts =
+    companyIds.length > 0
+      ? await prisma.home.groupBy({
+          by: ["companyId"],
+          where: { companyId: { in: companyIds }, isComplete: false },
+          _count: { id: true },
+        })
+      : []
+  const activeHomeCountByCompany = Object.fromEntries(
+    activeCounts.map((r) => [r.companyId ?? "", r._count.id])
+  )
+
   let result = companies.map((c) => ({
     id: c.id,
     name: c.name,
@@ -65,6 +78,7 @@ export async function GET(req: Request) {
     status: c.status,
     userCount: c._count.users,
     homeCount: c._count.homes,
+    activeHomesCount: activeHomeCountByCompany[c.id] ?? 0,
     createdAt: c.createdAt,
   }))
 
@@ -72,7 +86,7 @@ export async function GET(req: Request) {
     result = result.filter((c) => {
       const max = c.maxActiveHomes
       if (max == null) return false
-      return c.homeCount >= max * 0.8
+      return (c.activeHomesCount ?? c.homeCount) >= max * 0.8
     })
   }
 

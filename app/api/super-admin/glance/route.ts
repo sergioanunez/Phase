@@ -34,10 +34,10 @@ export async function GET() {
   })
 
   const companyIds = companies.map((c) => c.id)
-  const [homeCounts, smsSent7d, smsFailed7d, lastHomeActivity] = await Promise.all([
+  const [activeHomeCounts, smsSent7d, smsFailed7d, lastHomeActivity] = await Promise.all([
     prisma.home.groupBy({
       by: ["companyId"],
-      where: { companyId: { in: companyIds } },
+      where: { companyId: { in: companyIds }, isComplete: false },
       _count: { id: true },
     }),
     prisma.smsMessage.groupBy({
@@ -62,7 +62,7 @@ export async function GET() {
     }),
   ])
 
-  const homeCountByCompany = Object.fromEntries(homeCounts.map((r) => [r.companyId ?? "", r._count.id]))
+  const activeHomeCountByCompany = Object.fromEntries(activeHomeCounts.map((r) => [r.companyId ?? "", r._count.id]))
   const sentByCompany = Object.fromEntries(smsSent7d.map((r) => [r.companyId ?? "", r._count.id]))
   const failedByCompany = Object.fromEntries(smsFailed7d.map((r) => [r.companyId ?? "", r._count.id]))
   const lastActivityByCompany = Object.fromEntries(
@@ -70,7 +70,7 @@ export async function GET() {
   )
 
   const rows = companies.map((c) => {
-    const activeHomes = homeCountByCompany[c.id] ?? 0
+    const activeHomes = activeHomeCountByCompany[c.id] ?? 0
     const max = c.maxActiveHomes
     const sent = sentByCompany[c.id] ?? 0
     const failed = failedByCompany[c.id] ?? 0

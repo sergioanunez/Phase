@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ export function CreateHomeDialog({
   const [targetCompletionDate, setTargetCompletionDate] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [upgradeHint, setUpgradeHint] = useState<string | null>(null)
 
   const fetchSubdivisions = () => {
     fetch("/api/subdivisions")
@@ -67,6 +69,7 @@ export function CreateHomeDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setUpgradeHint(null)
     setLoading(true)
 
     try {
@@ -83,7 +86,9 @@ export function CreateHomeDialog({
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "Failed to create home")
+        const err: Error & { upgradeHint?: string } = new Error(data.error || "Failed to create home")
+        err.upgradeHint = data.upgradeHint
+        throw err
       }
 
       setSubdivisionId("")
@@ -94,6 +99,7 @@ export function CreateHomeDialog({
       onOpenChange(false)
     } catch (err: any) {
       setError(err.message || "Failed to create home")
+      setUpgradeHint(err.upgradeHint ?? null)
     } finally {
       setLoading(false)
     }
@@ -185,7 +191,16 @@ export function CreateHomeDialog({
             </div>
 
             {error && (
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="text-sm text-destructive space-y-1">
+                <p>{error}</p>
+                {upgradeHint && (
+                  <p>
+                    <Link href={upgradeHint} className="underline text-primary" onClick={() => onOpenChange(false)}>
+                      Go to Billing
+                    </Link>
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

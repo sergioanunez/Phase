@@ -399,6 +399,10 @@ export async function PATCH(
     await createAuditLog(ctx.userId, "HomeTask", params.id, "UPDATE", before, after, ctx.companyId)
 
     const companyId = after.companyId ?? ctx.companyId
+    if (companyId) {
+      const { recalculateHomeCompletion } = await import("@/lib/home-completion")
+      await recalculateHomeCompletion(prisma, after.homeId, companyId)
+    }
     if (companyId && after.home) {
       const { notifyTaskScheduled, notifyTaskCompleted } = await import("@/lib/notificationRules")
       const homeLabel = (after.home as { addressOrLot?: string }).addressOrLot ?? "Home"

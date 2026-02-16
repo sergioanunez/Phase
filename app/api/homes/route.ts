@@ -107,9 +107,43 @@ export async function POST(request: NextRequest) {
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
+    const { getTenantEntitlements, getTenantUsage } = await import("@/lib/entitlements")
     const ctx = await requireTenantPermission("homes:write")
     const body = await request.json()
     const data = createHomeSchema.parse(body)
+
+    const company = await prisma.company.findFirst({
+      where: { id: ctx.companyId },
+      select: { status: true },
+    })
+    if (!company) {
+      return NextResponse.json({ error: "Company not found" }, { status: 404 })
+    }
+    const subscriptionStatus = company.status
+    if (subscriptionStatus !== "ACTIVE" && subscriptionStatus !== "TRIAL") {
+      return NextResponse.json(
+        {
+          error:
+            "Your account is not active. Please update your billing or contact support.",
+          code: "SUBSCRIPTION_INACTIVE",
+        },
+        { status: 403 }
+      )
+    }
+
+    const entitlements = await getTenantEntitlements(prisma, ctx.companyId!)
+    const usage = await getTenantUsage(prisma, ctx.companyId!)
+    const maxActiveHomes = entitlements.maxActiveHomes
+    if (maxActiveHomes != null && maxActiveHomes !== -1 && usage.activeHomesCount >= maxActiveHomes) {
+      return NextResponse.json(
+        {
+          error: `You've reached your plan limit of ${maxActiveHomes} active homes. Complete a home or upgrade your plan.`,
+          code: "ACTIVE_HOMES_LIMIT",
+          upgradeHint: "/billing",
+        },
+        { status: 403 }
+      )
+    }
 
     // Verify subdivision belongs to tenant
     const subdivision = await prisma.subdivision.findFirst({
@@ -155,6 +189,9 @@ export async function POST(request: NextRequest) {
         })
       )
     )
+
+    const { recalculateHomeCompletion } = await import("@/lib/home-completion")
+    await recalculateHomeCompletion(prisma, home.id, ctx.companyId!)
 
     return NextResponse.json(home, { status: 201 })
   } catch (error: any) {

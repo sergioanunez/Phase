@@ -12,6 +12,7 @@ type CompanyRow = {
   status: string
   userCount: number
   homeCount: number
+  activeHomesCount?: number
   createdAt: string
 }
 
@@ -210,7 +211,7 @@ export default function SuperAdminCompaniesPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 sm:px-6">
-                        {c.homeCount} / {c.maxActiveHomes ?? "∞"}
+                        {c.activeHomesCount ?? c.homeCount} / {c.maxActiveHomes ?? "∞"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 sm:px-6">
                         {c.userCount}
@@ -279,7 +280,7 @@ export default function SuperAdminCompaniesPage() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-gray-500">
-                        {c.homeCount} / {c.maxActiveHomes ?? "∞"} homes · {c.userCount} users
+                        {c.activeHomesCount ?? c.homeCount} / {c.maxActiveHomes ?? "∞"} homes · {c.userCount} users
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">

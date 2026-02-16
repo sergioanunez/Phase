@@ -57,7 +57,8 @@ export async function GET(
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const [homesCompleted30d, tasksScheduled30d, smsSent30d, smsFailed30d] = await Promise.all([
+  const [activeHomesCount, homesCompleted30d, tasksScheduled30d, smsSent30d, smsFailed30d] = await Promise.all([
+    prisma.home.count({ where: { companyId, isComplete: false } }),
     prisma.homeTask.count({ where: { companyId, status: "Completed", completedAt: { gte: thirtyDaysAgo } } }),
     prisma.homeTask.count({ where: { companyId, scheduledDate: { not: null }, createdAt: { gte: thirtyDaysAgo } } }),
     prisma.smsMessage.count({ where: { companyId, createdAt: { gte: thirtyDaysAgo } } }),
@@ -69,7 +70,7 @@ export async function GET(
   return NextResponse.json({
     ...company,
     usage: {
-      activeHomes: company._count.homes,
+      activeHomes: activeHomesCount,
       homesCompleted30d,
       tasksScheduled30d,
       smsSent30d,

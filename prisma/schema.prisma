@@ -157,11 +157,16 @@ model Company {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  // Billing (MVP manual)
+  // Billing (MVP manual + Stripe)
   monthlyPriceCents Int?
   renewalDate       DateTime?
   billingStatus     BillingStatus?
   notes             String?
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  subscriptionStatus     String?   // Stripe: active, trialing, past_due, canceled, unpaid
+  planKey                String?   // starter, growth, unlimited, white_label
+  currentPeriodEnd       DateTime?
 
   // White label (brandLogoUrl kept for legacy; prefer brandLogoPath from uploads)
   brandAppName       String?
@@ -174,6 +179,9 @@ model Company {
   // Trial
   trialStartsAt     DateTime?
   trialEndsAt       DateTime?
+
+  /// Billing entitlements: { maxActiveHomes?, maxUsers?, whiteLabelEnabled? }. -1 = unlimited.
+  entitlementsJson   Json?
 
   users             User[]
   memberships       CompanyMembership[]
@@ -193,10 +201,25 @@ model Company {
   smsMessages   SmsMessage[]
   smsMessageLogs SmsMessageLog[]
   notifications Notification[]
+  subscriptionEventLogs SubscriptionEventLog[]
 
   @@index([pricingTier])
   @@index([status])
   @@index([billingStatus])
+}
+
+model SubscriptionEventLog {
+  id             String   @id @default(cuid())
+  companyId      String?
+  company        Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  stripeEventId  String   @unique
+  eventType      String
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  @@index([companyId])
+  @@index([stripeEventId])
+  @@index([createdAt])
 }
 
 model SmsMessageLog {
@@ -357,6 +380,9 @@ model Home {
   thumbnailStoragePath String?
   /// Original filename of uploaded thumbnail (for display only).
   thumbnailFileName    String?
+  /// True when all schedule tasks for this home are Completed. Used for billing (active homes = !isComplete).
+  isComplete           Boolean     @default(false)
+  completedAt         DateTime?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -366,6 +392,7 @@ model Home {
   contractorAssignments ContractorAssignment[]
 
   @@index([companyId])
+  @@index([companyId, isComplete])
   @@index([companyId, startDate])
   @@index([subdivisionId])
   @@index([targetCompletionDate])
