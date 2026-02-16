@@ -101,7 +101,7 @@ async function handleCheckoutCompleted(
 }
 
 async function handleSubscriptionUpsert(
-  prisma: { company: { findFirst: any; update: any } },
+  prisma: { company: { findFirst: any; update: any }; subscriptionEventLog: { update: any } },
   sub: Stripe.Subscription,
   eventId: string
 ) {
