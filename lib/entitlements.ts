@@ -90,7 +90,57 @@ export async function getTenantUsage(
   return { activeHomesCount, usersCount }
 }
 
+/**
+ * Returns true if the tenant subscription is active or trialing (allowed to use features).
+ */
+export async function isTenantActive(
+  prisma: PrismaClient,
+  tenantId: string
+): Promise<boolean> {
+  const company = await prisma.company.findFirst({
+    where: { id: tenantId },
+    select: { status: true },
+  })
+  return company?.status === "ACTIVE" || company?.status === "TRIAL"
+}
+
 export type CanCreateHomeResult = { allowed: boolean; error?: string; upgradeHint?: string }
+export type CanCreateUserResult = { allowed: boolean; error?: string; upgradeHint?: string }
+
+/**
+ * Returns whether the tenant can create a new user (subscription active + under user limit).
+ * Use in server actions / API routes that create or invite users.
+ */
+export async function canCreateUser(
+  prisma: PrismaClient,
+  tenantId: string
+): Promise<CanCreateUserResult> {
+  const company = await prisma.company.findFirst({
+    where: { id: tenantId },
+    select: { status: true },
+  })
+  if (!company) return { allowed: false, error: "Company not found" }
+  if (company.status !== "ACTIVE" && company.status !== "TRIAL") {
+    return {
+      allowed: false,
+      error: "Your account is not active. Please update your billing or contact support.",
+      upgradeHint: "/billing",
+    }
+  }
+  const [entitlements, usage] = await Promise.all([
+    getTenantEntitlements(prisma, tenantId),
+    getTenantUsage(prisma, tenantId),
+  ])
+  const max = entitlements.maxUsers
+  if (max != null && max !== -1 && usage.usersCount >= max) {
+    return {
+      allowed: false,
+      error: `You've reached your plan limit of ${max} users. Upgrade your plan to add more.`,
+      upgradeHint: "/billing",
+    }
+  }
+  return { allowed: true }
+}
 
 /**
  * Returns whether the tenant can create a new home (subscription active + under active homes limit).

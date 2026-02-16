@@ -182,6 +182,7 @@ model Company {
 
   /// Billing entitlements: { maxActiveHomes?, maxUsers?, whiteLabelEnabled? }. -1 = unlimited.
   entitlementsJson   Json?
+  billingEmail      String?
 
   users             User[]
   memberships       CompanyMembership[]

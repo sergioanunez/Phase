@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 import { getServerAppUrl } from "@/lib/env"
-import { stripe, PLANS, type PlanKey } from "@/lib/stripe"
+import { stripe, PLAN_CONFIG, type PlanKey } from "@/lib/stripe"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-const checkoutSchema = z.object({ planKey: z.enum(["starter", "growth", "unlimited", "white_label"]) })
+const checkoutSchema = z.object({ planKey: z.enum(["starter", "growth", "scale"]) })
 
 /**
  * POST /api/billing/checkout
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { planKey } = checkoutSchema.parse(body) as { planKey: PlanKey }
 
-    const plan = PLANS[planKey]
+    const plan = PLAN_CONFIG[planKey]
     if (!plan?.stripePriceId) {
       return NextResponse.json({ error: `Plan ${planKey} is not configured` }, { status: 400 })
     }
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
-      success_url: `${baseUrl}/billing?success=1`,
-      cancel_url: `${baseUrl}/billing?canceled=1`,
+      success_url: `${baseUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/billing`,
       subscription_data: {
         metadata: { companyId: company.id },
       },

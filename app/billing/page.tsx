@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { CreditCard, Loader2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ type Plan = {
   label: string
   priceLabel: string
   maxActiveHomes: number | null
+  maxUsers: number | null
   whiteLabelEnabled: boolean
   stripePriceId: string | null
 }
@@ -177,6 +179,16 @@ export default function BillingPage() {
           </div>
         ) : data ? (
           <div className="space-y-8">
+            {subscription && subscription.companyStatus !== "ACTIVE" && subscription.companyStatus !== "TRIAL" && (
+              <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">
+                  Your subscription is not active. Some features may be limited until billing is updated.{" "}
+                  <Link href="/billing" className="font-medium underline">
+                    Manage billing
+                  </Link>
+                </p>
+              </section>
+            )}
             {/* Current subscription */}
             {subscription && (
               <section className="rounded-xl border border-gray-200 bg-white p-6">
@@ -256,7 +268,7 @@ export default function BillingPage() {
                     <h2 className="text-sm font-medium text-foreground mb-1 mt-4">Users</h2>
                     <p className="text-2xl font-semibold tabular-nums">
                       {usage.usersCount}
-                      {usage.maxUsers === -1 ? " / Unlimited" : ` / ${usage.maxUsers}`}
+                      {usage.maxUsers == null ? " / Unlimited" : ` / ${usage.maxUsers}`}
                     </p>
                   </>
                 )}
@@ -266,10 +278,19 @@ export default function BillingPage() {
             {/* Plan cards */}
             <section>
               <h2 className="text-sm font-medium text-foreground mb-3">Plans</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan) => {
                   const isCurrent = subscription?.planKey === plan.planKey
                   const canSubscribe = !!plan.stripePriceId
+                  const planOrder = ["starter", "growth", "scale"] as const
+                  const currentIdx = subscription?.planKey ? planOrder.indexOf(subscription.planKey as any) : -1
+                  const thisIdx = planOrder.indexOf(plan.planKey as any)
+                  const isUpgrade = currentIdx >= 0 && thisIdx > currentIdx
+                  const buttonLabel = isCurrent
+                    ? "Current plan"
+                    : isUpgrade
+                      ? "Upgrade"
+                      : "Subscribe"
                   return (
                     <div
                       key={plan.planKey}
@@ -279,6 +300,7 @@ export default function BillingPage() {
                       <div className="text-lg font-semibold text-primary mt-1">{plan.priceLabel}</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {plan.maxActiveHomes == null ? "Unlimited" : `${plan.maxActiveHomes} active homes`}
+                        {plan.maxUsers != null && ` · ${plan.maxUsers} users`}
                         {plan.whiteLabelEnabled && " · White label"}
                       </div>
                       <div className="mt-4 flex-1 flex items-end">
@@ -292,10 +314,8 @@ export default function BillingPage() {
                           >
                             {checkoutPlanKey === plan.planKey ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : isCurrent ? (
-                              "Current plan"
                             ) : (
-                              "Subscribe"
+                              buttonLabel
                             )}
                           </Button>
                         ) : (

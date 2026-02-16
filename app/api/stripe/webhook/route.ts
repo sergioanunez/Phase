@@ -225,6 +225,6 @@ function mapStripeStatusToCompanyStatus(stripeStatus: string): "ACTIVE" | "TRIAL
     case "incomplete":
     case "incomplete_expired":
     default:
-      return "ACTIVE"
+      return "DISABLED"
   }
 }

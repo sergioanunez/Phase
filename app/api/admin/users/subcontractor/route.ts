@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
     } = await import("@/lib/invite")
 
     const ctx = await requireTenantPermission("users:write")
+    const { canCreateUser } = await import("@/lib/entitlements")
+    const createResult = await canCreateUser(prisma, ctx.companyId!)
+    if (!createResult.allowed) {
+      return NextResponse.json(
+        { error: createResult.error, upgradeHint: createResult.upgradeHint ?? "/billing" },
+        { status: 403 }
+      )
+    }
     const body = await request.json()
     const data = createSubcontractorSchema.parse(body)
 

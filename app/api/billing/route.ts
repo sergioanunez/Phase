@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { PLANS } from "@/lib/stripe"
+import { PLAN_CONFIG } from "@/lib/stripe"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -45,11 +45,12 @@ export async function GET() {
         }
       : null
 
-    const plans = Object.values(PLANS).map((p) => ({
+    const plans = Object.values(PLAN_CONFIG).map((p) => ({
       planKey: p.planKey,
       label: p.label,
       priceLabel: p.priceLabel,
-      maxActiveHomes: p.maxActiveHomes,
+      maxActiveHomes: p.maxActiveHomes === -1 ? null : p.maxActiveHomes,
+      maxUsers: p.maxUsers === -1 ? null : p.maxUsers,
       whiteLabelEnabled: p.whiteLabelEnabled,
       stripePriceId: p.stripePriceId ? "set" : null,
     }))

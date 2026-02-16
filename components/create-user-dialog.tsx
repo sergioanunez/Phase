@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function CreateUserDialog({
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [upgradeHint, setUpgradeHint] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -50,6 +52,7 @@ export function CreateUserDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setUpgradeHint(null)
     setLoading(true)
 
     try {
@@ -69,7 +72,7 @@ export function CreateUserDialog({
             contractorId: contractorId.trim(),
           }),
         })
-        let data: { error?: string; warning?: string } = {}
+        let data: { error?: string; warning?: string; upgradeHint?: string } = {}
         try {
           const contentType = res.headers.get("content-type")
           if (contentType?.includes("application/json")) {
@@ -79,6 +82,7 @@ export function CreateUserDialog({
           // Server returned non-JSON (e.g. HTML error page)
         }
         if (!res.ok) {
+          setUpgradeHint(data.upgradeHint ?? null)
           const msg =
             typeof data.error === "string"
               ? data.error
@@ -112,7 +116,7 @@ export function CreateUserDialog({
           role,
         }),
       })
-      let data: { error?: string; warning?: string } = {}
+      let data: { error?: string; warning?: string; upgradeHint?: string } = {}
       try {
         const contentType = res.headers.get("content-type")
         if (contentType?.includes("application/json")) {
@@ -122,6 +126,7 @@ export function CreateUserDialog({
         // Server returned non-JSON
       }
       if (!res.ok) {
+        setUpgradeHint(data.upgradeHint ?? null)
         const msg =
           typeof data.error === "string"
             ? data.error
@@ -230,7 +235,16 @@ export function CreateUserDialog({
             )}
 
             {error && (
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="text-sm text-destructive">
+                {error}
+                {upgradeHint && (
+                  <span className="block mt-1">
+                    <Link href={upgradeHint} className="underline text-primary" onClick={() => onOpenChange(false)}>
+                      Go to Billing
+                    </Link>
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
