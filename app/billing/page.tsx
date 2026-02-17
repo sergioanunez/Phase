@@ -21,6 +21,8 @@ type Subscription = {
   planKey: string | null
   currentPeriodEnd: string | null
   companyStatus: string
+  pricingTier?: string | null
+  whiteLabelEnabled?: boolean
 }
 
 type Plan = {
@@ -212,7 +214,9 @@ export default function BillingPage() {
                   <span className="text-lg font-semibold">
                     {subscription.planKey
                       ? plans.find((p) => p.planKey === subscription.planKey)?.label ?? subscription.planKey
-                      : "No active subscription"}
+                      : subscription.pricingTier === "WHITE_LABEL" || subscription.whiteLabelEnabled
+                        ? "White Label"
+                        : "No active subscription"}
                   </span>
                   {subscription.subscriptionStatus && (
                     <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">

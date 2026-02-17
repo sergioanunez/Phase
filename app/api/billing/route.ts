@@ -43,6 +43,7 @@ export async function GET() {
           planKey: true,
           currentPeriodEnd: true,
           status: true,
+          pricingTier: true,
         },
       }),
       getTenantEntitlements(prisma, tenantId),
@@ -56,6 +57,8 @@ export async function GET() {
           planKey: company.planKey ?? null,
           currentPeriodEnd: company.currentPeriodEnd?.toISOString() ?? null,
           companyStatus: company.status,
+          pricingTier: company.pricingTier ?? null,
+          whiteLabelEnabled: entitlements.whiteLabelEnabled,
         }
       : null
 

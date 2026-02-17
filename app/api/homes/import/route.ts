@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("homes:write")
+    const ctx = await requireTenantPermission("homes:write")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -63,9 +63,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify subdivision exists
-    const subdivision = await prisma.subdivision.findUnique({
-      where: { id: subdivisionId },
+    // Verify subdivision exists and belongs to tenant
+    const subdivision = await prisma.subdivision.findFirst({
+      where: {
+        id: subdivisionId,
+        companyId: ctx.companyId ?? undefined,
+      },
     })
 
     if (!subdivision) {
@@ -163,8 +166,9 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
-    // Get template items to create tasks for each home
+    // Get template items for this tenant to create tasks for each home
     const templateItems = await prisma.workTemplateItem.findMany({
+      where: ctx.companyId ? { companyId: ctx.companyId } : undefined,
       orderBy: { sortOrder: "asc" },
     })
 
@@ -191,9 +195,10 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Create home
+        // Create home (set companyId so it appears in tenant's homes list)
         const home = await prisma.home.create({
           data: {
+            companyId: ctx.companyId ?? undefined,
             subdivisionId,
             addressOrLot: validated.addressOrLot,
             targetCompletionDate: validated.targetCompletionDate
@@ -207,6 +212,7 @@ export async function POST(request: NextRequest) {
           templateItems.map((item) =>
             prisma.homeTask.create({
               data: {
+                companyId: ctx.companyId ?? undefined,
                 homeId: home.id,
                 templateItemId: item.id,
                 nameSnapshot: item.name,
@@ -219,12 +225,13 @@ export async function POST(request: NextRequest) {
         )
 
         await createAuditLog(
-          user.id,
+          ctx.userId,
           "Home",
           home.id,
           "CREATE",
           null,
-          home
+          home,
+          ctx.companyId ?? undefined
         )
 
         results.success.push(home)
