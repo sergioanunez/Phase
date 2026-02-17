@@ -215,11 +215,7 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     console.error("Failed to fetch notifications:", error)
     if (isBuildTime) return buildGuardResponse()
-    try {
-      const { handleApiError } = await import("@/lib/api-response")
-      return handleApiError(error)
-    } catch {
-      return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
-    }
+    // Return empty notifications so layout/pages still load (e.g. missing Notification table in DB)
+    return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
   }
 }
