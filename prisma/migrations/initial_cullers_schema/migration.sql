@@ -1,0 +1,2 @@
+-- Placeholder: baseline migration was applied outside this project.
+-- This file exists so Prisma can find the migration and proceed with add_multi_tenancy.
