@@ -9,7 +9,7 @@ function isDev(): boolean {
   return (
     process.env.NODE_ENV !== "production" ||
     process.env.VERCEL_ENV === "development" ||
-    process.env.VERCEL === "0"
+    !process.env.VERCEL
   )
 }
 
