@@ -79,8 +79,13 @@ export async function sendInviteEmail(params: {
       ? `${params.invitingCompanyName} has invited you to join `
       : "You've been invited to join "
 
-    // Sanitize inviteLink: trim, strip wrapping quotes
+    // Sanitize inviteLink: trim, strip wrapping/escaped quotes (env can inject \" in URLs)
     let linkInput = params.inviteLink.trim()
+    while (linkInput.startsWith('\\"') || linkInput.startsWith('\\\'')) linkInput = linkInput.slice(2).trim()
+    while (linkInput.endsWith('"') || linkInput.endsWith("'") || linkInput.endsWith('\\"') || linkInput.endsWith("\\'")) {
+      if (linkInput.endsWith('\\"') || linkInput.endsWith("\\'")) linkInput = linkInput.slice(0, -2).trim()
+      else linkInput = linkInput.slice(0, -1).trim()
+    }
     if ((linkInput.startsWith('"') && linkInput.endsWith('"')) || (linkInput.startsWith("'") && linkInput.endsWith("'"))) {
       linkInput = linkInput.slice(1, -1).trim()
     }
