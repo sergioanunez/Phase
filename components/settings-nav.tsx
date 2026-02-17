@@ -5,14 +5,19 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { Palette, CreditCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const tabs = [
+const tabs: Array<{
+  value: string
+  href: string
+  label: string
+  icon?: typeof Palette
+}> = [
   { value: "subdivisions-homes", href: "/admin", label: "Subdivisions & Homes" },
   { value: "work-templates", href: "/admin?tab=work-templates", label: "Work Items Template" },
   { value: "contractors", href: "/admin?tab=contractors", label: "Contractors" },
   { value: "users", href: "/admin?tab=users", label: "Users" },
   { value: "white-label", href: "/admin?tab=white-label", label: "White Label", icon: Palette },
   { value: "billing", href: "/admin/billing", label: "Billing", icon: CreditCard },
-] as const
+]
 
 export function SettingsNav({ className }: { className?: string }) {
   const pathname = usePathname()
@@ -20,7 +25,7 @@ export function SettingsNav({ className }: { className?: string }) {
   const tabParam = searchParams.get("tab")
 
   const isBillingActive = pathname === "/admin/billing"
-  const isActive = (t: (typeof tabs)[number]) =>
+  const isActive = (t: (typeof tabs)[number]): boolean =>
     t.value === "billing"
       ? isBillingActive
       : pathname === "/admin" && (tabParam === t.value || (!tabParam && t.value === "subdivisions-homes"))
