@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         {
           error: `You've reached your plan limit of ${maxActiveHomes} active homes. Complete a home or upgrade your plan.`,
           code: "ACTIVE_HOMES_LIMIT",
-          upgradeHint: "/billing",
+          upgradeHint: "/admin/billing",
         },
         { status: 403 }
       )

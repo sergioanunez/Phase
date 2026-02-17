@@ -124,7 +124,7 @@ export async function canCreateUser(
     return {
       allowed: false,
       error: "Your account is not active. Please update your billing or contact support.",
-      upgradeHint: "/billing",
+      upgradeHint: "/admin/billing",
     }
   }
   const [entitlements, usage] = await Promise.all([
@@ -136,7 +136,7 @@ export async function canCreateUser(
     return {
       allowed: false,
       error: `You've reached your plan limit of ${max} users. Upgrade your plan to add more.`,
-      upgradeHint: "/billing",
+      upgradeHint: "/admin/billing",
     }
   }
   return { allowed: true }
@@ -160,7 +160,7 @@ export async function canCreateHome(
     return {
       allowed: false,
       error: "Your account is not active. Please update your billing or contact support.",
-      upgradeHint: "/billing",
+      upgradeHint: "/admin/billing",
     }
   }
   const [entitlements, usage] = await Promise.all([
@@ -172,7 +172,7 @@ export async function canCreateHome(
     return {
       allowed: false,
       error: `You've reached your plan limit of ${max} active homes. Complete a home or upgrade your plan.`,
-      upgradeHint: "/billing",
+      upgradeHint: "/admin/billing",
     }
   }
   return { allowed: true }

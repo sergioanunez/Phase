@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -17,6 +17,7 @@ import { CreateContractorDialog } from "@/components/create-contractor-dialog"
 import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
+import { SettingsNav } from "@/components/settings-nav"
 import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette } from "lucide-react"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
@@ -109,6 +110,8 @@ interface CompanyBranding {
 export default function AdminPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const settingsTab = searchParams.get("tab") || "subdivisions-homes"
   const [subdivisions, setSubdivisions] = useState<Subdivision[]>([])
   const [homes, setHomes] = useState<Home[]>([])
   const [templates, setTemplates] = useState<WorkTemplateItem[]>([])
@@ -1061,23 +1064,14 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
       <div className="app-container">
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="mt-1.5 mb-6 text-sm text-muted-foreground">
-          Manage subdivisions, homes, work templates, contractors, and users. Settings access required.
+        <p className="mt-1.5 mb-4 text-sm text-muted-foreground">
+          Manage subdivisions, homes, work templates, contractors, users, and billing. Settings access required.
         </p>
+        <div className="mb-6">
+          <SettingsNav />
+        </div>
 
-        <Tabs defaultValue="subdivisions-homes" className="w-full">
-          <TabsList className="flex flex-wrap gap-2 w-full mb-6">
-            <TabsTrigger value="subdivisions-homes" className="flex-shrink-0">
-              Subdivisions & Homes
-            </TabsTrigger>
-            <TabsTrigger value="work-templates" className="flex-shrink-0">Work Items Template</TabsTrigger>
-            <TabsTrigger value="contractors" className="flex-shrink-0">Contractors</TabsTrigger>
-            <TabsTrigger value="users" className="flex-shrink-0">Users</TabsTrigger>
-            <TabsTrigger value="white-label" className="flex-shrink-0">
-              <Palette className="h-4 w-4 mr-1" />
-              White Label
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={settingsTab} className="w-full">
 
           <TabsContent value="subdivisions-homes" className="space-y-8">
             {selectedSubdivisionId ? (

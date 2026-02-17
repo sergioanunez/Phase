@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const createResult = await canCreateUser(prisma, ctx.companyId!)
     if (!createResult.allowed) {
       return NextResponse.json(
-        { error: createResult.error, upgradeHint: createResult.upgradeHint ?? "/billing" },
+        { error: createResult.error, upgradeHint: createResult.upgradeHint ?? "/admin/billing" },
         { status: 403 }
       )
     }

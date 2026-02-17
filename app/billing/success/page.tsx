@@ -11,7 +11,7 @@ export default function BillingSuccessPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Optional: refresh billing state after a short delay so /billing shows updated subscription
+    // Optional: refresh billing state after a short delay so billing page shows updated subscription
     const t = setTimeout(() => router.refresh(), 500)
     return () => clearTimeout(t)
   }, [router])
@@ -25,7 +25,7 @@ export default function BillingSuccessPage() {
           Your billing is now active. You can manage your plan and payment method from the billing page.
         </p>
         <Button asChild className="mt-6">
-          <Link href="/billing">Go to Billing</Link>
+          <Link href="/admin/billing">Go to Billing</Link>
         </Button>
       </div>
       <Navigation />
