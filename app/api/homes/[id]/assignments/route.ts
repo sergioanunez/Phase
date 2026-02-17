@@ -17,7 +17,7 @@ const putSchema = z.object({
 
 /**
  * GET /api/homes/[id]/assignments
- * Returns superintendents assigned to this home. Admin only (homes:read).
+ * Returns superintendents assigned to this home. Settings access (homes:read).
  */
 export async function GET(
   _request: NextRequest,
@@ -59,7 +59,7 @@ export async function GET(
 
 /**
  * PUT /api/homes/[id]/assignments
- * Set superintendent assignments for this home (replaces existing). Admin only (homes:write).
+ * Set superintendent assignments for this home (replaces existing). Settings access (homes:write).
  */
 export async function PUT(
   request: NextRequest,

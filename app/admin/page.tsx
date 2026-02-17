@@ -269,7 +269,7 @@ export default function AdminPage() {
         setLoading(false)
       })
       .catch((err) => {
-        console.error("Admin fetch error:", err)
+        console.error("Settings fetch error:", err)
         setSubdivisions([])
         setHomes([])
         setTemplates([])
@@ -1060,9 +1060,9 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
       <div className="app-container">
-        <h1 className="text-2xl font-bold">Admin Management</h1>
+        <h1 className="text-2xl font-bold">Settings</h1>
         <p className="mt-1.5 mb-6 text-sm text-muted-foreground">
-          Manage subdivisions, homes, work templates, contractors, and users. Admin only.
+          Manage subdivisions, homes, work templates, contractors, and users. Settings access required.
         </p>
 
         <Tabs defaultValue="subdivisions-homes" className="w-full">
@@ -1792,7 +1792,7 @@ export default function AdminPage() {
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 Select prerequisite work items that must be completed before this
-                                item can be scheduled. Dependencies are managed by Admin only.
+                                item can be scheduled. Dependencies are managed in Settings only.
                               </p>
                               <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
                                 {templates

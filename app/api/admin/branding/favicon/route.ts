@@ -10,7 +10,7 @@ const MAX_SIZE = 300 * 1024 // 300 KB
 
 /**
  * POST /api/admin/branding/favicon
- * Upload company favicon (WHITE_LABEL, Admin only). Stores path in Company.brandFaviconPath.
+ * Upload company favicon (WHITE_LABEL, Settings access required). Stores path in Company.brandFaviconPath.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     if (session.user.role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Admin only" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden: Settings access required" }, { status: 403 })
     }
 
     const user = await prisma.user.findUnique({

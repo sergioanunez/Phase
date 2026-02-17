@@ -36,7 +36,7 @@ export function Navigation() {
             { href: "/homes", icon: Home, label: "Homes", roles: ["Admin", "Superintendent", "Manager"] },
             { href: "/calendar", icon: Calendar, label: "Calendar", roles: ["Admin", "Superintendent", "Manager"] },
             { href: "/dashboard", icon: BarChart3, label: "Dashboard", roles: ["Admin", "Manager"] },
-            { href: "/admin", icon: Settings, label: "Admin", roles: ["Admin"] },
+            { href: "/admin", icon: Settings, label: "Settings", roles: ["Admin"] },
             { href: "/billing", icon: CreditCard, label: "Billing", roles: ["Admin"] },
           ].filter((item) => item.roles.includes(role))
 

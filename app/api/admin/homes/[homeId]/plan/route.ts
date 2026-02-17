@@ -17,7 +17,7 @@ function requireAdmin(session: any) {
     return { error: "Unauthorized", status: 401 as const }
   }
   if (session.user.role !== "Admin") {
-    return { error: "Forbidden: Admin only", status: 403 as const }
+    return { error: "Forbidden: Settings access required", status: 403 as const }
   }
   return null
 }
@@ -44,7 +44,7 @@ const patchPlanSchema = z.object({
 })
 
 /**
- * POST /api/admin/homes/:homeId/plan - Upload or replace floor plan (Admin only)
+ * POST /api/admin/homes/:homeId/plan - Upload or replace floor plan (Settings access required)
  */
 export async function POST(
   request: NextRequest,
@@ -192,7 +192,7 @@ export async function POST(
 }
 
 /**
- * PATCH /api/admin/homes/:homeId/plan - Update plan metadata only (Admin only)
+ * PATCH /api/admin/homes/:homeId/plan - Update plan metadata only (Settings access required)
  */
 export async function PATCH(
   request: NextRequest,
@@ -265,7 +265,7 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/admin/homes/:homeId/plan - Remove plan file and clear metadata (Admin only)
+ * DELETE /api/admin/homes/:homeId/plan - Remove plan file and clear metadata (Settings access required)
  */
 export async function DELETE(
   request: NextRequest,

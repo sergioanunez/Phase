@@ -129,7 +129,7 @@ export default function DashboardPage() {
               <Link
                 href="/admin"
                 className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-white hover:text-foreground"
-                aria-label="Settings / Admin"
+                aria-label="Settings"
               >
                 <Settings className="h-5 w-5" />
               </Link>

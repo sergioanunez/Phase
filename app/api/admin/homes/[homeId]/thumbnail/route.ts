@@ -15,7 +15,7 @@ function requireAdmin(session: unknown) {
   }
   const user = (session as { user?: { role?: string } }).user
   if (user?.role !== "Admin") {
-    return { error: "Forbidden: Admin only", status: 403 as const }
+    return { error: "Forbidden: Settings access required", status: 403 as const }
   }
   return null
 }
@@ -33,7 +33,7 @@ function getExtension(filename: string, mimeType: string): string {
 }
 
 /**
- * POST /api/admin/homes/:homeId/thumbnail - Upload or replace house thumbnail (Admin only)
+ * POST /api/admin/homes/:homeId/thumbnail - Upload or replace house thumbnail (Settings access required)
  */
 export async function POST(
   request: NextRequest,
@@ -140,7 +140,7 @@ export async function POST(
 }
 
 /**
- * DELETE /api/admin/homes/:homeId/thumbnail - Remove thumbnail (Admin only)
+ * DELETE /api/admin/homes/:homeId/thumbnail - Remove thumbnail (Settings access required)
  */
 export async function DELETE(
   request: NextRequest,

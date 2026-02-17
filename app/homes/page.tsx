@@ -209,7 +209,7 @@ export default function HomesPage() {
               No subdivisions have been created yet
             </p>
             <p className="text-sm text-muted-foreground">
-              Subdivisions will appear here once they are created in the Admin panel
+              Subdivisions will appear here once they are created in Settings
             </p>
           </div>
         ) : communities.filter((c) => c.homes.length > 0).length === 0 ? (
@@ -232,7 +232,7 @@ export default function HomesPage() {
                   No homes assigned to you yet
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  An admin can assign you to homes in the Admin panel. Once assigned, they will appear here.
+                  An admin can assign you to homes in Settings. Once assigned, they will appear here.
                 </p>
               </>
             ) : (
@@ -241,7 +241,7 @@ export default function HomesPage() {
                   No homes to show
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Homes will appear here once they are created and assigned in the Admin panel.
+                  Homes will appear here once they are created and assigned in Settings.
                 </p>
               </>
             )}

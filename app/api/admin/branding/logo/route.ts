@@ -19,7 +19,7 @@ function getExt(mime: string, filename: string): string {
 
 /**
  * POST /api/admin/branding/logo
- * Upload company logo (WHITE_LABEL, Admin only). Stores path in Company.brandLogoPath.
+ * Upload company logo (WHITE_LABEL, Settings access required). Stores path in Company.brandLogoPath.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     if (session.user.role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Admin only" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden: Settings access required" }, { status: 403 })
     }
 
     const user = await prisma.user.findUnique({
@@ -148,7 +148,7 @@ export async function DELETE() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     if (session.user.role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Admin only" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden: Settings access required" }, { status: 403 })
     }
 
     const user = await prisma.user.findUnique({

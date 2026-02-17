@@ -254,6 +254,20 @@ export default function HomeDetailPage() {
   const handleMarkCompleted = (e: React.MouseEvent, task: HomeTask) => {
     e.stopPropagation()
     setMarkingTaskId(task.id)
+    // #region agent log
+    const markStart = Date.now()
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "app/homes/[id]/page.tsx:handleMarkCompleted",
+        message: "mark completed click",
+        data: { step: "click", taskId: task.id, ms: markStart },
+        timestamp: markStart,
+        hypothesisId: "H4",
+      }),
+    }).catch(() => {})
+    // #endregion
     fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -263,11 +277,53 @@ export default function HomeDetailPage() {
         if (res.ok) return res.json()
         return res.json().then((data) => Promise.reject(new Error(data?.error || "Failed to update")))
       })
-      .then(() => {
+      .then((updatedTask) => {
+        // Optimistic update: show task as completed immediately so UI doesn't wait for forecast
+        setHome((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) =>
+              t.id === updatedTask.id
+                ? {
+                    ...t,
+                    status: updatedTask.status as TaskStatus,
+                    completedAt: updatedTask.completedAt != null ? (typeof updatedTask.completedAt === "string" ? updatedTask.completedAt : (updatedTask.completedAt as Date).toISOString()) : null,
+                  }
+                : t
+            ),
+          }
+        })
+        // #region agent log
+        fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "app/homes/[id]/page.tsx:handleMarkCompleted",
+            message: "PATCH resolved",
+            data: { step: "patchDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
+            timestamp: Date.now(),
+            hypothesisId: "H4",
+          }),
+        }).catch(() => {})
+        // #endregion
         if (params.id) {
           fetch(`/api/homes/${params.id}/forecast`)
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
+              // #region agent log
+              fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  location: "app/homes/[id]/page.tsx:handleMarkCompleted",
+                  message: "forecast resolved",
+                  data: { step: "forecastDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
+                  timestamp: Date.now(),
+                  hypothesisId: "H4",
+                }),
+              }).catch(() => {})
+              // #endregion
               if (data && !data.error) setHome(data)
               else
                 fetch(`/api/homes/${params.id}`)
@@ -281,7 +337,22 @@ export default function HomeDetailPage() {
             )
           fetch(`/api/homes/${params.id}/gates`)
             .then((res) => res.json())
-            .then((data) => setGateStatuses(data))
+            .then((data) => {
+              // #region agent log
+              fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  location: "app/homes/[id]/page.tsx:handleMarkCompleted",
+                  message: "gates resolved",
+                  data: { step: "gatesDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
+                  timestamp: Date.now(),
+                  hypothesisId: "H4",
+                }),
+              }).catch(() => {})
+              // #endregion
+              setGateStatuses(data)
+            })
             .catch(() => {})
         }
       })
@@ -554,7 +625,7 @@ export default function HomeDetailPage() {
               <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
               <p className="font-medium text-muted-foreground">No work items for this home</p>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Work items are created from the work template when a home is added. If this home was created before template items were set up, add work items template in Admin → Work Items Template, then create a new home to get the full list.
+                Work items are created from the work template when a home is added. If this home was created before template items were set up, add work items template in Settings → Work Items Template, then create a new home to get the full list.
               </p>
             </CardContent>
           </Card>
