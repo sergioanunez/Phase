@@ -178,9 +178,23 @@ export default function AdminPage() {
   const [assignedSuperintendentIds, setAssignedSuperintendentIds] = useState<string[]>([])
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
   const [assignmentsSaving, setAssignmentsSaving] = useState(false)
+  const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
+  const [impersonationChecked, setImpersonationChecked] = useState(false)
 
   useEffect(() => {
-    if (session?.user?.role !== "Admin") {
+    fetch("/api/super-admin/impersonation/context")
+      .then((res) => res.json())
+      .then((data) => {
+        setImpersonationRole(data.active && data.role ? data.role : null)
+        setImpersonationChecked(true)
+      })
+      .catch(() => setImpersonationChecked(true))
+  }, [])
+
+  useEffect(() => {
+    if (!impersonationChecked || !session?.user) return
+    const effectiveRole = impersonationRole ?? session.user.role
+    if (effectiveRole !== "Admin") {
       router.push("/")
       return
     }
@@ -259,7 +273,7 @@ export default function AdminPage() {
         setCategoryGates([])
         setLoading(false)
       })
-  }, [session, router])
+  }, [session, router, impersonationChecked, impersonationRole])
 
   const handleRefresh = () => {
     Promise.all([
@@ -1017,7 +1031,8 @@ export default function AdminPage() {
     }
   }
 
-  if (loading) {
+  const effectiveRole = impersonationChecked ? (impersonationRole ?? session?.user?.role) : null
+  if (loading || !session?.user || !impersonationChecked) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div>Loading...</div>
@@ -1025,7 +1040,7 @@ export default function AdminPage() {
     )
   }
 
-  if (session?.user?.role !== "Admin") {
+  if (effectiveRole !== "Admin") {
     return null
   }
 

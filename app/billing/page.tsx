@@ -50,6 +50,14 @@ export default function BillingPage() {
   const [checkoutPlanKey, setCheckoutPlanKey] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/super-admin/impersonation/context")
+      .then((res) => res.json())
+      .then((data) => setImpersonationRole(data.active && data.role ? data.role : null))
+      .catch(() => setImpersonationRole(null))
+  }, [])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -132,7 +140,8 @@ export default function BillingPage() {
     )
   }
 
-  if (session.user.role === "SUPER_ADMIN" || session.user.role === "Subcontractor") {
+  const effectiveRole = impersonationRole ?? session.user.role
+  if (effectiveRole === "SUPER_ADMIN" || effectiveRole === "Subcontractor") {
     return (
       <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20 flex items-center justify-center">
         <div className="text-center text-muted-foreground">Billing is available for account admins.</div>

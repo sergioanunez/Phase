@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -9,7 +10,17 @@ import { cn } from "@/lib/utils"
 export function Navigation() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const role = session?.user?.role ?? ""
+  const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/super-admin/impersonation/context")
+      .then((res) => res.json())
+      .then((data) => setImpersonationRole(data.active && data.role ? data.role : null))
+      .catch(() => setImpersonationRole(null))
+  }, [])
+
+  // When impersonating, show nav for the impersonated role; otherwise use session role
+  const role = impersonationRole ?? session?.user?.role ?? ""
 
   if (!session?.user) return null
 
