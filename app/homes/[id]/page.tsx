@@ -88,54 +88,39 @@ export default function HomeDetailPage() {
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (params.id) {
-      // Load home with forecast (longest dependency chain); fall back to GET home if forecast fails (e.g. cycle)
-      fetch(`/api/homes/${params.id}/forecast`)
-        .then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })))
-        .then(({ ok, status, data }) => {
-          if (ok && data && !data.error) {
-            setHome(data)
-            setLoading(false)
-            return
-          }
-          if (status === 404 || status === 403) {
-            setHome(null)
-            setLoading(false)
-            return
-          }
-          return fetch(`/api/homes/${params.id}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((fallback) => {
-              if (fallback) setHome(fallback)
-              else setHome(null)
-              setLoading(false)
-            })
-        })
-        .catch((err) => {
-          console.error(err)
-          fetch(`/api/homes/${params.id}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((fallback) => {
-              if (fallback) setHome(fallback)
-              else setHome(null)
-              setLoading(false)
-            })
-            .catch(() => {
-              setHome(null)
-              setLoading(false)
-            })
-        })
+    if (!params.id) return
+    const homeId = params.id as string
 
-      // Fetch gate statuses
-      fetch(`/api/homes/${params.id}/gates`)
-        .then((res) => res.json())
-        .then((data) => {
-          setGateStatuses(data)
-        })
-        .catch((err) => {
-          console.error("Failed to fetch gate statuses:", err)
-        })
-    }
+    // Fast path: load home from GET /api/homes/[id] so schedule shows immediately (no forecast recompute)
+    fetch(`/api/homes/${homeId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setHome(data)
+          setLoading(false)
+        } else {
+          setHome(null)
+          setLoading(false)
+        }
+        // Background: refresh with forecast (recompute); update home when done
+        fetch(`/api/homes/${homeId}/forecast`)
+          .then((res) => res.json().then((d) => ({ ok: res.ok, data: d })))
+          .then(({ ok, data }) => {
+            if (ok && data && !data.error) setHome(data)
+          })
+          .catch(() => {})
+      })
+      .catch((err) => {
+        console.error(err)
+        setHome(null)
+        setLoading(false)
+      })
+
+    // Fetch gate statuses in parallel
+    fetch(`/api/homes/${homeId}/gates`)
+      .then((res) => res.json())
+      .then((data) => setGateStatuses(data))
+      .catch((err) => console.error("Failed to fetch gate statuses:", err))
   }, [params.id])
 
   // Fetch thumbnail signed URL when home is loaded (try every time; API returns exists: false if none)
