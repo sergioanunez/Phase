@@ -34,8 +34,8 @@ export function getInviteExpiresAt(): Date {
 }
 
 /**
- * Build invite link with URL() only (no string concat). Use this at all call sites.
- * baseUrl must be sanitized (getServerAppUrl()).
+ * Build invite link with URL() only (no string concat).
+ * baseUrl must come from getBaseUrl() or getServerAppUrl() so it is already sanitized.
  */
 export function buildInviteLink(baseUrl: string, token: string): string {
   const url = new URL("/auth/accept-invite", baseUrl)
@@ -56,7 +56,7 @@ export async function sendInviteEmail(params: {
   invitingCompanyName?: string
 }): Promise<{ ok: boolean; error?: string; rateLimit?: boolean }> {
   const apiKey = process.env.RESEND_API_KEY
-  const { getServerAppUrl } = await import("./env")
+  const { ensureAbsoluteInviteUrl } = await import("./url")
   const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
 
   if (!apiKey) {
@@ -66,7 +66,7 @@ export async function sendInviteEmail(params: {
   try {
     const { Resend } = await import("resend")
     const resend = new Resend(apiKey)
-    const baseUrl = getServerAppUrl()
+    const fullUrl = ensureAbsoluteInviteUrl(params.inviteLink)
 
     const expiryStr = params.expiresAt.toLocaleString(undefined, {
       dateStyle: "medium",
@@ -78,33 +78,6 @@ export async function sendInviteEmail(params: {
     const invitingText = params.invitingCompanyName
       ? `${params.invitingCompanyName} has invited you to join `
       : "You've been invited to join "
-
-    // Sanitize inviteLink: trim, strip wrapping/escaped quotes (env can inject \" in URLs)
-    let linkInput = params.inviteLink.trim()
-    while (linkInput.startsWith('\\"') || linkInput.startsWith('\\\'')) linkInput = linkInput.slice(2).trim()
-    while (linkInput.endsWith('"') || linkInput.endsWith("'") || linkInput.endsWith('\\"') || linkInput.endsWith("\\'")) {
-      if (linkInput.endsWith('\\"') || linkInput.endsWith("\\'")) linkInput = linkInput.slice(0, -2).trim()
-      else linkInput = linkInput.slice(0, -1).trim()
-    }
-    if ((linkInput.startsWith('"') && linkInput.endsWith('"')) || (linkInput.startsWith("'") && linkInput.endsWith("'"))) {
-      linkInput = linkInput.slice(1, -1).trim()
-    }
-    // Normalize path: "./auth/..." -> "/auth/..."; if neither "/" nor "http", prefix with "/"
-    if (linkInput.startsWith("./")) {
-      linkInput = "/" + linkInput.slice(2)
-    } else if (!linkInput.startsWith("/") && !linkInput.startsWith("http")) {
-      linkInput = "/" + linkInput
-    }
-    // Build final absolute URL (no string concat; avoids baseUrl quotes/path bugs)
-    let fullUrl = new URL(linkInput, baseUrl).toString().trim()
-
-    // Reject only known-bad patterns (quotes / dot-slash); allow send otherwise
-    if (fullUrl.includes("%22") || fullUrl.includes('"') || fullUrl.includes("./")) {
-      throw new Error("Invalid inviteLink (quotes or ./): " + fullUrl)
-    }
-    if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://")) {
-      throw new Error("Invalid inviteLink (missing scheme): " + fullUrl)
-    }
 
     // Escape for HTML href: & " and ' so attribute is well-formed
     const urlForHref = fullUrl

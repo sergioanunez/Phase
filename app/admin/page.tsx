@@ -20,7 +20,8 @@ import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette } from "lucide-react"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
-import { useRef } from "react"
+import { useRef, useMemo } from "react"
+import { sanitizeUrl } from "@/lib/url"
 
 interface Subdivision {
   id: string
@@ -2561,25 +2562,29 @@ export default function AdminPage() {
                   {manualInviteError && (
                     <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">{manualInviteError}</p>
                   )}
-                  {manualInviteLink && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={manualInviteLink}
-                        className="flex-1 min-w-0 rounded border bg-muted/50 px-2 py-1.5 text-xs font-mono"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          if (manualInviteLink) navigator.clipboard.writeText(manualInviteLink)
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  )}
+                  {manualInviteLink && (() => {
+                    const displayLink = sanitizeUrl(manualInviteLink)
+                    let linkValid = false
+                    try { new URL(displayLink); linkValid = true } catch { /* invalid */ }
+                    return (
+                      <div className="flex flex-col gap-2">
+                        {!linkValid && (
+                          <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-xs">Link format invalid; copy and fix manually if needed.</p>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={displayLink}
+                            className="flex-1 min-w-0 rounded border bg-muted/50 px-2 py-1.5 text-xs font-mono"
+                          />
+                          <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(displayLink)}>
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <p className="text-muted-foreground">Send this link to the user manually (e.g. by email or message). The link was rotated and is valid for 48 hours.</p>
                 </div>
               </DialogContent>

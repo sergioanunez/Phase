@@ -18,7 +18,8 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "fix:preliminary-typo": "tsx scripts/fix-preliminary-typo.ts"
+    "fix:preliminary-typo": "tsx scripts/fix-preliminary-typo.ts",
+    "validate:url": "tsx scripts/validate-url.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const { getServerAppUrl } = await import("@/lib/env")
-    const inviteLink = buildInviteLink(getServerAppUrl(), token)
+    const { getBaseUrl, ensureAbsoluteInviteUrl } = await import("@/lib/url")
+    const inviteLink = ensureAbsoluteInviteUrl(buildInviteLink(getBaseUrl(), token))
     const idempotencyKey = `invite:${ctx.companyId ?? ""}:${newUser.id}`
 
     const emailResult = await sendInviteEmailWithIdempotency(prisma, {

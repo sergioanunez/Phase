@@ -80,8 +80,9 @@ export async function POST(
       },
     })
 
-    const { getServerAppUrl } = await import("@/lib/env")
-    const inviteLink = buildInviteLink(getServerAppUrl(), token)
+    const { getBaseUrl, ensureAbsoluteInviteUrl } = await import("@/lib/url")
+    const inviteLink = buildInviteLink(getBaseUrl(), token)
+    const sanitizedInviteLink = ensureAbsoluteInviteUrl(inviteLink)
     // Unique key per resend so we don't violate InviteEmailLog.idempotencyKey unique constraint (initial invite uses invite:companyId:userId)
     const idempotencyKey = `invite:resend:${ctx.companyId ?? ""}:${userId}:${latestInvite.id}:${Date.now()}`
 
@@ -92,7 +93,7 @@ export async function POST(
       email: user.email,
       to: user.email,
       name: user.name,
-      inviteLink,
+      inviteLink: sanitizedInviteLink,
       expiresAt,
       invitingCompanyName: ctx.companyName,
     })
@@ -122,7 +123,7 @@ export async function POST(
         {
           message: "Invite link rotated but email failed to send.",
           error: emailResult.error,
-          manualLink: inviteLink,
+          manualLink: sanitizedInviteLink,
         },
         { status: 200 }
       )
