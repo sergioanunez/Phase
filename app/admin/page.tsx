@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Navigation } from "@/components/navigation"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CreateHomeDialog } from "@/components/create-home-dialog"
 import { CreateSubdivisionDialog } from "@/components/create-subdivision-dialog"
 import { CreateTemplateDialog } from "@/components/create-template-dialog"
@@ -155,6 +156,10 @@ export default function AdminPage() {
   const [importHomesOpen, setImportHomesOpen] = useState(false)
   const [resendInviteUserId, setResendInviteUserId] = useState<string | null>(null)
   const resendInviteInProgressRef = useRef(false)
+  const [manualInviteOpen, setManualInviteOpen] = useState(false)
+  const [manualInviteLink, setManualInviteLink] = useState<string | null>(null)
+  const [manualInviteMessage, setManualInviteMessage] = useState<string | null>(null)
+  const [manualInviteError, setManualInviteError] = useState<string | null>(null)
   const [editingContractorId, setEditingContractorId] = useState<string | null>(null)
   const [editingContractor, setEditingContractor] = useState({
     companyName: "",
@@ -1018,7 +1023,14 @@ export default function AdminPage() {
       const data = await res.json()
       if (res.ok) {
         handleRefresh()
-        alert(data.message ?? "Invite email sent.")
+        if (data.manualLink) {
+          setManualInviteMessage(data.message ?? "Invite link rotated but email failed to send.")
+          setManualInviteError(data.error ?? null)
+          setManualInviteLink(data.manualLink)
+          setManualInviteOpen(true)
+        } else {
+          alert(data.message ?? "Invite email sent.")
+        }
       } else {
         alert(data.error ?? "Failed to resend invite")
       }
@@ -2532,6 +2544,46 @@ export default function AdminPage() {
               onSuccess={handleRefresh}
               user={editingUser}
             />
+            <Dialog open={manualInviteOpen} onOpenChange={(open) => {
+              setManualInviteOpen(open)
+              if (!open) {
+                setManualInviteLink(null)
+                setManualInviteMessage(null)
+                setManualInviteError(null)
+              }
+            }}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Email failed – copy invite link</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 text-sm">
+                  <p className="text-muted-foreground">{manualInviteMessage}</p>
+                  {manualInviteError && (
+                    <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">{manualInviteError}</p>
+                  )}
+                  {manualInviteLink && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={manualInviteLink}
+                        className="flex-1 min-w-0 rounded border bg-muted/50 px-2 py-1.5 text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          if (manualInviteLink) navigator.clipboard.writeText(manualInviteLink)
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                  <p className="text-muted-foreground">Send this link to the user manually (e.g. by email or message). The link was rotated and is valid for 48 hours.</p>
+                </div>
+              </DialogContent>
+            </Dialog>
             {selectedSubdivisionId && selectedSubdivision && (
               <ImportHomesDialog
                 open={importHomesOpen}
