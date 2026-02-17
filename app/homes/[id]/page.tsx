@@ -12,7 +12,8 @@ import { TaskModal } from "@/components/task-modal"
 import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
-import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Share2, Mail } from "lucide-react"
+import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail } from "lucide-react"
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
 import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
@@ -766,17 +767,19 @@ export default function HomeDetailPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => handleShareWorkItemWhatsApp(e, task)}
-                                className="shrink-0 min-h-[44px] h-9 px-2"
+                                className="shrink-0 h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                                 title="Share via WhatsApp"
+                                aria-label="Share via WhatsApp"
                               >
-                                <Share2 className="h-4 w-4" />
+                                <WhatsAppIcon className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => handleShareWorkItemEmail(e, task)}
-                                className="shrink-0 min-h-[44px] h-9 px-2"
+                                className="shrink-0 h-9 w-9 p-0"
                                 title="Share via email"
+                                aria-label="Share via email"
                               >
                                 <Mail className="h-4 w-4" />
                               </Button>

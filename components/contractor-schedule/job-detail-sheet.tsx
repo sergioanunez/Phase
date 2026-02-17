@@ -9,8 +9,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
-import { ClipboardList, MessageSquare, Smartphone } from "lucide-react"
-import { getAppBaseUrl, openWhatsAppShare, openSMSShare } from "@/lib/share/whatsapp"
+import { ClipboardList, Mail, MessageSquare } from "lucide-react"
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import { getAppBaseUrl, openWhatsAppShare, openEmailShare, openSMSShare } from "@/lib/share/whatsapp"
 import type { ContractorScheduleEvent } from "./job-row"
 
 export interface JobDetailSheetProps {
@@ -96,6 +97,18 @@ export function JobDetailSheet({
     }
   }
 
+  const handleShareEmail = () => {
+    const text = buildShareMessage()
+    openEmailShare(text, event.title)
+    if (typeof window !== "undefined") {
+      console.log("share_email_subcontractor_job", {
+        homeId: event.homeId,
+        workItemId: event.workItemId,
+        punchCount: event.punchItems?.length ?? 0,
+      })
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-hidden flex flex-col rounded-2xl border-[#E6E8EF] p-0">
@@ -106,21 +119,34 @@ export function JobDetailSheet({
               type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5 text-xs"
+              className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
               onClick={handleShareWhatsApp}
+              title="Share via WhatsApp"
+              aria-label="Share via WhatsApp"
             >
-              <MessageSquare className="h-3.5 w-3.5" />
-              WhatsApp
+              <WhatsAppIcon className="h-4 w-4" />
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5 text-xs"
-              onClick={handleShareSMS}
+              className="h-9 w-9 p-0"
+              onClick={handleShareEmail}
+              title="Share via email"
+              aria-label="Share via email"
             >
-              <Smartphone className="h-3.5 w-3.5" />
-              SMS
+              <Mail className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0"
+              onClick={handleShareSMS}
+              title="Send via SMS"
+              aria-label="Send via SMS"
+            >
+              <MessageSquare className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
