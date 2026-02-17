@@ -137,3 +137,13 @@ export function openEmailShare(body: string, subject?: string): void {
   params.set("body", body)
   window.open(`mailto:?${params.toString()}`, "_blank", "noopener,noreferrer")
 }
+
+/**
+ * Opens the device default SMS app with the given message body pre-filled. Client-only.
+ * Uses sms:?body= so the user can choose a contact and send.
+ */
+export function openSMSShare(body: string): void {
+  if (typeof window === "undefined") return
+  const url = `sms:?body=${encodeURIComponent(body)}`
+  window.location.href = url
+}
