@@ -5,13 +5,27 @@ import { PLAN_CONFIG } from "@/lib/stripe"
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
+/** Fallback plans when DB fails so the billing page still renders. */
+function getPlansPayload() {
+  return Object.values(PLAN_CONFIG).map((p) => ({
+    planKey: p.planKey,
+    label: p.label,
+    priceLabel: p.priceLabel,
+    maxActiveHomes: p.maxActiveHomes === -1 ? null : p.maxActiveHomes,
+    maxUsers: p.maxUsers === -1 ? null : p.maxUsers,
+    whiteLabelEnabled: p.whiteLabelEnabled,
+    stripePriceId: p.stripePriceId ? "set" : null,
+  }))
+}
+
 /**
  * GET /api/billing
  * Returns subscription state, usage, and available plans for the billing page.
+ * On DB/schema errors returns 200 with fallback data so the page still loads and plan cards work.
  */
 export async function GET() {
+  if (isBuildTime) return buildGuardResponse()
   try {
-    if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantContext } = await import("@/lib/tenant")
     const { getTenantEntitlements, getTenantUsage } = await import("@/lib/entitlements")
@@ -45,16 +59,6 @@ export async function GET() {
         }
       : null
 
-    const plans = Object.values(PLAN_CONFIG).map((p) => ({
-      planKey: p.planKey,
-      label: p.label,
-      priceLabel: p.priceLabel,
-      maxActiveHomes: p.maxActiveHomes === -1 ? null : p.maxActiveHomes,
-      maxUsers: p.maxUsers === -1 ? null : p.maxUsers,
-      whiteLabelEnabled: p.whiteLabelEnabled,
-      stripePriceId: p.stripePriceId ? "set" : null,
-    }))
-
     return NextResponse.json({
       subscription,
       usage: {
@@ -63,19 +67,27 @@ export async function GET() {
         maxActiveHomes: entitlements.maxActiveHomes,
         maxUsers: entitlements.maxUsers,
       },
-      plans,
+      plans: getPlansPayload(),
     })
   } catch (error: any) {
     if (error?.message === "Unauthorized" || error?.message === "Forbidden") {
       return NextResponse.json(
         { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
+        { status: error?.message === "Unauthorized" ? 401 : 403 }
       )
     }
     console.error("GET /api/billing error:", error)
-    return NextResponse.json(
-      { error: error?.message || "Failed to load billing" },
-      { status: 500 }
-    )
+    // Return 200 with fallback so billing page still loads (e.g. missing DB columns in production)
+    return NextResponse.json({
+      subscription: null,
+      usage: {
+        activeHomesCount: 0,
+        usersCount: 0,
+        maxActiveHomes: null,
+        maxUsers: null,
+      },
+      plans: getPlansPayload(),
+      error: error?.message || "Subscription and usage could not be loaded. You can still subscribe below.",
+    })
   }
 }

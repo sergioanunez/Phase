@@ -37,6 +37,7 @@ type BillingData = {
   subscription: Subscription | null
   usage: Usage
   plans: Plan[]
+  error?: string
 }
 
 export default function BillingPage() {
@@ -179,6 +180,11 @@ export default function BillingPage() {
           </div>
         ) : data ? (
           <div className="space-y-8">
+            {data.error && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">{data.error}</p>
+              </div>
+            )}
             {subscription && subscription.companyStatus !== "ACTIVE" && subscription.companyStatus !== "TRIAL" && (
               <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm text-amber-800">
