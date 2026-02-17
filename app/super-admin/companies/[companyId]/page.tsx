@@ -82,17 +82,26 @@ export default function SuperAdminCompanyDetailPage() {
   const [addAdminLoading, setAddAdminLoading] = useState(false)
   const [addAdminError, setAddAdminError] = useState("")
 
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   const fetchCompany = useCallback(() => {
     setLoading(true)
+    setFetchError(null)
     fetch(`/api/super-admin/companies/${companyId}`)
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          const msg = data.error || (r.status === 404 ? "Company not found" : "Failed to load company")
+          throw new Error(msg)
+        }
         if (data.error) throw new Error(data.error)
-        setCompany(data)
+        return data
       })
+      .then(setCompany)
       .catch((e) => {
         console.error(e)
         setCompany(null)
+        setFetchError(e instanceof Error ? e.message : "Failed to load company")
       })
       .finally(() => setLoading(false))
   }, [companyId])
@@ -157,7 +166,7 @@ export default function SuperAdminCompanyDetailPage() {
   if (!company) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-        Company not found. <Link href="/super-admin/companies" className="underline">Back to companies</Link>
+        {fetchError || "Company not found"}. <Link href="/super-admin/companies" className="underline">Back to companies</Link>
       </div>
     )
   }

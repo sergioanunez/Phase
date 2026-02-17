@@ -39,45 +39,53 @@ export async function GET(
   { params }: { params: Promise<{ companyId: string }> }
 ) {
   if (isBuildTime) return buildGuardResponse()
-  const { requireSuperAdmin } = await import("@/lib/super-admin")
-  const { prisma } = await import("@/lib/prisma")
-  const check = await requireSuperAdmin()
-  if ("error" in check) return check.error
+  try {
+    const { requireSuperAdmin } = await import("@/lib/super-admin")
+    const { prisma } = await import("@/lib/prisma")
+    const check = await requireSuperAdmin()
+    if ("error" in check) return check.error
 
-  const { companyId } = await params
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    include: {
-      _count: { select: { users: true, homes: true, homeTasks: true } },
-      users: { select: { id: true, name: true, email: true, role: true, status: true, isActive: true } },
-    },
-  })
-  if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 })
+    const { companyId } = await params
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      include: {
+        _count: { select: { users: true, homes: true, homeTasks: true } },
+        users: { select: { id: true, name: true, email: true, role: true, status: true, isActive: true } },
+      },
+    })
+    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 })
 
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const [activeHomesCount, homesCompleted30d, tasksScheduled30d, smsSent30d, smsFailed30d] = await Promise.all([
-    prisma.home.count({ where: { companyId, isComplete: false } }),
-    prisma.homeTask.count({ where: { companyId, status: "Completed", completedAt: { gte: thirtyDaysAgo } } }),
-    prisma.homeTask.count({ where: { companyId, scheduledDate: { not: null }, createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.smsMessage.count({ where: { companyId, createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.smsMessage.count({ where: { companyId, status: "Failed", createdAt: { gte: thirtyDaysAgo } } }),
-  ])
+    const [activeHomesCount, homesCompleted30d, tasksScheduled30d, smsSent30d, smsFailed30d] = await Promise.all([
+      prisma.home.count({ where: { companyId, isComplete: false } }),
+      prisma.homeTask.count({ where: { companyId, status: "Completed", completedAt: { gte: thirtyDaysAgo } } }),
+      prisma.homeTask.count({ where: { companyId, scheduledDate: { not: null }, createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.smsMessage.count({ where: { companyId, createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.smsMessage.count({ where: { companyId, status: "Failed", createdAt: { gte: thirtyDaysAgo } } }),
+    ])
 
-  const confirmationRate30d = smsSent30d > 0 ? Math.round((1 - smsFailed30d / smsSent30d) * 100) : null
+    const confirmationRate30d = smsSent30d > 0 ? Math.round((1 - smsFailed30d / smsSent30d) * 100) : null
 
-  return NextResponse.json({
-    ...company,
-    usage: {
-      activeHomes: activeHomesCount,
-      homesCompleted30d,
-      tasksScheduled30d,
-      smsSent30d,
-      smsFailed30d,
-      confirmationRate30d,
-    },
-  })
+    return NextResponse.json({
+      ...company,
+      usage: {
+        activeHomes: activeHomesCount,
+        homesCompleted30d,
+        tasksScheduled30d,
+        smsSent30d,
+        smsFailed30d,
+        confirmationRate30d,
+      },
+    })
+  } catch (err) {
+    console.error("GET /api/super-admin/companies/[companyId] error:", err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load company" },
+      { status: 500 }
+    )
+  }
 }
 
 /**
