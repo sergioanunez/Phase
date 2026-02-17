@@ -82,7 +82,8 @@ export async function POST(
 
     const { getServerAppUrl } = await import("@/lib/env")
     const inviteLink = buildInviteLink(getServerAppUrl(), token)
-    const idempotencyKey = `invite:${ctx.companyId ?? ""}:${userId}`
+    // Unique key per resend so we don't violate InviteEmailLog.idempotencyKey unique constraint (initial invite uses invite:companyId:userId)
+    const idempotencyKey = `invite:resend:${ctx.companyId ?? ""}:${userId}:${latestInvite.id}:${Date.now()}`
 
     const emailResult = await sendInviteEmailWithIdempotency(prisma, {
       idempotencyKey,
