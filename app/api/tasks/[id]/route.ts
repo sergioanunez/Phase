@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { appendFileSync } from "fs"
+import { join } from "path"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
+
+// #region agent log
+function debugLog(payload: Record<string, unknown>) {
+  try {
+    const logPath = join(process.cwd(), ".cursor", "debug.log")
+    appendFileSync(logPath, JSON.stringify({ ...payload, timestamp: payload.timestamp ?? Date.now() }) + "\n")
+  } catch {}
+}
+// #endregion
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -89,6 +100,18 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // #region agent log
+  const patchStart = Date.now()
+  const logPayload = (step: string, extra: Record<string, unknown> = {}) => ({
+    location: "app/api/tasks/[id]/route.ts:PATCH",
+    message: `PATCH tasks ${step}`,
+    data: { step, taskId: params.id, ms: Date.now(), sinceStart: Date.now() - patchStart, ...extra },
+    timestamp: Date.now(),
+    hypothesisId: "H1",
+  })
+  debugLog(logPayload("start", { ms: patchStart, sinceStart: 0 }))
+  fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("start", { ms: patchStart })) }).catch(() => {})
+  // #endregion
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
@@ -377,6 +400,10 @@ export async function PATCH(
         },
       },
     })
+    // #region agent log
+    debugLog(logPayload("afterUpdate"))
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("afterUpdate")) }).catch(() => {})
+    // #endregion
 
     // Ensure subcontractor can see this home when assigned to a task
     if (after.contractorId) {
@@ -397,12 +424,20 @@ export async function PATCH(
     }
 
     await createAuditLog(ctx.userId, "HomeTask", params.id, "UPDATE", before, after, ctx.companyId)
+    // #region agent log
+    debugLog(logPayload("afterAudit"))
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("afterAudit")) }).catch(() => {})
+    // #endregion
 
     const companyId = after.companyId ?? ctx.companyId
     if (companyId) {
       const { recalculateHomeCompletion } = await import("@/lib/home-completion")
       await recalculateHomeCompletion(prisma, after.homeId, companyId)
     }
+    // #region agent log
+    debugLog(logPayload("afterRecalc"))
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("afterRecalc")) }).catch(() => {})
+    // #endregion
     if (companyId && after.home) {
       const { notifyTaskScheduled, notifyTaskCompleted } = await import("@/lib/notificationRules")
       const homeLabel = (after.home as { addressOrLot?: string }).addressOrLot ?? "Home"
@@ -426,6 +461,10 @@ export async function PATCH(
         }).catch((err) => console.error("notifyTaskCompleted:", err))
       }
     }
+    // #region agent log
+    debugLog(logPayload("end"))
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("end")) }).catch(() => {})
+    // #endregion
 
     return NextResponse.json(after)
   } catch (error: any) {

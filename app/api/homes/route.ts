@@ -11,8 +11,22 @@ export const fetchCache = "force-no-store"
 const createHomeSchema = z.object({
   subdivisionId: z.string(),
   addressOrLot: z.string().min(1),
-  startDate: z.string().datetime().optional().nullable(),
-  targetCompletionDate: z.string().datetime().optional().nullable(),
+  startDate: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      (v) => !v || v === "" || /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/i.test(v),
+      { message: "Start date must be YYYY-MM-DD or ISO datetime" }
+    ),
+  targetCompletionDate: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      (v) => !v || v === "" || /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/i.test(v),
+      { message: "Target completion date must be YYYY-MM-DD or ISO datetime" }
+    ),
 })
 
 export async function GET(request: NextRequest) {
@@ -196,7 +210,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(home, { status: 201 })
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+      const message =
+        error.errors
+          .map((e) => (e.path.length ? `${e.path.join(".")}: ${e.message}` : e.message))
+          .join("; ") || "Invalid input"
+      return NextResponse.json({ error: message }, { status: 400 })
     }
     return handleApiError(error)
   }

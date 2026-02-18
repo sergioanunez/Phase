@@ -86,7 +86,15 @@ export function CreateHomeDialog({
 
       if (!res.ok) {
         const data = await res.json()
-        const err: Error & { upgradeHint?: string } = new Error(data.error || "Failed to create home")
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : Array.isArray(data.error)
+              ? data.error.map((e: { message?: string }) => e?.message ?? String(e)).filter(Boolean).join("; ")
+              : data.error && typeof data.error === "object" && "message" in data.error
+                ? (data.error as { message: string }).message
+                : "Failed to create home"
+        const err: Error & { upgradeHint?: string } = new Error(message || "Failed to create home")
         err.upgradeHint = data.upgradeHint
         throw err
       }

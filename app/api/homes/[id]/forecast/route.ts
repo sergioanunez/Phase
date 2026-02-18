@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
+import { appendFileSync } from "fs"
+import { join } from "path"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { computeHomeForecast } from "@/lib/forecast"
+
+function debugLog(payload: Record<string, unknown>) {
+  try {
+    appendFileSync(join(process.cwd(), ".cursor", "debug.log"), JSON.stringify({ ...payload, timestamp: payload.timestamp ?? Date.now() }) + "\n")
+  } catch {}
+}
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -17,8 +25,23 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // #region agent log
+  const forecastStart = Date.now()
+  const { id: homeId } = await params
+  debugLog({ location: "forecast/route.ts:GET", message: "forecast start", data: { step: "start", homeId, sinceStart: 0 }, timestamp: forecastStart, hypothesisId: "H2" })
+  fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: "app/api/homes/[id]/forecast/route.ts:GET",
+      message: "forecast start",
+      data: { step: "start", homeId, ms: forecastStart },
+      timestamp: forecastStart,
+      hypothesisId: "H2",
+    }),
+  }).catch(() => {})
+  // #endregion
   try {
-    const { id: homeId } = await params
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
@@ -46,6 +69,10 @@ export async function GET(
 
     const previousForecast = homeForAccess.forecastCompletionDate
     await computeHomeForecast(homeId)
+    // #region agent log
+    debugLog({ location: "forecast/route.ts:GET", message: "forecast after compute", data: { step: "afterCompute", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" })
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "forecast/route.ts:GET", message: "forecast after compute", data: { step: "afterCompute", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" }) }).catch(() => {})
+    // #endregion
 
     const home = await prisma.home.findUnique({
       where: { id: homeId },
@@ -79,6 +106,10 @@ export async function GET(
     if (!home) {
       return NextResponse.json({ error: "Home not found" }, { status: 404 })
     }
+    // #region agent log
+    debugLog({ location: "forecast/route.ts:GET", message: "forecast end", data: { step: "end", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" })
+    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "forecast/route.ts:GET", message: "forecast end", data: { step: "end", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" }) }).catch(() => {})
+    // #endregion
 
     const companyId = home.companyId
     if (

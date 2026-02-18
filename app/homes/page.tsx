@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, Search } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { TaskStatus } from "@prisma/client"
 import { PlanViewer } from "@/components/plan-viewer"
@@ -83,6 +83,7 @@ export default function HomesPage() {
   const [homes, setHomes] = useState<Home[]>([])
   const [subdivisions, setSubdivisions] = useState<Subdivision[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
   const [planViewerHomeId, setPlanViewerHomeId] = useState<string | null>(null)
   const [planViewerOpen, setPlanViewerOpen] = useState(false)
   const planViewerHome = planViewerHomeId ? homes.find((h) => h.id === planViewerHomeId) : null
@@ -135,6 +136,7 @@ export default function HomesPage() {
 
   const communities = useMemo(() => {
     const validStatus = statusFilter && ["on_track", "at_risk", "behind"].includes(statusFilter)
+    const q = searchQuery.trim().toLowerCase()
     return subdivisions.map((sub) => {
       const subHomes = groupedBySubdivision[sub.id] || []
       const withStatus = subHomes.map((home) => ({
@@ -148,9 +150,17 @@ export default function HomesPage() {
       const filtered = validStatus
         ? withStatus.filter((item) => item.status === statusFilter)
         : withStatus
-      return { id: sub.id, name: sub.name, homes: filtered }
+      const searchFiltered =
+        q === ""
+          ? filtered
+          : filtered.filter(
+              (item) =>
+                item.home.addressOrLot.toLowerCase().includes(q) ||
+                (item.home.subdivision?.name ?? "").toLowerCase().includes(q)
+            )
+      return { id: sub.id, name: sub.name, homes: searchFiltered }
     })
-  }, [subdivisions, groupedBySubdivision, statusFilter])
+  }, [subdivisions, groupedBySubdivision, statusFilter, searchQuery])
 
   const filterLabel =
     statusFilter === "on_track"
@@ -201,6 +211,17 @@ export default function HomesPage() {
           <p className="mt-1.5 text-sm text-muted-foreground">
             Browse and manage homes by community. View schedule status, progress, and open tasks.
           </p>
+          <div className="relative mt-4 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Search by address or community..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-md border border-[#E6E8EF] bg-white py-2 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Search homes by address or community"
+            />
+          </div>
         </div>
 
         {communities.length === 0 ? (
@@ -214,7 +235,16 @@ export default function HomesPage() {
           </div>
         ) : communities.filter((c) => c.homes.length > 0).length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E6E8EF] bg-white py-12 text-center shadow-sm">
-            {filterLabel ? (
+            {searchQuery.trim() ? (
+              <>
+                <p className="text-lg text-muted-foreground mb-2">
+                  No homes match your search
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Try a different address or community name, or clear the search bar above.
+                </p>
+              </>
+            ) : filterLabel ? (
               <>
                 <p className="text-lg text-muted-foreground mb-2">
                   No homes match this filter
