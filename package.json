@@ -19,7 +19,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "fix:preliminary-typo": "tsx scripts/fix-preliminary-typo.ts",
-    "validate:url": "tsx scripts/validate-url.ts"
+    "validate:url": "tsx scripts/validate-url.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -67,6 +69,7 @@
     "prisma": "^5.7.1",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+"typescript": "^5.3.3",
+    "vitest": "^1.2.0"
   }
 }

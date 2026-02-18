@@ -23,6 +23,7 @@ import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
 import { sanitizeUrl } from "@/lib/url"
+import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
 
 interface Subdivision {
   id: string
@@ -283,6 +284,20 @@ export default function AdminPage() {
         setLoading(false)
       })
   }, [session, router, impersonationChecked, impersonationRole])
+
+  const categoryDurations = useMemo(() => {
+    const byCat = templates.reduce((acc, template) => {
+      const category = template.optionalCategory || "Uncategorized"
+      if (!acc[category]) acc[category] = []
+      acc[category].push(template)
+      return acc
+    }, {} as Record<string, WorkTemplateItem[]>)
+    const d: Record<string, number | null> = {}
+    for (const cat of Object.keys(byCat)) {
+      d[cat] = computeCategoryCriticalPathDuration(byCat[cat])
+    }
+    return d
+  }, [templates])
 
   const handleRefresh = () => {
     Promise.all([
@@ -1652,6 +1667,8 @@ export default function AdminPage() {
                                 </Button>
                                 <span className="text-sm text-muted-foreground">
                                   ({categoryTemplates.length} item{categoryTemplates.length !== 1 ? "s" : ""})
+                                  {" • "}
+                                  {categoryDurations[category] === null ? "—" : `${categoryDurations[category]}d`}
                                 </span>
                               </div>
                             </div>
