@@ -742,10 +742,11 @@ export default function HomeDetailPage() {
                                     size="sm"
                                     onClick={(e) => handleMarkCompleted(e, task)}
                                     disabled={markingTaskId === task.id}
-                                    className="bg-green-600 hover:bg-green-700 shrink-0 min-h-[44px] h-9 px-3"
+                                    title={markingTaskId === task.id ? "Saving..." : "Mark complete"}
+                                    aria-label={markingTaskId === task.id ? "Saving..." : "Mark complete"}
+                                    className="bg-green-600 hover:bg-green-700 shrink-0 h-9 w-9 p-0"
                                   >
-                                    <Check className="h-4 w-4 mr-1" />
-                                    {markingTaskId === task.id ? "Saving..." : "Mark Completed"}
+                                    <Check className="h-4 w-4" />
                                   </Button>
                                 )}
                               <Button
