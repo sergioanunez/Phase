@@ -32,15 +32,31 @@ DIRECT_URL="postgresql://postgres.xxx:password@db.xxx.supabase.co:5432/postgres?
 
 ### 4. If port 5432 is blocked (e.g. corporate network)
 
-You can’t run `prisma migrate deploy` from that machine. Options:
+You can’t run `prisma migrate deploy` or `prisma migrate resolve` from that machine (both need a DB connection). Options:
 
-- **A. Run migrations from somewhere that can reach 5432** (e.g. home network, CI that has access, or Supabase’s “Run migrations” if available).
-- **B. Apply the migration by hand, then mark it applied:**
-  1. In Supabase Dashboard → **SQL Editor**, run the migration SQL (e.g. from `prisma/migrations/20260219000000_add_user_terms_accepted/migration.sql`).
-  2. Locally run:  
-     `npx prisma migrate resolve --applied "20260219000000_add_user_terms_accepted"`  
-     (use your migration folder name).
-  3. Run `npx prisma generate`.
+- **A. Run migrations from somewhere that can reach 5432** (e.g. home network, CI that has access).
+- **B. Apply migration in Supabase and mark it applied via Supabase (no local DB connection):**
+  1. In Supabase → **SQL Editor**, run the migration SQL (e.g. from `prisma/migrations/.../migration.sql`).
+  2. In Supabase → **SQL Editor** again, run the “Record migration in _prisma_migrations” SQL below (so Prisma’s history matches). Use the migration name and checksum for your migration.
+  3. Locally run **only** `npx prisma generate` (no DB connection).
+
+**Record migration in _prisma_migrations (run in Supabase SQL Editor):**
+
+For migration `20260219000000_add_user_terms_accepted` (terms acceptance columns), run:
+
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count)
+VALUES (
+  gen_random_uuid()::text,
+  '36525d39a1f9a047c5e781ab2256a7fa00bfbbadd3abfb6e7e5621508fdfc369',
+  '20260219000000_add_user_terms_accepted',
+  NOW(),
+  NOW(),
+  1
+);
+```
+
+Then locally: `npx prisma generate`.
 
 ## Verify
 

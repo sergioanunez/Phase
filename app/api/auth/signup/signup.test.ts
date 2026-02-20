@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { signupSchema } from "./route"
+import { signupSchema } from "./signup-schema"
 
 const validPayload = {
   email: "test@example.com",

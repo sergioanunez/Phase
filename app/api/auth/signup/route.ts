@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import bcrypt from "bcryptjs"
-import { z } from "zod"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { signupSchema } from "./signup-schema"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -11,15 +11,6 @@ export const fetchCache = "force-no-store"
 
 const isBuild = () =>
   process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
-
-export const signupSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  name: z.string().min(1, "Name is required").max(200),
-  termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: "You must agree to the Terms & Conditions to create an account." }),
-  }),
-})
 
 /**
  * POST /api/auth/signup
