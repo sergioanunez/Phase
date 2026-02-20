@@ -18,7 +18,7 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search } from "lucide-react"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
@@ -190,6 +190,7 @@ export default function AdminPage() {
   const [assignmentsSaving, setAssignmentsSaving] = useState(false)
   const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
   const [impersonationChecked, setImpersonationChecked] = useState(false)
+  const [workTemplatesSearchQuery, setWorkTemplatesSearchQuery] = useState("")
 
   useEffect(() => {
     fetch("/api/super-admin/impersonation/context")
@@ -1536,33 +1537,47 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="work-templates" className="space-y-8">
-            <div className="flex gap-2 flex-wrap mb-6">
-              <Button
-                onClick={() => setCreateTemplateOpen(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                New Work Item
-              </Button>
-              <Button
-                onClick={() => setImportTemplatesOpen(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Upload className="h-4 w-4 mr-1" />
-                Import from Excel
-              </Button>
-            </div>
-
             {/* Work Items Template Section */}
             <div>
               <h2 className="text-xl font-semibold mb-4">Work Items Template</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 These are the work items that will be automatically created for each new home.
               </p>
-              
+              <div className="relative mb-4 w-full">
+                <Search
+                  className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground opacity-90 pointer-events-none"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  placeholder="Search work items or category"
+                  value={workTemplatesSearchQuery}
+                  onChange={(e) => setWorkTemplatesSearchQuery(e.target.value)}
+                  className="w-full h-[50px] rounded-lg border border-border bg-white py-3 pl-11 pr-4 text-base shadow-sm placeholder:text-muted-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
+                  aria-label="Search work items or category"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap mb-6">
+                <Button
+                  onClick={() => setCreateTemplateOpen(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Work Item
+                </Button>
+                <Button
+                  onClick={() => setImportTemplatesOpen(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  Import from Excel
+                </Button>
+              </div>
+
               {(() => {
+                const q = workTemplatesSearchQuery.trim().toLowerCase()
                 // Group templates by category
                 const templatesByCategory = templates.reduce((acc, template) => {
                   const category = template.optionalCategory || "Uncategorized"
@@ -1572,6 +1587,20 @@ export default function AdminPage() {
                   acc[category].push(template)
                   return acc
                 }, {} as Record<string, WorkTemplateItem[]>)
+                // Apply search filter: per category, keep only templates matching q; then keep only categories with matches (or category name match)
+                const filteredByCategory = q
+                  ? Object.fromEntries(
+                      Object.entries(templatesByCategory)
+                        .map(([cat, items]) => {
+                          const categoryMatches = cat.toLowerCase().includes(q)
+                          const filtered = categoryMatches
+                            ? items
+                            : items.filter((t) => t.name.toLowerCase().includes(q))
+                          return [cat, filtered] as const
+                        })
+                        .filter(([, items]) => items.length > 0)
+                    )
+                  : templatesByCategory
 
                 // Category order (Preliminary work first)
                 const categoryOrder = [
@@ -1583,8 +1612,8 @@ export default function AdminPage() {
                   "Pre-sale completion package",
                 ]
 
-                // Sort categories - Preliminary work always first
-                const sortedCategories = Object.keys(templatesByCategory).sort((a, b) => {
+                // Sort categories - Preliminary work always first (use filtered set when searching)
+                const sortedCategories = Object.keys(filteredByCategory).sort((a, b) => {
                   const aLower = a.toLowerCase().trim()
                   const bLower = b.toLowerCase().trim()
                   
@@ -1625,10 +1654,18 @@ export default function AdminPage() {
                   )
                 }
 
+                if (sortedCategories.length === 0) {
+                  return (
+                    <p className="text-muted-foreground text-center py-8">
+                      No work items match your search. Try a different term or clear the search bar.
+                    </p>
+                  )
+                }
+
                 return (
                   <Accordion type="multiple" className="w-full">
                     {sortedCategories.map((category) => {
-                      const categoryTemplates = templatesByCategory[category]
+                      const categoryTemplates = filteredByCategory[category]
                       // Sort templates within category by sortOrder
                       const sortedTemplates = [...categoryTemplates].sort((a, b) => a.sortOrder - b.sortOrder)
 
