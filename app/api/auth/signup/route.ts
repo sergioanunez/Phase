@@ -12,10 +12,13 @@ export const fetchCache = "force-no-store"
 const isBuild = () =>
   process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
-const signupSchema = z.object({
+export const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, "Password must be at least 6 characters"),
   name: z.string().min(1, "Name is required").max(200),
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: "You must agree to the Terms & Conditions to create an account." }),
+  }),
 })
 
 /**
@@ -52,6 +55,8 @@ export async function POST(request: NextRequest) {
         status: "ACTIVE",
         companyId: null,
         isActive: true,
+        termsAccepted: true,
+        termsAcceptedAt: new Date(),
       },
     })
 

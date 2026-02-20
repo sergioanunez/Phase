@@ -23,6 +23,7 @@ export default function StartTrialPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [hasSession, setHasSession] = useState<boolean | null>(null)
@@ -54,6 +55,7 @@ export default function StartTrialPage() {
             email,
             password,
             name: name.trim() || email.split("@")[0],
+            termsAccepted,
           }),
         })
         const signupData = await signupRes.json()
@@ -208,6 +210,22 @@ export default function StartTrialPage() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">At least 6 characters</p>
                   </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="termsAccepted"
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      aria-describedby="terms-label"
+                    />
+                    <label id="terms-label" htmlFor="termsAccepted" className="text-sm text-gray-700">
+                      I agree to the{" "}
+                      <Link href="/terms" target="_self" className="text-primary underline-offset-2 hover:underline">
+                        Terms &amp; Conditions
+                      </Link>
+                    </label>
+                  </div>
                 </>
               )}
 
@@ -216,7 +234,11 @@ export default function StartTrialPage() {
                   {error}
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || (!hasSession && !termsAccepted)}
+              >
                 {loading ? "Setting up..." : "Start 30-day free trial"}
               </Button>
             </form>

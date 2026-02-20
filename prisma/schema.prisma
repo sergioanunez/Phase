@@ -260,6 +260,10 @@ model User {
   emailVerified DateTime?
   image         String?
 
+  // Terms acceptance (signup / trial flow)
+  termsAccepted   Boolean   @default(false)
+  termsAcceptedAt DateTime?
+
   // Relations
   memberships          CompanyMembership[]
   homeAssignments     HomeAssignment[]

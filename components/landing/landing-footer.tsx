@@ -15,12 +15,18 @@ export function LandingFooter() {
             >
               Contact
             </Link>
-            <a
-              href="#"
+            <Link
+              href="/terms"
               className="text-sm font-medium text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
             >
-              Privacy
-            </a>
+              Terms &amp; Conditions
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+            >
+              Privacy Policy
+            </Link>
           </nav>
         </div>
       </div>
