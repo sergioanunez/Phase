@@ -7,4 +7,6 @@ export const signupSchema = z.object({
   termsAccepted: z.literal(true, {
     errorMap: () => ({ message: "You must agree to the Terms & Conditions to create an account." }),
   }),
+  smsConsent: z.boolean().optional().default(false),
+  smsConsentVersion: z.string().optional(),
 })

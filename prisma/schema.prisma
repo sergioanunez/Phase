@@ -264,6 +264,12 @@ model User {
   termsAccepted   Boolean   @default(false)
   termsAcceptedAt DateTime?
 
+  // SMS consent (toll-free compliance)
+  smsConsent          Boolean   @default(false)
+  smsConsentTimestamp DateTime?
+  smsConsentSource    String?
+  smsConsentVersion   String?
+
   // Relations
   memberships          CompanyMembership[]
   homeAssignments     HomeAssignment[]

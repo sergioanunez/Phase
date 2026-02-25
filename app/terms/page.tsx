@@ -4,7 +4,7 @@ import { LandingNav } from "@/components/landing/landing-nav"
 
 export const dynamic = "force-dynamic"
 
-const LAST_UPDATED = "February 19, 2026"
+const LAST_UPDATED = "February 25, 2026"
 
 export const metadata = {
   title: "Terms & Conditions",
@@ -56,22 +56,14 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 id="sms-consent" className="text-lg font-semibold text-gray-900">
               SMS Messaging Consent
             </h2>
             <p className="mt-2 text-sm leading-relaxed">
-              By providing your phone number, you consent to receive SMS notifications
-              related to project scheduling, task confirmations, and operational updates
-              from Phase.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed">
-              Reply STOP to unsubscribe. Reply HELP for help. Message and data rates may apply.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed">
-              Message frequency varies.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed">
-              We do not send marketing or promotional messages via this number.
+              By checking the SMS consent box during account registration and providing your phone number, you consent
+              to receive transactional SMS notifications related to project scheduling, task confirmations, and
+              operational updates from Phase. Reply STOP to unsubscribe. Reply HELP for help. Message and data rates may
+              apply. Message frequency varies. We do not send marketing or promotional messages via this number.
             </p>
           </section>
 

@@ -7,6 +7,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SMS_CONSENT_VERSION } from "@/lib/sms-consent"
 import logoImage from "../../public/logo.png"
 
 type PlanKey = "starter" | "growth"
@@ -23,6 +24,7 @@ export default function StartTrialPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [smsConsent, setSmsConsent] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -56,6 +58,8 @@ export default function StartTrialPage() {
             password,
             name: name.trim() || email.split("@")[0],
             termsAccepted,
+            smsConsent,
+            smsConsentVersion: SMS_CONSENT_VERSION,
           }),
         })
         const signupData = await signupRes.json()
@@ -64,6 +68,17 @@ export default function StartTrialPage() {
           setLoading(false)
           return
         }
+
+        if (typeof window !== "undefined") {
+          const anyWindow = window as any
+          if (anyWindow.analytics?.track) {
+            anyWindow.analytics.track("signup_sms_consent", {
+              smsConsent,
+              smsConsentVersion: SMS_CONSENT_VERSION,
+            })
+          }
+        }
+
         const signInResult = await signIn("credentials", {
           email,
           password,
@@ -210,6 +225,33 @@ export default function StartTrialPage() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">At least 6 characters</p>
                   </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    id="smsConsent"
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(e) => setSmsConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    aria-describedby="sms-consent-label"
+                  />
+                  <div className="text-sm text-gray-700">
+                    <label id="sms-consent-label" htmlFor="smsConsent">
+                      I agree to receive SMS notifications related to scheduling, task confirmations, and operational
+                      updates. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Message &amp; data
+                      rates may apply.
+                    </label>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      <Link
+                        href="/terms#sms-consent"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline-offset-2 hover:underline"
+                      >
+                        Learn more
+                      </Link>
+                    </div>
+                  </div>
+                </div>
                   <div className="flex items-start gap-2">
                     <input
                       id="termsAccepted"

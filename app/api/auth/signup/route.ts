@@ -3,6 +3,7 @@ import { handleApiError } from "@/lib/api-response"
 import bcrypt from "bcryptjs"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { signupSchema } from "./signup-schema"
+import { SMS_CONSENT_SOURCE_START_TRIAL, SMS_CONSENT_VERSION } from "@/lib/sms-consent"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       const msg = parsed.error.flatten().formErrors?.[0] ?? "Invalid input"
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    const { email, password, name } = parsed.data
+    const { email, password, name, smsConsent } = parsed.data
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -37,6 +38,8 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
+    const smsConsentTimestamp = smsConsent ? new Date() : null
+
     await prisma.user.create({
       data: {
         email,
@@ -48,6 +51,10 @@ export async function POST(request: NextRequest) {
         isActive: true,
         termsAccepted: true,
         termsAcceptedAt: new Date(),
+        smsConsent: !!smsConsent,
+        smsConsentTimestamp,
+        smsConsentSource: smsConsent ? SMS_CONSENT_SOURCE_START_TRIAL : null,
+        smsConsentVersion: smsConsent ? SMS_CONSENT_VERSION : null,
       },
     })
 

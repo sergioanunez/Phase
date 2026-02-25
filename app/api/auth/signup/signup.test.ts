@@ -6,6 +6,7 @@ const validPayload = {
   password: "password123",
   name: "Test User",
   termsAccepted: true,
+  smsConsent: false,
 }
 
 describe("signup schema", () => {
@@ -33,5 +34,18 @@ describe("signup schema", () => {
       name: validPayload.name,
     })
     expect(result.success).toBe(false)
+  })
+
+  it("defaults smsConsent to false when omitted", () => {
+    const result = signupSchema.safeParse({
+      email: validPayload.email,
+      password: validPayload.password,
+      name: validPayload.name,
+      termsAccepted: true,
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.smsConsent).toBe(false)
+    }
   })
 })
