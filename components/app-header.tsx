@@ -37,11 +37,12 @@ export function AppHeader() {
 
   const useCustomLogo = branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
   const logoAlt = (useCustomLogo && branding?.brandAppName) ? branding.brandAppName : "Phase"
+  const logoHref = pathname === "/start-trial" ? "/" : "/homes"
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm">
       <div className="app-header-nav-width mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 md:px-8">
-        <Link href="/homes" className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
+        <Link href={logoHref} className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
           {useCustomLogo ? (
             <img
               src={branding.brandingUpdatedAt ? `${branding.logoUrl ?? ""}?v=${new Date(branding.brandingUpdatedAt).getTime()}` : (branding.logoUrl ?? "")}
