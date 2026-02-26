@@ -38,3 +38,13 @@ export type ComputeFlowResult = {
   actions: FlowAction[]
   circularWarning?: string
 }
+
+/** Grouped by home for Flow UI: one card per address */
+export type FlowHomeGroup = {
+  homeId: string
+  address: string
+  communityName?: string
+  actions: FlowAction[]
+  nextActionDate?: string
+  counts: { prep: number; execute: number; overdue: number }
+}

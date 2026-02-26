@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { ChevronLeft, Search } from "lucide-react"
 import Link from "next/link"
+import { ChevronLeft, Search } from "lucide-react"
 import { Navigation } from "@/components/navigation"
-import { FlowFeedItem } from "@/components/flow/flow-feed-item"
+import { FlowHomeCard } from "@/components/flow/flow-home-card"
+import { TaskActionSheet } from "@/components/flow/task-action-sheet"
+import { groupFlowByHome } from "@/lib/flow/groupFlowByHome"
 import type { FlowAction } from "@/lib/flow/types"
 
 type Scope = "today" | "next7" | "overdue"
@@ -31,6 +33,7 @@ export default function FlowPage() {
   const [scope, setScope] = useState<Scope>("today")
   const [filter, setFilter] = useState<Filter>("all")
   const [search, setSearch] = useState("")
+  const [sheetAction, setSheetAction] = useState<FlowAction | null>(null)
 
   const fetchFlow = useCallback(() => {
     setLoading(true)
@@ -57,12 +60,19 @@ export default function FlowPage() {
   }, [scope, filter, search])
 
   useEffect(() => {
-    if (session?.user && ["Admin", "Manager", "Superintendent"].includes((session.user as { role?: string }).role ?? "")) {
+    if (
+      session?.user &&
+      ["Admin", "Manager", "Superintendent"].includes(
+        (session.user as { role?: string }).role ?? ""
+      )
+    ) {
       fetchFlow()
     } else {
       setLoading(false)
     }
   }, [session, fetchFlow])
+
+  const groups = groupFlowByHome(actions)
 
   if (status === "loading" || !session?.user) {
     return (
@@ -76,7 +86,9 @@ export default function FlowPage() {
   if (!["Admin", "Manager", "Superintendent"].includes(role)) {
     return (
       <div className="flex min-h-screen flex-col p-4 pt-20">
-        <p className="text-muted-foreground">Flow is available only for Admin, Manager, and Superintendent.</p>
+        <p className="text-muted-foreground">
+          Flow is available only for Admin, Manager, and Superintendent.
+        </p>
         <Link href="/homes" className="mt-4 text-primary hover:underline">
           ← Back to Homes
         </Link>
@@ -85,8 +97,8 @@ export default function FlowPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-16">
-      <div className="mx-auto max-w-xl px-4 py-6">
+    <div className="min-h-screen bg-[#F6F7F9] pb-28 pt-16">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <div className="mb-4 flex items-center gap-2">
           <Link
             href="/homes"
@@ -167,25 +179,32 @@ export default function FlowPage() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
           {loading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
-          ) : actions.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="rounded-lg border border-border bg-white p-8 text-center text-sm text-muted-foreground">
               No actions match your filters.
             </div>
           ) : (
-            <ul className="space-y-4">
-              {actions.map((action) => (
-                <li key={`${action.taskInstanceId}-${action.type}`}>
-                  <FlowFeedItem action={action} />
-                </li>
-              ))}
-            </ul>
+            groups.map((group) => (
+              <FlowHomeCard
+                key={group.homeId}
+                group={group}
+                onOpenAction={setSheetAction}
+              />
+            ))
           )}
         </div>
       </div>
       <Navigation />
+
+      <TaskActionSheet
+        open={!!sheetAction}
+        onOpenChange={(open) => !open && setSheetAction(null)}
+        flowAction={sheetAction}
+        onSuccess={fetchFlow}
+      />
     </div>
   )
 }

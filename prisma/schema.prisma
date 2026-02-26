@@ -464,6 +464,8 @@ model HomeTask {
   status               TaskStatus       @default(Unscheduled)
   lastConfirmationAt   DateTime?
   completedAt          DateTime?
+  /// Flow: when materials were marked ordered (for requiresOrdering tasks).
+  orderedAt            DateTime?
   notes                String?
   hasOpenPunch         Boolean          @default(false)
   punchOpenCount       Int              @default(0)
