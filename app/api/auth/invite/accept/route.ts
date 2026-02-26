@@ -2,20 +2,28 @@ import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { parseAndNormalizePhone } from "@/lib/phone"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const acceptSchema = z.object({
+const baseAcceptSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z.string().optional(),
+  smsConsent: z.boolean().optional(),
 })
+
+const SMS_CONSENT_VERSION = "2026-02-26_v1"
+const SMS_CONSENT_SOURCE = "invite_accept_web"
 
 /**
  * POST /api/auth/invite/accept
- * Public. Body: { token, password }. Verifies token, sets password, activates user, marks invite used.
+ * Public. Body: { token, password } or for Subcontractor: { token, password, phone, smsConsent }.
+ * Verifies token, sets password, activates user, marks invite used.
+ * For Subcontractor invites, requires phone (E.164) and smsConsent true; stores consent and updates Contractor.phone.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +33,7 @@ export async function POST(request: NextRequest) {
     const { createAuditLog } = await import("@/lib/audit")
 
     const body = await request.json()
-    const data = acceptSchema.parse(body)
+    const data = baseAcceptSchema.parse(body)
 
     const tokenHash = hashInviteToken(data.token)
     const now = new Date()
@@ -52,6 +60,67 @@ export async function POST(request: NextRequest) {
         { error: "This link has expired" },
         { status: 400 }
       )
+    }
+
+    const isSubcontractor = invite.user.role === "Subcontractor"
+
+    if (isSubcontractor) {
+      if (!data.phone || typeof data.smsConsent !== "boolean") {
+        return NextResponse.json(
+          { error: "Phone number and SMS consent are required for subcontractor accounts." },
+          { status: 400 }
+        )
+      }
+      if (!data.smsConsent) {
+        return NextResponse.json(
+          { error: "SMS consent is required to receive text notifications." },
+          { status: 400 }
+        )
+      }
+      const phoneE164 = parseAndNormalizePhone(data.phone)
+      if (!phoneE164) {
+        return NextResponse.json(
+          { error: "Please enter a valid mobile phone number." },
+          { status: 400 }
+        )
+      }
+
+      const passwordHash = await bcrypt.hash(data.password, 10)
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: invite.userId },
+          data: {
+            passwordHash,
+            status: "ACTIVE",
+            phoneE164,
+            smsConsent: true,
+            smsConsentTimestamp: now,
+            smsConsentSource: SMS_CONSENT_SOURCE,
+            smsConsentVersion: SMS_CONSENT_VERSION,
+            smsOptOutAt: null,
+          },
+        })
+        await tx.userInvite.update({
+          where: { id: invite.id },
+          data: { usedAt: now },
+        })
+        if (invite.user.contractorId) {
+          await tx.contractor.update({
+            where: { id: invite.user.contractorId },
+            data: { phone: phoneE164 },
+          })
+        }
+      })
+
+      await createAuditLog(invite.userId, "UserInvite", invite.id, "INVITE_ACCEPTED", null, {
+        userId: invite.userId,
+        email: invite.email,
+        phoneE164,
+        smsConsent: true,
+      })
+
+      return NextResponse.json({ success: true })
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10)

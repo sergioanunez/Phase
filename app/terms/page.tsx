@@ -4,7 +4,7 @@ import { LandingNav } from "@/components/landing/landing-nav"
 
 export const dynamic = "force-dynamic"
 
-const LAST_UPDATED = "February 25, 2026"
+const LAST_UPDATED = "February 26, 2026"
 
 export const metadata = {
   title: "Terms & Conditions",

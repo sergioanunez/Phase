@@ -221,7 +221,19 @@ export async function POST(
       )
     }
 
-    // Validate phone number format
+    const { canSendSmsByContractorId, logSmsBlocked } = await import("@/lib/sms-guard")
+    const smsCheck = await canSendSmsByContractorId(task.contractor.id)
+    if (!smsCheck.allowed) {
+      logSmsBlocked(task.contractor.id, smsCheck.reason, { taskId: task.id, action: "send_confirmation" })
+      const message =
+        smsCheck.reason === "no_phone"
+          ? "This subcontractor has not opted in to SMS yet."
+          : smsCheck.reason === "no_consent"
+            ? "This subcontractor has not opted in to SMS yet."
+            : "This subcontractor has unsubscribed from SMS."
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+
     const phone = task.contractor.phone.trim()
     if (!phone || phone.length < 10) {
       return NextResponse.json(

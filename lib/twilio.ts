@@ -212,13 +212,34 @@ We apologize for any inconvenience.`
   }
 }
 
+/** Normalize Twilio "From" to E.164 for matching User.phoneE164 */
+function inboundFromToE164(from: string): string {
+  const digits = from.replace(/\D/g, "")
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
+  return from.startsWith("+") ? from : `+${digits}`
+}
+
 export async function handleInboundSMS(
   from: string,
   to: string,
   body: string
-) {
+): Promise<{ processed: boolean; action?: string; reason?: string; taskId?: string }> {
   const normalizedFrom = from.replace(/\D/g, "")
   const normalizedTo = to.replace(/\D/g, "")
+  const fromE164 = inboundFromToE164(from)
+
+  // Handle STOP (opt-out)
+  const bodyUpper = body.trim().toUpperCase()
+  if (bodyUpper === "STOP" || bodyUpper === "STOPALL" || bodyUpper === "UNSUBSCRIBE") {
+    const updated = await prisma.user.updateMany({
+      where: { phoneE164: fromE164 },
+      data: { smsOptOutAt: new Date() },
+    })
+    if (updated.count > 0) {
+      return { processed: true, action: "opt_out" }
+    }
+  }
 
   // Store inbound SMS
   const smsMessage = await prisma.smsMessage.create({

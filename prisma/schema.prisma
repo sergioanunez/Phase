@@ -265,10 +265,12 @@ model User {
   termsAcceptedAt DateTime?
 
   // SMS consent (toll-free compliance)
+  phoneE164           String?   // E.164; set when subcontractor opts in at invite accept
   smsConsent          Boolean   @default(false)
   smsConsentTimestamp DateTime?
   smsConsentSource    String?
   smsConsentVersion   String?
+  smsOptOutAt         DateTime? // set when user replies STOP
 
   // Relations
   memberships          CompanyMembership[]
@@ -284,6 +286,7 @@ model User {
   @@index([companyId])
   @@index([email])
   @@index([contractorId])
+  @@index([phoneE164])
   @@index([role])
   @@index([status])
 }

@@ -101,6 +101,17 @@ export async function POST(
         continue
       }
 
+      const { canSendSmsByContractorId, logSmsBlocked } = await import("@/lib/sms-guard")
+      const smsCheck = await canSendSmsByContractorId(data.contractor.id)
+      if (!smsCheck.allowed) {
+        logSmsBlocked(data.contractor.id, smsCheck.reason, { taskId: params.id, action: "punch_list_sms" })
+        errors.push({
+          contractor: data.contractor.companyName,
+          error: "This subcontractor has not opted in to SMS yet.",
+        })
+        continue
+      }
+
       try {
         const { sendPunchListSMS } = await import("@/lib/twilio")
         await sendPunchListSMS(

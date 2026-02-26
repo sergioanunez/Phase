@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       where: { tokenHash },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true, contractorId: true },
         },
       },
     })
@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
       valid: true,
       email: invite.user.email,
       name: invite.user.name,
+      role: invite.user.role,
+      contractorId: invite.user.contractorId ?? undefined,
     })
   } catch {
     return NextResponse.json({ valid: false }, { status: 200 })
