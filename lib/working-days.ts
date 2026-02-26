@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, isSaturday, isSunday } from "date-fns"
+import { addDays, differenceInCalendarDays } from "date-fns"
 
 /** Returns true if the given date is a working day (Mon–Fri). */
 export function isWorkingDay(date: Date): boolean {
@@ -39,5 +39,23 @@ export function workingDayDiff(start: Date, end: Date): number {
   }
 
   return diff
+}
+
+/** Go backward by n working days (Mon–Fri). */
+export function subWorkingDays(start: Date, workingDays: number): Date {
+  if (workingDays <= 0) return new Date(start)
+  let remaining = workingDays
+  let current = new Date(start)
+  while (remaining > 0) {
+    current = addDays(current, -1)
+    if (isWorkingDay(current)) remaining -= 1
+  }
+  return current
+}
+
+/** Working days from a to b (b - a). Positive if b > a, negative if b < a. */
+export function diffWorkingDays(a: Date, b: Date): number {
+  if (b >= a) return workingDayDiff(a, b)
+  return -workingDayDiff(b, a)
 }
 

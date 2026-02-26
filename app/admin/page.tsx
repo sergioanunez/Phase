@@ -64,6 +64,9 @@ interface WorkTemplateItem {
   gateScope: "DownstreamOnly" | "AllScheduling"
   gateBlockMode: "ScheduleOnly" | "ScheduleAndConfirm"
   gateName: string | null
+  prepLeadDays?: number
+  requiresOrdering?: boolean
+  materialLeadDays?: number
   dependencies?: Array<{
     dependsOnItemId: string
     dependsOnItem: {
@@ -134,6 +137,9 @@ export default function AdminPage() {
   const [editingTemplateDuration, setEditingTemplateDuration] = useState("")
   const [editingTemplateOrder, setEditingTemplateOrder] = useState("")
   const [editingTemplateCategory, setEditingTemplateCategory] = useState("")
+  const [editingTemplatePrepLeadDays, setEditingTemplatePrepLeadDays] = useState("")
+  const [editingTemplateRequiresOrdering, setEditingTemplateRequiresOrdering] = useState(false)
+  const [editingTemplateMaterialLeadDays, setEditingTemplateMaterialLeadDays] = useState("")
   const [editingGateTemplateId, setEditingGateTemplateId] = useState<string | null>(null)
   const [editingGateName, setEditingGateName] = useState("")
   const [editingGateScope, setEditingGateScope] = useState<"DownstreamOnly" | "AllScheduling">("DownstreamOnly")
@@ -783,6 +789,9 @@ export default function AdminPage() {
     setEditingTemplateDuration(template.defaultDurationDays.toString())
     setEditingTemplateOrder(template.sortOrder.toString())
     setEditingTemplateCategory(template.optionalCategory || "")
+    setEditingTemplatePrepLeadDays((template.prepLeadDays ?? 0).toString())
+    setEditingTemplateRequiresOrdering(template.requiresOrdering ?? false)
+    setEditingTemplateMaterialLeadDays((template.materialLeadDays ?? 0).toString())
   }
 
   const handleCancelEditTemplate = () => {
@@ -791,6 +800,9 @@ export default function AdminPage() {
     setEditingTemplateDuration("")
     setEditingTemplateOrder("")
     setEditingTemplateCategory("")
+    setEditingTemplatePrepLeadDays("")
+    setEditingTemplateRequiresOrdering(false)
+    setEditingTemplateMaterialLeadDays("")
   }
 
   const handleSaveTemplate = async (id: string) => {
@@ -800,8 +812,8 @@ export default function AdminPage() {
     }
 
     const duration = parseInt(editingTemplateDuration)
-    if (isNaN(duration) || duration <= 0) {
-      alert("Duration must be a positive number")
+    if (isNaN(duration) || duration < 0) {
+      alert("Duration must be 0 or greater")
       return
     }
 
@@ -811,12 +823,27 @@ export default function AdminPage() {
       return
     }
 
+    const prepLeadDays = parseInt(editingTemplatePrepLeadDays)
+    if (editingTemplatePrepLeadDays !== "" && (isNaN(prepLeadDays) || prepLeadDays < 0)) {
+      alert("Prep lead days must be 0 or greater")
+      return
+    }
+
+    const materialLeadDays = parseInt(editingTemplateMaterialLeadDays)
+    if (editingTemplateMaterialLeadDays !== "" && (isNaN(materialLeadDays) || materialLeadDays < 0)) {
+      alert("Material lead days must be 0 or greater")
+      return
+    }
+
     try {
       const updateData: any = {
         name: editingTemplateName.trim(),
         defaultDurationDays: duration,
         sortOrder: order,
         optionalCategory: editingTemplateCategory.trim() || null,
+        prepLeadDays: editingTemplatePrepLeadDays === "" ? 0 : prepLeadDays,
+        requiresOrdering: editingTemplateRequiresOrdering,
+        materialLeadDays: editingTemplateRequiresOrdering ? (editingTemplateMaterialLeadDays === "" ? 0 : materialLeadDays) : 0,
       }
 
       const res = await fetch(`/api/templates/${id}`, {
@@ -831,6 +858,9 @@ export default function AdminPage() {
         setEditingTemplateDuration("")
         setEditingTemplateOrder("")
         setEditingTemplateCategory("")
+        setEditingTemplatePrepLeadDays("")
+        setEditingTemplateRequiresOrdering(false)
+        setEditingTemplateMaterialLeadDays("")
         handleRefresh()
       } else {
         const data = await res.json()
@@ -1787,6 +1817,43 @@ export default function AdminPage() {
                                   />
                                 </div>
                               </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-border">
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">Prep lead (days)</label>
+                                  <input
+                                    type="number"
+                                    value={editingTemplatePrepLeadDays}
+                                    onChange={(e) => setEditingTemplatePrepLeadDays(e.target.value)}
+                                    className="w-full px-2 py-1 border rounded-md text-sm"
+                                    placeholder="0"
+                                    min="0"
+                                  />
+                                </div>
+                                <div className="flex items-end gap-2">
+                                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingTemplateRequiresOrdering}
+                                      onChange={(e) => setEditingTemplateRequiresOrdering(e.target.checked)}
+                                      className="rounded border-border"
+                                    />
+                                    Requires ordering
+                                  </label>
+                                </div>
+                                {editingTemplateRequiresOrdering && (
+                                  <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Material lead (days)</label>
+                                    <input
+                                      type="number"
+                                      value={editingTemplateMaterialLeadDays}
+                                      onChange={(e) => setEditingTemplateMaterialLeadDays(e.target.value)}
+                                      className="w-full px-2 py-1 border rounded-md text-sm"
+                                      placeholder="0"
+                                      min="0"
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -1804,6 +1871,12 @@ export default function AdminPage() {
                               <span>Order: {template.sortOrder}</span>
                               {template.optionalCategory && (
                                 <span>Category: {template.optionalCategory}</span>
+                              )}
+                              {(template.prepLeadDays ?? 0) > 0 && (
+                                <span>Prep lead: {template.prepLeadDays} days</span>
+                              )}
+                              {template.requiresOrdering && (
+                                <span>Ordering • Material lead: {template.materialLeadDays ?? 0}d</span>
                               )}
                               {Array.isArray(template.dependencies) && template.dependencies.length > 0 && (
                                 <span>

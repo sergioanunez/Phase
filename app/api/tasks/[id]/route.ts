@@ -376,6 +376,38 @@ export async function PATCH(
           { status: 400 }
         )
       }
+      // Execution lock: cannot enter InProgress until all dependencies are Complete
+      if (data.status === "InProgress") {
+        const templateDeps = await prisma.templateDependency.findMany({
+          where: {
+            templateItemId: before.templateItemId,
+            OR: ctx.companyId
+              ? [{ companyId: ctx.companyId }, { companyId: null }]
+              : [{ companyId: null }],
+          },
+          select: { dependsOnItemId: true },
+        })
+        if (templateDeps.length > 0) {
+          const prereqTasks = await prisma.homeTask.findMany({
+            where: {
+              homeId: before.homeId,
+              templateItemId: { in: templateDeps.map((d) => d.dependsOnItemId) },
+            },
+            select: { id: true, nameSnapshot: true, status: true },
+          })
+          const incomplete = prereqTasks.filter((t) => t.status !== "Completed")
+          if (incomplete.length > 0) {
+            const depNames = incomplete.map((t) => t.nameSnapshot).join(", ")
+            return NextResponse.json(
+              {
+                error: `This task is locked until ${depNames} are complete.`,
+                dependencyBlocked: true,
+              },
+              { status: 409 }
+            )
+          }
+        }
+      }
       updateData.status = data.status
 
       // Set completedAt if status is Completed

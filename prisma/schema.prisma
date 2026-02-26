@@ -424,6 +424,12 @@ model WorkTemplateItem {
   gateScope           GateScope     @default(DownstreamOnly)
   gateBlockMode       GateBlockMode @default(ScheduleOnly)
   gateName            String?
+  /// Flow: general prep buffer in working days.
+  prepLeadDays        Int           @default(0)
+  /// Flow: task requires material ordering before execution.
+  requiresOrdering    Boolean       @default(false)
+  /// Flow: material lead time in working days (only when requiresOrdering=true).
+  materialLeadDays    Int           @default(0)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

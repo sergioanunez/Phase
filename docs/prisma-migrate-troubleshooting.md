@@ -58,6 +58,27 @@ VALUES (
 
 Then locally: `npx prisma generate`.
 
+**Flow template fields migration (`20260225100000_add_flow_template_fields`)** – run this in Supabase SQL Editor if you applied the terms migration above and need to add Flow fields:
+
+```sql
+ALTER TABLE "WorkTemplateItem" ADD COLUMN IF NOT EXISTS "prepLeadDays" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "WorkTemplateItem" ADD COLUMN IF NOT EXISTS "requiresOrdering" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "WorkTemplateItem" ADD COLUMN IF NOT EXISTS "materialLeadDays" INTEGER NOT NULL DEFAULT 0;
+```
+
+Then insert into `_prisma_migrations` (replace the `checksum` with the one from your Prisma version if needed, or run `npx prisma migrate deploy` once from a network that can reach port 5432 to sync state):
+
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count)
+VALUES (gen_random_uuid()::text, '', '20260225100000_add_flow_template_fields', NOW(), NOW(), 1);
+```
+
+Then locally: `npx prisma generate`.
+
+### 5. Supabase project paused
+
+If your Supabase project is on the free tier, it may **pause** after inactivity. Connection attempts then hang. In Supabase Dashboard → **Project Settings** → **General**, click **Restore project**, wait until it’s active, then run `npx prisma migrate deploy` again.
+
 ## Verify
 
 After fixing `DIRECT_URL` and re-running:

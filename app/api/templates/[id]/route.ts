@@ -11,7 +11,7 @@ export const fetchCache = "force-no-store"
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).optional(),
-  defaultDurationDays: z.number().int().positive().optional(),
+  defaultDurationDays: z.number().int().min(0).optional(),
   sortOrder: z.number().int().optional(),
   optionalCategory: z.string().optional().nullable(),
   isDependency: z.boolean().optional(),
@@ -19,6 +19,9 @@ const updateTemplateSchema = z.object({
   gateScope: z.nativeEnum(GateScope).optional(),
   gateBlockMode: z.nativeEnum(GateBlockMode).optional(),
   gateName: z.string().optional().nullable(),
+  prepLeadDays: z.number().int().min(0).optional(),
+  requiresOrdering: z.boolean().optional(),
+  materialLeadDays: z.number().int().min(0).optional(),
 })
 
 export async function GET(
@@ -79,6 +82,9 @@ export async function PATCH(
     if (data.gateScope !== undefined) updateData.gateScope = data.gateScope
     if (data.gateBlockMode !== undefined) updateData.gateBlockMode = data.gateBlockMode
     if (data.gateName !== undefined) updateData.gateName = data.gateName
+    if (data.prepLeadDays !== undefined) updateData.prepLeadDays = data.prepLeadDays
+    if (data.requiresOrdering !== undefined) updateData.requiresOrdering = data.requiresOrdering
+    if (data.materialLeadDays !== undefined) updateData.materialLeadDays = data.materialLeadDays
 
     // Ensure at least one field is being updated
     if (Object.keys(updateData).length === 0) {
