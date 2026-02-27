@@ -6,6 +6,27 @@ export function isWorkingDay(date: Date): boolean {
   return day !== 0 && day !== 6 // 0 = Sunday, 6 = Saturday
 }
 
+/**
+ * Normalize a date to the nearest working day (Mon–Fri).
+ * - If Saturday → following Monday
+ * - If Sunday → following Monday
+ * - Otherwise returns the same calendar day (time truncated to midnight).
+ */
+export function normalizeToWorkingDay(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const day = d.getDay()
+  if (day === 6) {
+    // Saturday → Monday
+    return addDays(d, 2)
+  }
+  if (day === 0) {
+    // Sunday → Monday
+    return addDays(d, 1)
+  }
+  return d
+}
+
 /** Advance forward by n working days (Mon–Fri), starting from start (offset 0). */
 export function addWorkingDays(start: Date, workingDays: number): Date {
   if (workingDays <= 0) return new Date(start)

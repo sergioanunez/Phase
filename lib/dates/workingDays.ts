@@ -1,5 +1,6 @@
 export {
   isWorkingDay,
+  normalizeToWorkingDay,
   addWorkingDays,
   subWorkingDays,
   workingDayDiff,

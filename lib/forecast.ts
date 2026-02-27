@@ -1,5 +1,5 @@
 import { prisma } from "./prisma"
-import { addWorkingDays } from "./working-days"
+import { addWorkingDays, normalizeToWorkingDay } from "./working-days"
 
 type HomeTaskWithTemplate = Awaited<ReturnType<typeof getHomeWithTasks>>["tasks"][number]
 
@@ -162,7 +162,7 @@ export async function computeHomeForecast(homeId: string) {
   }
 
   // Persist forecast onto tasks and home
-  const startDate = home.startDate
+  const startDate = normalizeToWorkingDay(home.startDate)
   const forecastCompletionDate = addWorkingDays(startDate, totalWorkingDays)
 
   await prisma.$transaction([

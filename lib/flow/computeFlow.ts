@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { addWorkingDays, subWorkingDays, diffWorkingDays } from "@/lib/working-days"
+import { addWorkingDays, subWorkingDays, diffWorkingDays, normalizeToWorkingDay } from "@/lib/working-days"
 import type { FlowAction, ComputeFlowInput, ComputeFlowResult } from "./types"
 
 const COMPLETED = "Completed"
@@ -160,6 +160,8 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         homeStartDate.setHours(0, 0, 0, 0)
       }
     }
+    // Ensure base forecast start for this home is always a working day (Mon–Fri)
+    homeStartDate = normalizeToWorkingDay(homeStartDate)
 
     const taskById = Object.fromEntries(tasks.map((t) => [t.id, t]))
     const predecessors: Record<string, string[]> = {}

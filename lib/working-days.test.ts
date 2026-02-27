@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   isWorkingDay,
+  normalizeToWorkingDay,
   addWorkingDays,
   subWorkingDays,
   workingDayDiff,
@@ -20,6 +21,28 @@ describe("working days", () => {
     it("returns true for Monday through Friday", () => {
       expect(isWorkingDay(date(2026, 2, 23))).toBe(true) // Mon
       expect(isWorkingDay(date(2026, 2, 27))).toBe(true) // Fri
+    })
+  })
+
+  describe("normalizeToWorkingDay", () => {
+    it("leaves weekdays unchanged (midnight)", () => {
+      const fri = date(2026, 2, 27) // Friday
+      const norm = normalizeToWorkingDay(fri)
+      expect(norm.getDay()).toBe(5)
+      expect(norm.getHours()).toBe(0)
+      expect(norm.getMinutes()).toBe(0)
+    })
+
+    it("moves Saturday to following Monday", () => {
+      const sat = date(2026, 2, 21) // Saturday
+      const norm = normalizeToWorkingDay(sat)
+      expect(norm.getDay()).toBe(1) // Monday
+    })
+
+    it("moves Sunday to following Monday", () => {
+      const sun = date(2026, 2, 22) // Sunday
+      const norm = normalizeToWorkingDay(sun)
+      expect(norm.getDay()).toBe(1) // Monday
     })
   })
 
