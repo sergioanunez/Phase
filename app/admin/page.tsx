@@ -2763,6 +2763,9 @@ export default function AdminPage() {
                           title={!companyBranding || companyBranding.pricingTier !== "WHITE_LABEL" ? "Only available for White Label tier" : undefined}
                         />
                       </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Use a 6-digit hex color (example: #0EA5E9).
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Accent color</label>
