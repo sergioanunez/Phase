@@ -15,6 +15,8 @@ const updateBrandingSchema = z.object({
   brandAccentColor: z.string().optional().nullable(),
 })
 
+const HEX_COLOR_RE = /^#([0-9A-Fa-f]{6})$/
+
 async function getPublicUrlForPath(path: string | null): Promise<string | null> {
   if (!path) return null
   try {
@@ -37,6 +39,7 @@ export async function GET() {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantContext } = await import("@/lib/tenant")
+    const { getTenantEntitlements } = await import("@/lib/entitlements")
     const ctx = await requireTenantContext()
     const company = await prisma.company.findUnique({
       where: { id: ctx.companyId },
@@ -58,11 +61,13 @@ export async function GET() {
     const logoUrl =
       (await getPublicUrlForPath(company.brandLogoPath)) || (company.brandLogoUrl || null)
     const faviconUrl = await getPublicUrlForPath(company.brandFaviconPath)
+    const entitlements = await getTenantEntitlements(prisma, ctx.companyId)
     return NextResponse.json({
       ...company,
       logoUrl: logoUrl || null,
       faviconUrl: faviconUrl || null,
       brandingUpdatedAt: company.updatedAt,
+      whiteLabelEnabled: entitlements.whiteLabelEnabled,
     })
   } catch (error) {
     return handleApiError(error)
@@ -109,7 +114,19 @@ export async function PATCH(request: NextRequest) {
     } = {}
     if (data.brandAppName !== undefined) updatePayload.brandAppName = data.brandAppName || null
     if (data.brandLogoUrl !== undefined) updatePayload.brandLogoUrl = data.brandLogoUrl || null
-    if (data.brandPrimaryColor !== undefined) updatePayload.brandPrimaryColor = data.brandPrimaryColor || null
+    if (data.brandPrimaryColor !== undefined) {
+      const raw = (data.brandPrimaryColor ?? "").trim()
+      if (raw === "") {
+        updatePayload.brandPrimaryColor = null
+      } else if (!HEX_COLOR_RE.test(raw)) {
+        return NextResponse.json(
+          { error: "Primary color must be a 6-digit hex like #0EA5E9." },
+          { status: 400 }
+        )
+      } else {
+        updatePayload.brandPrimaryColor = raw
+      }
+    }
     if (data.brandAccentColor !== undefined) updatePayload.brandAccentColor = data.brandAccentColor || null
     const updated = await prisma.company.update({
       where: { id: ctx.companyId },

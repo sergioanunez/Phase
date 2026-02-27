@@ -7,8 +7,16 @@ import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import logoImage from "../public/logo.png"
 import { UserMenu } from "@/components/user-menu"
+import { getTenantBrandColor } from "@/lib/tenant/theme"
 
-type Branding = { pricingTier: string; logoUrl: string | null; brandAppName: string | null; brandingUpdatedAt?: string } | null
+type Branding = {
+  pricingTier: string
+  logoUrl: string | null
+  brandAppName: string | null
+  brandingUpdatedAt?: string
+  brandPrimaryColor?: string | null
+  whiteLabelEnabled?: boolean
+} | null
 
 export function AppHeader() {
   const pathname = usePathname()
@@ -19,7 +27,18 @@ export function AppHeader() {
     if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
     fetch("/api/company/branding")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && setBranding({ pricingTier: data.pricingTier, logoUrl: data.logoUrl || null, brandAppName: data.brandAppName || null }))
+      .then(
+        (data) =>
+          data &&
+          setBranding({
+            pricingTier: data.pricingTier,
+            logoUrl: data.logoUrl || null,
+            brandAppName: data.brandAppName || null,
+            brandingUpdatedAt: data.brandingUpdatedAt,
+            brandPrimaryColor: data.brandPrimaryColor ?? null,
+            whiteLabelEnabled: data.whiteLabelEnabled ?? false,
+          })
+      )
       .catch(() => setBranding(null))
   }, [pathname])
 
@@ -36,8 +55,13 @@ export function AppHeader() {
   }
 
   const useCustomLogo = branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
-  const logoAlt = (useCustomLogo && branding?.brandAppName) ? branding.brandAppName : "Phase"
+  const logoAlt = useCustomLogo && branding?.brandAppName ? branding.brandAppName : "Phase"
   const logoHref = pathname === "/start-trial" ? "/" : "/homes"
+
+  const beltColor = getTenantBrandColor({
+    whiteLabelEnabled: branding?.whiteLabelEnabled,
+    brandPrimaryColor: branding?.brandPrimaryColor,
+  })
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm">
@@ -45,7 +69,11 @@ export function AppHeader() {
         <Link href={logoHref} className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
           {useCustomLogo ? (
             <img
-              src={branding.brandingUpdatedAt ? `${branding.logoUrl ?? ""}?v=${new Date(branding.brandingUpdatedAt).getTime()}` : (branding.logoUrl ?? "")}
+              src={
+                branding?.brandingUpdatedAt
+                  ? `${branding.logoUrl ?? ""}?v=${new Date(branding.brandingUpdatedAt).getTime()}`
+                  : branding?.logoUrl ?? ""
+              }
               alt={logoAlt}
               className="h-12 w-auto max-w-[12rem] object-contain object-left"
             />
@@ -77,6 +105,14 @@ export function AppHeader() {
           <UserMenu />
         </div>
       </div>
+      <div className="app-header-nav-width mx-auto w-full">
+        <div
+          className="h-1 w-full"
+          style={{ backgroundColor: beltColor }}
+          aria-hidden="true"
+        />
+      </div>
     </header>
   )
 }
+
