@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 
+type ApiError = Error & { statusCode?: number; payload?: unknown }
+
 /** Turn thrown auth/tenant errors (with statusCode) into NextResponse. */
 export function handleApiError(error: unknown): NextResponse {
-  const err = error as Error & { statusCode?: number }
+  const err = error as ApiError
   const status = err.statusCode ?? 500
   const message = err.message || "Internal server error"
 
@@ -19,6 +21,11 @@ export function handleApiError(error: unknown): NextResponse {
       },
       { status: 500 }
     )
+  }
+
+  // Allow richer error payloads for payment-required and similar application errors.
+  if (err.payload && typeof err.payload === "object") {
+    return NextResponse.json(err.payload, { status })
   }
 
   return NextResponse.json({ error: message }, { status })

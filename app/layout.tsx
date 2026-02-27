@@ -12,6 +12,8 @@ import dynamic from "next/dynamic"
 import { Providers } from "./providers"
 import { AppHeader } from "@/components/app-header"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
+import { TrialBanner } from "@/components/billing/trial-banner"
+import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
 
 const AIAssistant = dynamic(
   () =>
@@ -51,6 +53,8 @@ export default async function RootLayout({
           <Providers>
             <ImpersonationBanner />
             <AppHeader />
+            <TrialBanner />
+            <TrialExpiredOverlay />
             {children}
             <AIAssistant />
           </Providers>
@@ -76,6 +80,8 @@ export default async function RootLayout({
         <Providers>
           <ImpersonationBanner />
           <AppHeader />
+          <TrialBanner />
+          <TrialExpiredOverlay />
           {children}
           <AIAssistant />
         </Providers>

@@ -80,6 +80,9 @@ export default function HomesPage() {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const statusFilter = searchParams.get("status") as StatusFilter | null
+  const reduceToStarter = searchParams.get("reduceToStarter") === "1"
+  const reduceActiveHomes = searchParams.get("activeHomes")
+  const reduceNeed = searchParams.get("needReduce")
   const [homes, setHomes] = useState<Home[]>([])
   const [subdivisions, setSubdivisions] = useState<Subdivision[]>([])
   const [loading, setLoading] = useState(true)
@@ -226,6 +229,32 @@ export default function HomesPage() {
             />
           </div>
         </div>
+
+        {reduceToStarter && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="font-medium">Reduce to Starter</p>
+            <p className="mt-1">
+              Archive or complete homes until you have at most <strong>5 active homes</strong> to
+              use the Starter plan.
+            </p>
+            {(reduceActiveHomes || reduceNeed) && (
+              <p className="mt-1 text-xs text-amber-900/90">
+                {reduceActiveHomes && (
+                  <>
+                    You currently have <strong>{reduceActiveHomes}</strong> active homes.
+                    {" "}
+                  </>
+                )}
+                {reduceNeed && (
+                  <>
+                    You need to reduce by <strong>{reduceNeed}</strong> home
+                    {reduceNeed === "1" ? "" : "s"}.
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         {communities.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E6E8EF] bg-white py-12 text-center shadow-sm">

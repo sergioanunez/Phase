@@ -80,6 +80,33 @@ export async function requireTenantPermission(permission: Permission): Promise<T
     err.statusCode = 403
     throw err
   }
+  // Enforce subscription / trial state for write-style permissions (except for super admin / platform admin).
+  const isWritePermission =
+    permission.endsWith(":write") || permission === "sms:send"
+  if (
+    isWritePermission &&
+    ctx.role !== "SUPER_ADMIN" &&
+    ctx.role !== "PlatformAdmin"
+  ) {
+    const { prisma } = await import("@/lib/prisma")
+    const { checkSubscriptionGuard } = await import("@/lib/billing/subscriptionGuard")
+    const result = await checkSubscriptionGuard(prisma, ctx.companyId)
+    if (!result.allowed && result.trialExpired) {
+      const err = new Error("Payment required") as Error & {
+        statusCode?: number
+        payload?: unknown
+      }
+      err.statusCode = 402
+      err.payload = {
+        error: "Trial expired or subscription inactive",
+        code: "TRIAL_EXPIRED",
+        subscriptionStatus: result.subscriptionStatus,
+        activeHomesCount: result.activeHomesCount,
+        recommendedPlan: result.recommendedPlan,
+      }
+      throw err
+    }
+  }
   return ctx
 }
 

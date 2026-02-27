@@ -22,7 +22,8 @@ describe("signup schema", () => {
     })
     expect(result.success).toBe(false)
     if (!result.success) {
-      const msg = result.error.flatten().formErrors?.[0] ?? ""
+      const flat = result.error.flatten()
+      const msg = flat.fieldErrors.termsAccepted?.[0] ?? flat.formErrors?.[0] ?? ""
       expect(msg).toContain("Terms")
     }
   })

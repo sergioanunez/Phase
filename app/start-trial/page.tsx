@@ -10,17 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SMS_CONSENT_VERSION } from "@/lib/sms-consent"
 import logoImage from "../../public/logo.png"
 
-type PlanKey = "starter" | "growth"
-
-const PLANS: { key: PlanKey; label: string; description: string }[] = [
-  { key: "starter", label: "Starter", description: "Up to 5 active homes" },
-  { key: "growth", label: "Growth", description: "Up to 25 active homes" },
-]
-
 export default function StartTrialPage() {
   const router = useRouter()
   const [companyName, setCompanyName] = useState("")
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>("starter")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -96,7 +88,6 @@ export default function StartTrialPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: companyName.trim() || "My Company",
-          selectedPlan,
         }),
       })
       const provisionData = await provisionRes.json()
@@ -159,27 +150,6 @@ export default function StartTrialPage() {
                   placeholder="My Company"
                   className="w-full px-3 py-2 border rounded-md"
                 />
-              </div>
-
-              <div>
-                <span className="block text-sm font-medium mb-2">Plan</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {PLANS.map((plan) => (
-                    <button
-                      key={plan.key}
-                      type="button"
-                      onClick={() => setSelectedPlan(plan.key)}
-                      className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                        selectedPlan === plan.key
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <span className="font-medium">{plan.label}</span>
-                      <p className="text-xs text-muted-foreground mt-0.5">{plan.description}</p>
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {!hasSession && (

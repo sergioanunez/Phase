@@ -10,13 +10,7 @@ export const fetchCache = "force-no-store"
 
 const provisionSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(200).transform((s) => s.trim()),
-  selectedPlan: z.enum(["starter", "growth"]),
 })
-
-const PLAN_CONFIG = {
-  starter: { pricingTier: "SMALL" as const, maxActiveHomes: 5 },
-  growth: { pricingTier: "MID" as const, maxActiveHomes: 25 },
-} as const
 
 /**
  * POST /api/trial/provision
@@ -55,8 +49,7 @@ export async function POST(request: NextRequest) {
       const msg = parsed.error.flatten().formErrors?.[0] ?? "Invalid input"
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    const { companyName, selectedPlan } = parsed.data
-    const planConfig = PLAN_CONFIG[selectedPlan]
+    const { companyName } = parsed.data
     const trialStartsAt = new Date()
     const trialEndsAt = new Date(trialStartsAt)
     trialEndsAt.setDate(trialEndsAt.getDate() + 30)
@@ -65,9 +58,11 @@ export async function POST(request: NextRequest) {
       const company = await tx.company.create({
         data: {
           name: companyName || "My Company",
-          pricingTier: planConfig.pricingTier,
-          maxActiveHomes: planConfig.maxActiveHomes,
+          pricingTier: "SMALL",
+          maxActiveHomes: null,
           status: "TRIAL",
+          subscriptionStatus: "trialing",
+          planKey: null,
           trialStartsAt,
           trialEndsAt,
         },
@@ -95,8 +90,6 @@ export async function POST(request: NextRequest) {
           action: "TRIAL_STARTED",
           metaJson: {
             companyName: company.name,
-            plan: selectedPlan,
-            pricingTier: planConfig.pricingTier,
             trialEndsAt: trialEndsAt.toISOString(),
           },
         },

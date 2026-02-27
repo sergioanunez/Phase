@@ -105,13 +105,11 @@ export function AppHeader() {
           <UserMenu />
         </div>
       </div>
-      <div className="app-header-nav-width mx-auto w-full">
-        <div
-          className="h-1 w-full"
-          style={{ backgroundColor: beltColor }}
-          aria-hidden="true"
-        />
-      </div>
+      <div
+        className="h-1 w-full"
+        style={{ backgroundColor: beltColor }}
+        aria-hidden="true"
+      />
     </header>
   )
 }
