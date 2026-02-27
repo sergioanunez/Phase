@@ -336,7 +336,7 @@ export default function AdminPage() {
 
   /** Project duration = sum of category durations (same numbers shown in each category header). No double counting. */
   const projectTotalDays = useMemo(() => {
-    return Object.values(categoryDurations).reduce((sum, d) => sum + (d ?? 0), 0)
+    return Object.values(categoryDurations).reduce<number>((sum, d) => sum + (d ?? 0), 0)
   }, [categoryDurations])
 
   const handleRefresh = () => {
