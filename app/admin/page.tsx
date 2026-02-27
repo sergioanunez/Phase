@@ -334,15 +334,10 @@ export default function AdminPage() {
     return t.defaultDurationDays ?? 0
   }
 
-  /** Template-level sum of all duration_days (no critical path, no prep/dependencies). Each item counted once by id. Recomputes when editing duration. */
+  /** Project duration = sum of category durations (same numbers shown in each category header). No double counting. */
   const projectTotalDays = useMemo(() => {
-    const seen = new Set<string>()
-    return templates.reduce((sum, t) => {
-      if (seen.has(t.id)) return sum
-      seen.add(t.id)
-      return sum + durationFor(t)
-    }, 0)
-  }, [templates, editingTemplateId, editingTemplateDuration])
+    return Object.values(categoryDurations).reduce((sum, d) => sum + (d ?? 0), 0)
+  }, [categoryDurations])
 
   const handleRefresh = () => {
     Promise.all([
