@@ -18,7 +18,7 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, Info } from "lucide-react"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
@@ -324,6 +324,20 @@ export default function AdminPage() {
     }
     return d
   }, [templates])
+
+  /** Duration for one item: use editing value when this item is being edited, else template value. */
+  const durationFor = (t: WorkTemplateItem): number => {
+    if (editingTemplateId === t.id) {
+      const n = parseInt(editingTemplateDuration, 10)
+      return Number.isNaN(n) || n < 0 ? 0 : n
+    }
+    return t.defaultDurationDays ?? 0
+  }
+
+  /** Template-level sum of all duration_days (no critical path, no prep/dependencies). Recomputes when editing duration. */
+  const projectTotalDays = useMemo(() => {
+    return templates.reduce((sum, t) => sum + durationFor(t), 0)
+  }, [templates, editingTemplateId, editingTemplateDuration])
 
   const handleRefresh = () => {
     Promise.all([
@@ -2151,12 +2165,28 @@ export default function AdminPage() {
                     </CardHeader>
                   </Card>
                               ))}
+                              <div className="text-right text-sm text-muted-foreground pt-2 mt-2 border-t border-border">
+                                Category total: {sortedTemplates.reduce((s, t) => s + durationFor(t), 0)} days
+                              </div>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
                       )
                     })}
                   </Accordion>
+                  <div className="sticky bottom-0 mt-4 border-t border-border rounded-md bg-muted/50 px-4 py-3 text-base font-semibold text-foreground">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        Project Duration (Template Total): {projectTotalDays} working days
+                        <span
+                          className="inline-flex text-muted-foreground"
+                          title="This is the sum of all template task durations. Actual forecast duration may differ based on dependencies."
+                        >
+                          <Info className="h-4 w-4" />
+                        </span>
+                      </span>
+                    </div>
+                  </div>
                 )
               })()}
             </div>
