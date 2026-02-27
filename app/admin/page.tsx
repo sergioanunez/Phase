@@ -2741,7 +2741,7 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">Primary color</label>
                       <div className="flex gap-2">
@@ -2766,28 +2766,6 @@ export default function AdminPage() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         Use a 6-digit hex color (example: #0EA5E9).
                       </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Accent color</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="color"
-                          value={brandForm.brandAccentColor || "#0ea5e9"}
-                          onChange={(e) => setBrandForm((f) => ({ ...f, brandAccentColor: e.target.value }))}
-                          className="h-10 w-14 cursor-pointer rounded border"
-                          disabled={!companyBranding || companyBranding.pricingTier !== "WHITE_LABEL"}
-                          title={!companyBranding || companyBranding.pricingTier !== "WHITE_LABEL" ? "Only available for White Label tier" : undefined}
-                        />
-                        <input
-                          type="text"
-                          value={brandForm.brandAccentColor}
-                          onChange={(e) => setBrandForm((f) => ({ ...f, brandAccentColor: e.target.value }))}
-                          placeholder="#0ea5e9"
-                          className="flex-1 px-3 py-2 border rounded-md"
-                          disabled={!companyBranding || companyBranding.pricingTier !== "WHITE_LABEL"}
-                          title={!companyBranding || companyBranding.pricingTier !== "WHITE_LABEL" ? "Only available for White Label tier" : undefined}
-                        />
-                      </div>
                     </div>
                   </div>
                   {companyBranding?.pricingTier === "WHITE_LABEL" && (
