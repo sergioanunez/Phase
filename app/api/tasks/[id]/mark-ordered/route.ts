@@ -24,7 +24,13 @@ export async function POST(
     }
 
     const task = await prisma.homeTask.findFirst({
-      where: { id: params.id, companyId: ctx.companyId },
+      where: {
+        id: params.id,
+        OR: [
+          { companyId: ctx.companyId },
+          { companyId: null, home: { companyId: ctx.companyId } },
+        ],
+      },
     })
 
     if (!task) {
