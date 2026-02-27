@@ -55,14 +55,14 @@ export default function TermsPage() {
             </p>
           </section>
 
-          <section>
-            <h2 id="sms-consent" className="text-lg font-semibold text-gray-900">
+          <section id="sms-consent" className="scroll-mt-24">
+            <h2 className="text-lg font-semibold text-gray-900">
               SMS Messaging Consent
             </h2>
             <p className="mt-2 text-sm leading-relaxed">
               By checking the SMS consent box during account registration and providing your phone number, you consent
               to receive transactional SMS notifications related to project scheduling, task confirmations, and
-              operational updates from Phase. Reply STOP to unsubscribe. Reply HELP for help. Message and data rates may
+              operational updates from Phase. Reply STOP to opt out. Reply HELP for help. Message and data rates may
               apply. Message frequency varies. We do not send marketing or promotional messages via this number.
             </p>
           </section>
