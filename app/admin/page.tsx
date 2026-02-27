@@ -1781,6 +1781,7 @@ export default function AdminPage() {
                 }
 
                 return (
+                  <>
                   <Accordion type="multiple" className="w-full">
                     {sortedCategories.map((category) => {
                       const categoryTemplates = filteredByCategory[category]
@@ -2187,6 +2188,7 @@ export default function AdminPage() {
                       </span>
                     </div>
                   </div>
+                  </>
                 )
               })()}
             </div>
