@@ -13,7 +13,7 @@ const tabs: Array<{
 }> = [
   { value: "subdivisions-homes", href: "/admin", label: "Subdivisions & Homes" },
   { value: "work-templates", href: "/admin?tab=work-templates", label: "Work Items Template" },
-  { value: "contractors", href: "/admin?tab=contractors", label: "Contractors" },
+  { value: "contractors", href: "/admin?tab=contractors", label: "Vendors" },
   { value: "users", href: "/admin?tab=users", label: "Users" },
   { value: "white-label", href: "/admin?tab=white-label", label: "White Label", icon: Palette },
   { value: "billing", href: "/admin/billing", label: "Billing", icon: CreditCard },

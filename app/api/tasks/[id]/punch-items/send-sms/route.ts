@@ -93,22 +93,19 @@ export async function POST(
         continue
       }
 
-      if (!data.contractor.phone) {
-        errors.push({
-          contractor: data.contractor.companyName,
-          error: "Contractor does not have a phone number",
-        })
-        continue
-      }
-
-      const { canSendSmsByContractorId, logSmsBlocked } = await import("@/lib/sms-guard")
-      const smsCheck = await canSendSmsByContractorId(data.contractor.id)
-      if (!smsCheck.allowed) {
-        logSmsBlocked(data.contractor.id, smsCheck.reason, { taskId: params.id, action: "punch_list_sms" })
-        errors.push({
-          contractor: data.contractor.companyName,
-          error: "This subcontractor has not opted in to SMS yet.",
-        })
+      const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
+      const recipient = await getSmsRecipientForContractor(data.contractor.id)
+      if (!recipient.allowed) {
+        logSmsBlocked(data.contractor.id, recipient.reason, { taskId: params.id, action: "punch_list_sms" })
+        const msg =
+          recipient.reason === "no_contact"
+            ? "No contact has opted in to SMS for this vendor."
+            : recipient.reason === "no_phone"
+              ? "Contact has not added a phone number."
+              : recipient.reason === "no_consent"
+                ? "Contact has not opted in to SMS yet."
+                : "Contact has unsubscribed from SMS."
+        errors.push({ contractor: data.contractor.companyName, error: msg })
         continue
       }
 
@@ -116,7 +113,7 @@ export async function POST(
         const { sendPunchListSMS } = await import("@/lib/twilio")
         await sendPunchListSMS(
           params.id,
-          data.contractor.phone,
+          recipient.phoneE164,
           task.home.subdivision.name,
           task.home.addressOrLot,
           task.nameSnapshot,

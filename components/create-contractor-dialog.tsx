@@ -54,7 +54,7 @@ export function CreateContractorDialog({
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "Failed to create contractor")
+        throw new Error(data.error || "Failed to create vendor")
       }
 
       setCompanyName("")
@@ -66,7 +66,7 @@ export function CreateContractorDialog({
       onSuccess()
       onOpenChange(false)
     } catch (err: any) {
-      setError(err.message || "Failed to create contractor")
+      setError(err.message || "Failed to create vendor")
     } finally {
       setLoading(false)
     }
@@ -76,9 +76,9 @@ export function CreateContractorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Contractor</DialogTitle>
+          <DialogTitle>Create Vendor</DialogTitle>
           <DialogDescription>
-            Add a new contractor to the system
+            Add a new vendor (trade partner) to the system. Office phone is not used for SMS; contacts opt in separately.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +114,7 @@ export function CreateContractorDialog({
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Phone Number *
+                Office phone * (not used for SMS)
               </label>
               <input
                 type="tel"

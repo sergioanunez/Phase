@@ -76,6 +76,16 @@ interface WorkTemplateItem {
   }>
 }
 
+interface ContractorContact {
+  id: string
+  name: string
+  email: string
+  status?: string
+  phoneE164?: string | null
+  smsConsent?: boolean
+  smsOptOutAt?: string | null
+}
+
 interface Contractor {
   id: string
   companyName: string
@@ -84,6 +94,9 @@ interface Contractor {
   email: string | null
   trade: string | null
   preferredNoticeDays: number | null
+  defaultContactId?: string | null
+  defaultContact?: { id: string; name: string; email: string } | null
+  users?: ContractorContact[]
 }
 
 interface AdminUser {
@@ -131,6 +144,12 @@ export default function AdminPage() {
   const [createUserOpen, setCreateUserOpen] = useState(false)
   const [editUserOpen, setEditUserOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
+  const [inviteContactVendorId, setInviteContactVendorId] = useState<string | null>(null)
+  const [inviteContactOpen, setInviteContactOpen] = useState(false)
+  const [inviteContactName, setInviteContactName] = useState("")
+  const [inviteContactEmail, setInviteContactEmail] = useState("")
+  const [inviteContactLoading, setInviteContactLoading] = useState(false)
+  const [inviteContactError, setInviteContactError] = useState("")
   const [refreshSubdivisions, setRefreshSubdivisions] = useState(0)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [editingTemplateName, setEditingTemplateName] = useState("")
@@ -1093,6 +1112,61 @@ export default function AdminPage() {
     }
   }
 
+  const handleInviteContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteContactVendorId) return
+    setInviteContactError("")
+    setInviteContactLoading(true)
+    try {
+      const res = await fetch(`/api/contractors/${inviteContactVendorId}/invite-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: inviteContactName.trim(),
+          email: inviteContactEmail.trim().toLowerCase(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.warning) {
+          setInviteContactError(data.warning)
+          setInviteContactLoading(false)
+          return
+        }
+        setInviteContactVendorId(null)
+        setInviteContactOpen(false)
+        setInviteContactName("")
+        setInviteContactEmail("")
+        handleRefresh()
+        alert("Invite sent. Contact will receive an email to set up their account and opt in to SMS.")
+      } else {
+        setInviteContactError(data.error || "Failed to invite contact")
+      }
+    } catch (err) {
+      setInviteContactError("Something went wrong. Please try again.")
+    } finally {
+      setInviteContactLoading(false)
+    }
+  }
+
+  const handleSetDefaultContact = async (contractorId: string, contactId: string) => {
+    try {
+      const res = await fetch(`/api/contractors/${contractorId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ defaultContactId: contactId }),
+      })
+      if (res.ok) {
+        handleRefresh()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to set default contact")
+      }
+    } catch {
+      alert("Failed to set default contact")
+    }
+  }
+
   const effectiveRole = impersonationChecked ? (impersonationRole ?? session?.user?.role) : null
   if (loading || !session?.user || !impersonationChecked) {
     return (
@@ -1111,7 +1185,7 @@ export default function AdminPage() {
       <div className="app-container">
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="mt-1.5 mb-4 text-sm text-muted-foreground">
-          Manage subdivisions, homes, work templates, contractors, users, and billing. Settings access required.
+          Manage subdivisions, homes, work templates, vendors, users, and billing. Settings access required.
         </p>
         <div className="mb-6">
           <SettingsNav />
@@ -2096,13 +2170,16 @@ export default function AdminPage() {
                 size="sm"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                New Contractor
+                New Vendor
               </Button>
             </div>
 
-            {/* Contractors Section */}
+            {/* Vendors Section */}
             <div>
-              <h2 className="text-xl font-semibold mb-4">Contractors</h2>
+              <h2 className="text-xl font-semibold mb-4">Vendors</h2>
+              <p className="text-sm text-muted-foreground mb-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                SMS now requires Contact opt-in. Vendor office phone numbers are not used for automated SMS. Invite contacts from each vendor and have them accept the invite with SMS consent.
+              </p>
               <div className="space-y-3">
                 {contractors.map((contractor) => (
                   <Card key={contractor.id}>
@@ -2160,7 +2237,7 @@ export default function AdminPage() {
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-muted-foreground">Phone</label>
+                                <label className="text-xs text-muted-foreground">Office phone (not used for SMS)</label>
                                 <input
                                   type="text"
                                   value={editingContractor.phone}
@@ -2171,7 +2248,7 @@ export default function AdminPage() {
                                     })
                                   }
                                   className="w-full px-2 py-1 border rounded-md text-sm"
-                                  placeholder="Phone"
+                                  placeholder="Office phone"
                                 />
                               </div>
                               <div>
@@ -2261,9 +2338,13 @@ export default function AdminPage() {
                             {contractor.contactName}
                           </div>
                           <div>
-                            <span className="font-medium">Phone: </span>
+                            <span className="font-medium">Office phone: </span>
                             {contractor.phone}
+                            <span className="text-muted-foreground text-xs ml-1">(not used for SMS)</span>
                           </div>
+                          <p className="text-xs text-muted-foreground">
+                            Office phone is not used for SMS notifications. Contacts must opt in to receive texts.
+                          </p>
                           {contractor.email && (
                             <div>
                               <span className="font-medium">Email: </span>
@@ -2283,13 +2364,86 @@ export default function AdminPage() {
                             </div>
                           )}
                         </div>
+                        {/* Contacts (people who receive SMS) */}
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-sm">Contacts</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setInviteContactVendorId(contractor.id)
+                                setInviteContactName("")
+                                setInviteContactEmail("")
+                                setInviteContactError("")
+                                setInviteContactOpen(true)
+                              }}
+                            >
+                              <Mail className="h-3 w-3 mr-1" />
+                              Invite Contact
+                            </Button>
+                          </div>
+                          {(contractor.users?.length ?? 0) > 0 ? (
+                            <ul className="space-y-2 text-sm">
+                              {(contractor.users ?? []).map((u) => {
+                                const isDefault = contractor.defaultContactId === u.id
+                                const smsEligible = !!(u.phoneE164 && u.smsConsent && !u.smsOptOutAt)
+                                return (
+                                  <li key={u.id} className="flex flex-wrap items-center gap-2 py-1">
+                                    <span>{u.name}</span>
+                                    <span className="text-muted-foreground">{u.email}</span>
+                                    {u.status === "INVITED" && (
+                                      <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded">
+                                        Invited
+                                      </span>
+                                    )}
+                                    {u.status === "ACTIVE" && (
+                                      <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded">
+                                        Active
+                                      </span>
+                                    )}
+                                    {u.status === "ACTIVE" && smsEligible && (
+                                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">
+                                        SMS Opted-in
+                                      </span>
+                                    )}
+                                    {u.smsOptOutAt && (
+                                      <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">
+                                        Opted out
+                                      </span>
+                                    )}
+                                    {isDefault && (
+                                      <span className="text-xs text-muted-foreground">(default for SMS)</span>
+                                    )}
+                                    {u.status === "ACTIVE" && smsEligible && !isDefault && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs h-7"
+                                        onClick={() => handleSetDefaultContact(contractor.id, u.id)}
+                                      >
+                                        Set as default
+                                      </Button>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="text-muted-foreground text-xs">
+                              No contacts yet. Invite a contact to receive SMS for this vendor.
+                            </p>
+                          )}
+                        </div>
                       </CardContent>
                     )}
                   </Card>
                 ))}
                 {contractors.length === 0 && (
                   <p className="text-muted-foreground text-center py-8">
-                    No contractors. Create one to get started.
+                    No vendors. Create one to get started.
                   </p>
                 )}
               </div>
@@ -2311,7 +2465,7 @@ export default function AdminPage() {
             <div>
               <h2 className="text-xl font-semibold mb-4">Users</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Add Superintendents, Managers, Admins, and Subcontractors. Subcontractors must be linked to a contractor company (e.g. plumbing, electrical).
+                Add Superintendents, Managers, Admins, and Contacts. Create and invite contacts from the Vendors tab for the best workflow.
               </p>
               <div className="space-y-3">
                 {users.map((u) => (
@@ -2657,6 +2811,71 @@ export default function AdminPage() {
               onOpenChange={setCreateUserOpen}
               onSuccess={handleRefresh}
             />
+            <Dialog
+              open={inviteContactOpen}
+              onOpenChange={(open) => {
+                setInviteContactOpen(open)
+                if (!open) {
+                  setInviteContactVendorId(null)
+                  setInviteContactName("")
+                  setInviteContactEmail("")
+                  setInviteContactError("")
+                }
+              }}
+            >
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Invite Contact</DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {inviteContactVendorId && contractors.find((c) => c.id === inviteContactVendorId)?.companyName
+                      ? `Send an invite to a contact for ${contractors.find((c) => c.id === inviteContactVendorId)?.companyName}. They will set their password and opt in to SMS.`
+                      : "Send an invite email. The contact will set their password and opt in to SMS."}
+                  </p>
+                </DialogHeader>
+                <form onSubmit={handleInviteContactSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={inviteContactName}
+                      onChange={(e) => setInviteContactName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
+                      placeholder="Contact name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={inviteContactEmail}
+                      onChange={(e) => setInviteContactEmail(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
+                      placeholder="email@example.com"
+                      required
+                    />
+                  </div>
+                  {inviteContactError && (
+                    <p className="text-sm text-destructive">{inviteContactError}</p>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setInviteContactOpen(false)
+                        setInviteContactVendorId(null)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={inviteContactLoading}>
+                      {inviteContactLoading ? "Sending..." : "Send invite"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
             <EditUserDialog
               open={editUserOpen}
               onOpenChange={(open) => {

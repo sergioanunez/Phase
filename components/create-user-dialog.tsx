@@ -57,7 +57,7 @@ export function CreateUserDialog({
 
     try {
       if (role === "Subcontractor" && !contractorId) {
-        setError("Subcontractor must be linked to a contractor company")
+        setError("Contact must be linked to a vendor")
         setLoading(false)
         return
       }
@@ -160,8 +160,7 @@ export function CreateUserDialog({
         <DialogHeader>
           <DialogTitle>Create User</DialogTitle>
           <DialogDescription>
-            Add a new user (Superintendent, Manager, Admin, or Subcontractor).
-            They will receive an email to set their password and activate their account.
+            Add a new user (Superintendent, Manager, Admin, or Contact). Contacts are people linked to a vendor who receive SMS. Prefer inviting contacts from the Vendors tab.
           </DialogDescription>
         </DialogHeader>
 
@@ -204,14 +203,14 @@ export function CreateUserDialog({
                 <option value="Admin">Admin</option>
                 <option value="Superintendent">Superintendent</option>
                 <option value="Manager">Manager</option>
-                <option value="Subcontractor">Subcontractor</option>
+                <option value="Subcontractor">Contact (subcontractor)</option>
               </select>
             </div>
 
             {role === "Subcontractor" && (
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Contractor company *
+                  Vendor (company) *
                 </label>
                 <select
                   value={contractorId}
@@ -219,7 +218,7 @@ export function CreateUserDialog({
                   required={role === "Subcontractor"}
                   className="w-full px-3 py-2 border rounded-md"
                 >
-                  <option value="">Select a contractor</option>
+                  <option value="">Select a vendor</option>
                   {contractors.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.companyName}

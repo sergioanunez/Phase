@@ -221,25 +221,19 @@ export async function POST(
       )
     }
 
-    const { canSendSmsByContractorId, logSmsBlocked } = await import("@/lib/sms-guard")
-    const smsCheck = await canSendSmsByContractorId(task.contractor.id)
-    if (!smsCheck.allowed) {
-      logSmsBlocked(task.contractor.id, smsCheck.reason, { taskId: task.id, action: "send_confirmation" })
+    const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
+    const recipient = await getSmsRecipientForContractor(task.contractor.id)
+    if (!recipient.allowed) {
+      logSmsBlocked(task.contractor.id, recipient.reason, { taskId: task.id, action: "send_confirmation" })
       const message =
-        smsCheck.reason === "no_phone"
-          ? "This subcontractor has not opted in to SMS yet."
-          : smsCheck.reason === "no_consent"
-            ? "This subcontractor has not opted in to SMS yet."
-            : "This subcontractor has unsubscribed from SMS."
+        recipient.reason === "no_contact"
+          ? "No contact has opted in to SMS for this vendor. Invite a contact from the Vendors tab and have them accept the invite with SMS consent."
+          : recipient.reason === "no_phone"
+            ? "This contact has not added a phone number yet."
+            : recipient.reason === "no_consent"
+              ? "This contact has not opted in to SMS yet."
+              : "This contact has unsubscribed from SMS."
       return NextResponse.json({ error: message }, { status: 400 })
-    }
-
-    const phone = task.contractor.phone.trim()
-    if (!phone || phone.length < 10) {
-      return NextResponse.json(
-        { error: `Invalid phone number for contractor: ${phone}` },
-        { status: 400 }
-      )
     }
 
     const dateStr = format(new Date(task.scheduledDate), "MM/dd/yyyy")
@@ -247,7 +241,7 @@ export async function POST(
     const { sendConfirmationSMS } = await import("@/lib/twilio")
     await sendConfirmationSMS(
       task.id,
-      phone,
+      recipient.phoneE164,
       task.home.subdivision.name,
       task.home.addressOrLot,
       task.nameSnapshot,

@@ -30,6 +30,22 @@ export async function GET(request: NextRequest) {
     const contractors = await prisma.contractor.findMany({
       where: { companyId: ctx.companyId, active: true },
       orderBy: { companyName: "asc" },
+      include: {
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            status: true,
+            phoneE164: true,
+            smsConsent: true,
+            smsOptOutAt: true,
+          },
+        },
+        defaultContact: {
+          select: { id: true, name: true, email: true },
+        },
+      },
     })
 
     return NextResponse.json(contractors)

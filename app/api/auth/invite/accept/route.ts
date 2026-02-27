@@ -105,12 +105,7 @@ export async function POST(request: NextRequest) {
           where: { id: invite.id },
           data: { usedAt: now },
         })
-        if (invite.user.contractorId) {
-          await tx.contractor.update({
-            where: { id: invite.user.contractorId },
-            data: { phone: phoneE164 },
-          })
-        }
+        // SMS is sent to contact (User) phone only; vendor office phone is never used for SMS
       })
 
       await createAuditLog(invite.userId, "UserInvite", invite.id, "INVITE_ACCEPTED", null, {

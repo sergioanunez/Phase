@@ -63,7 +63,7 @@ export default function ContractorsPage() {
   const handleDeleteContractor = async (id: string, companyName: string) => {
     if (
       !confirm(
-        `Delete contractor "${companyName}"? This cannot be undone if they have tasks or users assigned.`
+        `Delete vendor "${companyName}"? This cannot be undone if they have tasks or contacts assigned.`
       )
     ) {
       return
@@ -75,10 +75,10 @@ export default function ContractorsPage() {
         handleRefresh()
       } else {
         const data = await res.json()
-        alert(data.error || "Failed to delete contractor")
+        alert(data.error || "Failed to delete vendor")
       }
     } catch (err) {
-      alert("Failed to delete contractor")
+      alert("Failed to delete vendor")
     }
   }
 
@@ -87,14 +87,14 @@ export default function ContractorsPage() {
       <div className="container mx-auto p-4 pr-20">
         <div className="flex items-center justify-between mb-6">
           <div className="flex-1">
-            <h1 className="text-2xl font-bold mb-3">Contractors</h1>
+            <h1 className="text-2xl font-bold mb-3">Vendors</h1>
             {isAdmin && (
               <Button
                 onClick={() => setCreateContractorOpen(true)}
                 size="sm"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                New Contractor
+                New Vendor
               </Button>
             )}
           </div>

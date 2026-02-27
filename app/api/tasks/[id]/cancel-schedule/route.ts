@@ -79,17 +79,17 @@ export async function POST(
       )
     }
 
-    // Send cancellation SMS if task is Confirmed and has a contractor (and subcontractor has consented)
+    // Send cancellation SMS if task is Confirmed and has a contractor (to opted-in contact only)
     if (task.status === "Confirmed" && task.contractor) {
-      const { canSendSmsByContractorId, logSmsBlocked } = await import("@/lib/sms-guard")
-      const smsCheck = await canSendSmsByContractorId(task.contractor.id)
-      if (smsCheck.allowed) {
+      const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
+      const recipient = await getSmsRecipientForContractor(task.contractor.id)
+      if (recipient.allowed) {
         try {
           const { sendCancellationSMS } = await import("@/lib/twilio")
           const dateStr = format(new Date(task.scheduledDate), "MM/dd/yyyy")
           await sendCancellationSMS(
             task.id,
-            task.contractor.phone,
+            recipient.phoneE164,
             task.home.subdivision.name,
             task.home.addressOrLot,
             task.nameSnapshot,
@@ -100,7 +100,7 @@ export async function POST(
           // Continue with cancellation even if SMS fails
         }
       } else {
-        logSmsBlocked(task.contractor.id, smsCheck.reason, { taskId: task.id, action: "cancel_schedule" })
+        logSmsBlocked(task.contractor.id, recipient.reason, { taskId: task.id, action: "cancel_schedule" })
       }
     }
 

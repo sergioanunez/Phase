@@ -250,9 +250,10 @@ model User {
   passwordHash String?
   role         UserRole
   status       UserStatus  @default(ACTIVE)
-  contractorId String?
-  contractor   Contractor? @relation(fields: [contractorId], references: [id])
-  isActive     Boolean     @default(true)
+  contractorId       String?
+  contractor         Contractor?  @relation("ContractorUsers", fields: [contractorId], references: [id])
+  defaultContactOf   Contractor[] @relation("ContractorDefaultContact")
+  isActive           Boolean      @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -519,25 +520,28 @@ model Contractor {
   company             Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyName         String
   contactName         String
-  phone               String
+  phone               String   // Office phone; not used for SMS. Contacts opt in separately.
   email               String?
   trade               String?
   active              Boolean  @default(true)
   smsEnabled          Boolean  @default(true)
   preferredNoticeDays Int?
+  defaultContactId    String?  // User (contact) to use for SMS when task assigned to this vendor
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  users               User[]
-  memberships          CompanyMembership[]
-  homeTasks            HomeTask[]
-  assignedPunchItems   PunchItem[]
+  defaultContact      User?    @relation("ContractorDefaultContact", fields: [defaultContactId], references: [id], onDelete: SetNull)
+  users               User[]   @relation("ContractorUsers")
+  memberships         CompanyMembership[]
+  homeTasks           HomeTask[]
+  assignedPunchItems  PunchItem[]
   contractorAssignments ContractorAssignment[]
 
   @@index([companyId])
   @@index([companyId, active])
   @@index([phone])
   @@index([active])
+  @@index([defaultContactId])
 }
 
 model ContractorAssignment {

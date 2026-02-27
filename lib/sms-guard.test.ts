@@ -1,64 +1,106 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { canSendSmsByContractorId } from "./sms-guard"
+import { canSendSmsByContractorId, getSmsRecipientForContractor } from "./sms-guard"
 
 vi.mock("./prisma", () => ({
   prisma: {
-    user: {
-      findFirst: vi.fn(),
-    },
+    contractor: { findUnique: vi.fn() },
+    user: { findFirst: vi.fn(), findUnique: vi.fn() },
   },
 }))
 
 const { prisma } = await import("./prisma")
 
-describe("canSendSmsByContractorId", () => {
+describe("getSmsRecipientForContractor", () => {
   beforeEach(() => {
-    vi.mocked(prisma.user.findFirst).mockReset()
+    vi.mocked(prisma.contractor.findUnique).mockReset()
   })
 
-  it("returns allowed: true when user has phone, consent, and no opt-out", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({
-      phoneE164: "+19155551234",
-      smsConsent: true,
-      smsOptOutAt: null,
+  it("returns contact and phone when an eligible contact exists", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [
+        {
+          id: "user-1",
+          phoneE164: "+19155551234",
+          smsConsent: true,
+          smsOptOutAt: null,
+        },
+      ],
     } as any)
-    const result = await canSendSmsByContractorId("contractor-1")
-    expect(result).toEqual({ allowed: true })
+    const result = await getSmsRecipientForContractor("con-1")
+    expect(result).toEqual({ allowed: true, contactId: "user-1", phoneE164: "+19155551234" })
   })
 
-  it("returns no_phone when no user linked to contractor", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue(null)
-    const result = await canSendSmsByContractorId("contractor-1")
+  it("returns no_contact when contractor has no users", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [],
+    } as any)
+    const result = await getSmsRecipientForContractor("con-1")
+    expect(result).toEqual({ allowed: false, reason: "no_contact" })
+  })
+
+  it("returns no_contact when contractor not found", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue(null)
+    const result = await getSmsRecipientForContractor("con-1")
+    expect(result).toEqual({ allowed: false, reason: "no_contact" })
+  })
+
+  it("returns no_phone when no contact has phone", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [{ id: "user-1", phoneE164: null, smsConsent: true, smsOptOutAt: null }],
+    } as any)
+    const result = await getSmsRecipientForContractor("con-1")
     expect(result).toEqual({ allowed: false, reason: "no_phone" })
   })
 
-  it("returns no_phone when user has no phoneE164", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({
-      phoneE164: null,
-      smsConsent: true,
-      smsOptOutAt: null,
+  it("returns no_consent when no contact has consented", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [{ id: "user-1", phoneE164: "+19155551234", smsConsent: false, smsOptOutAt: null }],
     } as any)
-    const result = await canSendSmsByContractorId("contractor-1")
-    expect(result).toEqual({ allowed: false, reason: "no_phone" })
-  })
-
-  it("returns no_consent when user has not consented", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({
-      phoneE164: "+19155551234",
-      smsConsent: false,
-      smsOptOutAt: null,
-    } as any)
-    const result = await canSendSmsByContractorId("contractor-1")
+    const result = await getSmsRecipientForContractor("con-1")
     expect(result).toEqual({ allowed: false, reason: "no_consent" })
   })
 
-  it("returns opted_out when user has smsOptOutAt set", async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({
-      phoneE164: "+19155551234",
-      smsConsent: true,
-      smsOptOutAt: new Date(),
+  it("returns opted_out when contact has opted out", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [{ id: "user-1", phoneE164: "+19155551234", smsConsent: true, smsOptOutAt: new Date() }],
     } as any)
-    const result = await canSendSmsByContractorId("contractor-1")
+    const result = await getSmsRecipientForContractor("con-1")
     expect(result).toEqual({ allowed: false, reason: "opted_out" })
+  })
+})
+
+describe("canSendSmsByContractorId", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.contractor.findUnique).mockReset()
+  })
+
+  it("returns allowed: true when eligible contact exists", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [{ id: "user-1", phoneE164: "+19155551234", smsConsent: true, smsOptOutAt: null }],
+    } as any)
+    const result = await canSendSmsByContractorId("con-1")
+    expect(result).toEqual({ allowed: true })
+  })
+
+  it("returns no_contact when no users", async () => {
+    vi.mocked(prisma.contractor.findUnique).mockResolvedValue({
+      id: "con-1",
+      defaultContactId: null,
+      users: [],
+    } as any)
+    const result = await canSendSmsByContractorId("con-1")
+    expect(result).toEqual({ allowed: false, reason: "no_contact" })
   })
 })

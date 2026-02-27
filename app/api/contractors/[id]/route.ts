@@ -18,6 +18,7 @@ const updateContractorSchema = z.object({
   email: z.string().email().optional().nullable(),
   trade: z.string().optional().nullable(),
   preferredNoticeDays: z.number().int().positive().optional().nullable(),
+  defaultContactId: z.string().nullable().optional(),
 })
 
 export async function PATCH(
@@ -44,6 +45,18 @@ export async function PATCH(
       )
     }
 
+    if (data.defaultContactId !== undefined && data.defaultContactId !== null) {
+      const contact = await prisma.user.findFirst({
+        where: { id: data.defaultContactId, contractorId: params.id },
+      })
+      if (!contact) {
+        return NextResponse.json(
+          { error: "Default contact must be a contact linked to this vendor" },
+          { status: 400 }
+        )
+      }
+    }
+
     const after = await prisma.contractor.update({
       where: { id: params.id },
       data: {
@@ -53,6 +66,7 @@ export async function PATCH(
         email: data.email,
         trade: data.trade,
         preferredNoticeDays: data.preferredNoticeDays,
+        ...(data.defaultContactId !== undefined && { defaultContactId: data.defaultContactId }),
       },
     })
 
