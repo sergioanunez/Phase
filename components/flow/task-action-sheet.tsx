@@ -13,6 +13,7 @@ import { format } from "date-fns"
 import Link from "next/link"
 import { Loader2, Calendar, MessageCircle, Package, Play, ExternalLink } from "lucide-react"
 import type { FlowAction } from "@/lib/flow/types"
+import { getFlowModeLabel } from "@/lib/flow/labels"
 
 type TaskData = {
   id: string
@@ -180,6 +181,8 @@ export function TaskActionSheet({
   const canSendConfirm =
     hasSchedule && task?.contractorId && (task?.status === "Scheduled" || task?.status === "PendingConfirm")
 
+  const modeLabel = getFlowModeLabel(flowAction.type)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md sm:max-w-lg">
@@ -195,17 +198,20 @@ export function TaskActionSheet({
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{task.status}</Badge>
-              {flowAction.type === "PREP" && (
-                <Badge variant="outline">{flowAction.type}</Badge>
-              )}
-              {flowAction.type === "EXECUTE" && (
-                <Badge className="bg-primary/10 text-primary">{flowAction.type}</Badge>
-              )}
+              <Badge
+                className={
+                  flowAction.type === "EXECUTE"
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-amber-50 text-amber-800 border border-amber-200"
+                }
+              >
+                {modeLabel.short}
+              </Badge>
             </div>
 
             {flowAction.type === "PREP" && !flowAction.executionEligible && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                Execution locked until dependencies complete.
+                Waiting on prior tasks to finish.
               </p>
             )}
 
@@ -215,7 +221,7 @@ export function TaskActionSheet({
                 <dd>{formatDisplayDate(flowAction.forecastStart)}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Prep by</dt>
+                <dt className="text-muted-foreground">Get ready by</dt>
                 <dd>{formatDisplayDate(flowAction.prepStart)}</dd>
               </div>
               {task.scheduledDate && (

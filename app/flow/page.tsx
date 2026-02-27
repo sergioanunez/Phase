@@ -8,6 +8,7 @@ import { Navigation } from "@/components/navigation"
 import { FlowHomeCard } from "@/components/flow/flow-home-card"
 import { TaskActionSheet } from "@/components/flow/task-action-sheet"
 import { groupFlowByHome } from "@/lib/flow/groupFlowByHome"
+import { computeFlowBriefing } from "@/lib/flow/briefing"
 import type { FlowAction } from "@/lib/flow/types"
 
 type Scope = "today" | "next7" | "overdue"
@@ -21,8 +22,8 @@ const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
 
 const FILTER_OPTIONS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "prep", label: "Prep" },
-  { value: "execute", label: "Execute" },
+  { value: "prep", label: "Get ready" },
+  { value: "execute", label: "Start work" },
 ]
 
 export default function FlowPage() {
@@ -73,6 +74,7 @@ export default function FlowPage() {
   }, [session, fetchFlow])
 
   const groups = groupFlowByHome(actions)
+  const briefing = computeFlowBriefing(groups)
 
   if (status === "loading" || !session?.user) {
     return (
@@ -110,7 +112,7 @@ export default function FlowPage() {
         </div>
         <h1 className="text-xl font-semibold text-foreground">Flow</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Flow shows what to do today to stay on schedule.
+          Flow shows what to do today to keep homes moving.
         </p>
 
         {circularWarning && (
@@ -119,6 +121,33 @@ export default function FlowPage() {
             role="alert"
           >
             {circularWarning}
+          </div>
+        )}
+
+        {groups.length > 0 && (
+          <div className="mt-4 rounded-lg border border-border bg-white px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Daily briefing</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Here&apos;s what needs attention to keep homes moving.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <div className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+                <span className="mr-1">Overdue</span>
+                <span>{briefing.overdueCount}</span>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                <span className="mr-1">Due today</span>
+                <span>{briefing.dueTodayCount}</span>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                <span className="mr-1">Start work</span>
+                <span>{briefing.startWorkCount}</span>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+                <span className="mr-1">Slipping homes</span>
+                <span>{briefing.slippingHomes}</span>
+              </div>
+            </div>
           </div>
         )}
 

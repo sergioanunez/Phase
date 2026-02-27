@@ -4,35 +4,42 @@ import { useState } from "react"
 import Link from "next/link"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import type { FlowAction } from "@/lib/flow/types"
+import { getFlowModeLabel } from "@/lib/flow/labels"
 
 function buildSentence(action: FlowAction): string {
   const addr = action.homeAddress
   const task = action.taskName
   const when = action.isOverdue ? "ASAP" : "today"
   if (action.type === "EXECUTE") {
-    return `${addr}. Start ${task} ${when}.`
+    return `${addr}. Start work on ${task} ${when}.`
   }
   if (action.requiresOrdering) {
     return `${addr}. Order materials for ${task} ${when} to stay on-time.`
   }
   if (action.contractorName) {
-    return `${addr}. Schedule ${action.contractorName} for ${task} ${when} to stay on-time.`
+    return `${addr}. Confirm schedule for ${task} ${when} to stay on-time.`
   }
-  return `${addr}. Schedule/confirm ${task} ${when} to stay on-time.`
+  return `${addr}. Get ready for ${task} ${when} to stay on-time.`
 }
 
-function formatDisplayDate(iso: string): string {
-  const d = new Date(iso + "T12:00:00")
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+function formatDateBadge(action: FlowAction): string {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().slice(0, 10)
+
+  if (action.isOverdue) return "Overdue"
+  if (action.actionDate === todayStr) return "Today"
+
+  const d = new Date(action.actionDate + "T12:00:00")
+  const label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  return `By ${label}`
 }
 
 export function FlowFeedItem({ action }: { action: FlowAction }) {
   const [expanded, setExpanded] = useState(false)
   const sentence = buildSentence(action)
-  const dateLabel =
-    action.type === "PREP"
-      ? `Prep by ${formatDisplayDate(action.prepStart)}`
-      : `Start ${formatDisplayDate(action.forecastStart)}`
+  const dateLabel = formatDateBadge(action)
+  const modeLabel = getFlowModeLabel(action.type)
 
   return (
     <article className="rounded-lg border border-border bg-white p-4 shadow-sm">
@@ -43,24 +50,19 @@ export function FlowFeedItem({ action }: { action: FlowAction }) {
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
               action.type === "EXECUTE"
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground"
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                : "bg-amber-50 text-amber-800 border border-amber-200"
             }`}
           >
-            {action.type}
+            {modeLabel.short}
           </span>
           <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs text-muted-foreground">
             {dateLabel}
           </span>
-          {action.isOverdue && (
-            <span className="inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
-              Overdue
-            </span>
-          )}
         </div>
         {action.type === "PREP" && !action.executionEligible && (
           <p className="text-xs text-muted-foreground">
-            Execution locked until dependencies complete.
+            Waiting on prior tasks to finish.
           </p>
         )}
       </div>
@@ -91,7 +93,7 @@ export function FlowFeedItem({ action }: { action: FlowAction }) {
               </div>
             )}
             <div>
-              <dt className="text-muted-foreground">Prep lead</dt>
+              <dt className="text-muted-foreground">Get ready lead</dt>
               <dd>{action.prepLeadDays} working days</dd>
             </div>
             {action.dependencyStatus && action.dependencyStatus.length > 0 && (
