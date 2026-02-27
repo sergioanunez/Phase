@@ -7,10 +7,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import logoImage from "../../../public/logo.png"
+import { AcceptInviteForm } from "@/components/invites/AcceptInviteForm"
 import { parseAndNormalizePhone } from "@/lib/phone"
-
-const SMS_CONSENT_LABEL =
-  "I agree to receive SMS notifications from Phase related to scheduling, task confirmations, and project updates. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Message & data rates may apply."
 
 type ValidateState =
   | { status: "loading" }
@@ -25,16 +23,9 @@ export default function AcceptInvitePage() {
   const token = searchParams.get("token")
 
   const [validateState, setValidateState] = useState<ValidateState>({ status: "loading" })
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [phone, setPhone] = useState("")
-  const [smsConsent, setSmsConsent] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [error, setError] = useState("")
-  const [phoneError, setPhoneError] = useState("")
-  const [smsConsentError, setSmsConsentError] = useState("")
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState("")
 
   const validateToken = useCallback(async (t: string) => {
     setValidateState({ status: "loading" })
@@ -65,49 +56,24 @@ export default function AcceptInvitePage() {
     validateToken(token)
   }, [token, validateToken])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setPhoneError("")
-    setSmsConsentError("")
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
-    }
-    const sub = isSubcontractor(validateState)
-    if (sub) {
-      const trimmed = phone.trim()
-      if (!trimmed) {
-        setPhoneError("Please enter a valid mobile phone number.")
-        return
-      }
-      const phoneE164 = parseAndNormalizePhone(trimmed)
-      if (!phoneE164) {
-        setPhoneError("Please enter a valid mobile phone number.")
-        return
-      }
-      if (!smsConsent) {
-        setSmsConsentError("SMS consent is required to receive text notifications.")
-        return
-      }
-      if (!termsAccepted) {
-        setError("You must agree to the Terms & Conditions.")
-        return
-      }
-    }
+  const handleRealSubmit = async (values: {
+    password: string
+    confirmPassword: string
+    phone: string
+    smsConsent: boolean
+    termsAccepted: boolean
+  }) => {
     if (!token) return
+    setError("")
     setLoading(true)
     try {
+      const sub = isSubcontractor(validateState)
       const body: { token: string; password: string; phone?: string; smsConsent?: boolean } = {
         token,
-        password,
+        password: values.password,
       }
       if (sub) {
-        body.phone = parseAndNormalizePhone(phone.trim())!
+        body.phone = parseAndNormalizePhone(values.phone.trim())!
         body.smsConsent = true
       }
       const res = await fetch("/api/auth/invite/accept", {
@@ -174,124 +140,17 @@ export default function AcceptInvitePage() {
             )}
 
             {validateState.status === "valid" && !success && (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-                  <p className="font-medium text-foreground">{validateState.name}</p>
-                  <p className="text-muted-foreground">{validateState.email}</p>
-                </div>
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium mb-1">
-                    New password * (min 6 characters)
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
-                    Confirm password *
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {isSubcontractor(validateState) && (
-                  <>
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium mb-1">
-                        Mobile phone number *
-                      </label>
-                      <input
-                        id="phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => {
-                          setPhone(e.target.value)
-                          setPhoneError("")
-                        }}
-                        required
-                        className="w-full px-3 py-2 border rounded-md"
-                        placeholder="(xxx) xxx-xxxx"
-                        aria-invalid={!!phoneError}
-                        aria-describedby={phoneError ? "phone-error" : undefined}
-                      />
-                      {phoneError && (
-                        <p id="phone-error" className="text-sm text-destructive mt-1" role="alert">
-                          {phoneError}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={smsConsent}
-                          onChange={(e) => {
-                            setSmsConsent(e.target.checked)
-                            setSmsConsentError("")
-                          }}
-                          className="mt-1 rounded border-input"
-                          aria-invalid={!!smsConsentError}
-                          aria-describedby={smsConsentError ? "sms-consent-error" : undefined}
-                        />
-                        <span className="text-sm">
-                          {SMS_CONSENT_LABEL}{" "}
-                          <a
-                            href="/terms#sms-consent"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary underline"
-                          >
-                            Learn more
-                          </a>
-                        </span>
-                      </label>
-                      {smsConsentError && (
-                        <p id="sms-consent-error" className="text-sm text-destructive" role="alert">
-                          {smsConsentError}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={termsAccepted}
-                          onChange={(e) => setTermsAccepted(e.target.checked)}
-                          className="mt-1 rounded border-input"
-                        />
-                        <span className="text-sm">
-                          I agree to the{" "}
-                          <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                            Terms &amp; Conditions
-                          </Link>
-                          *
-                        </span>
-                      </label>
-                    </div>
-                  </>
-                )}
-                {error && (
-                  <div className="text-sm text-destructive" role="alert">{error}</div>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Setting password..." : "Set password & activate account"}
-                </Button>
-              </form>
+              <AcceptInviteForm
+                mode="real"
+                invitedName={validateState.name}
+                invitedEmail={validateState.email}
+                showSubcontractorFields={isSubcontractor(validateState)}
+                onSubmit={handleRealSubmit}
+                loading={loading}
+                success={success}
+                error={error}
+                submitButtonLabel="Set password & activate account"
+              />
             )}
 
             {validateState.status === "valid" && success && (
