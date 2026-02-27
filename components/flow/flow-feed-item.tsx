@@ -35,6 +35,13 @@ function formatDateBadge(action: FlowAction): string {
   return `By ${label}`
 }
 
+function formatDisplayDate(isoDate: string | null | undefined): string {
+  if (isoDate == null) return "—"
+  const d = new Date(isoDate)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
+
 export function FlowFeedItem({ action }: { action: FlowAction }) {
   const [expanded, setExpanded] = useState(false)
   const sentence = buildSentence(action)
