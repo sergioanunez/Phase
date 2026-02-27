@@ -10,7 +10,7 @@ import logoImage from "../../../public/logo.png"
 import { parseAndNormalizePhone } from "@/lib/phone"
 
 const SMS_CONSENT_LABEL =
-  "I agree to receive SMS notifications from Phase related to scheduling, task confirmations, and project updates. Message frequency varies. Reply STOP to unsubscribe. Reply HELP for help. Message & data rates may apply."
+  "I agree to receive SMS notifications from Phase related to scheduling, task confirmations, and project updates. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Message & data rates may apply."
 
 type ValidateState =
   | { status: "loading" }
