@@ -334,9 +334,14 @@ export default function AdminPage() {
     return t.defaultDurationDays ?? 0
   }
 
-  /** Template-level sum of all duration_days (no critical path, no prep/dependencies). Recomputes when editing duration. */
+  /** Template-level sum of all duration_days (no critical path, no prep/dependencies). Each item counted once by id. Recomputes when editing duration. */
   const projectTotalDays = useMemo(() => {
-    return templates.reduce((sum, t) => sum + durationFor(t), 0)
+    const seen = new Set<string>()
+    return templates.reduce((sum, t) => {
+      if (seen.has(t.id)) return sum
+      seen.add(t.id)
+      return sum + durationFor(t)
+    }, 0)
   }, [templates, editingTemplateId, editingTemplateDuration])
 
   const handleRefresh = () => {
