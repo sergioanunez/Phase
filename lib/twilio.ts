@@ -399,12 +399,38 @@ export async function handleInboundSMS(
     if (process.env.NODE_ENV !== "test") {
       console.log("[sms] task confirmed", { taskId: homeTask.id, from: fromDigits10 })
     }
+    const companyId = homeTask.companyId ?? (homeTask.home as { companyId?: string } | null)?.companyId
+    if (companyId && homeTask.home) {
+      const home = homeTask.home as { addressOrLot?: string }
+      const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
+      await notifySmsConfirmationReceived({
+        companyId,
+        homeId: homeTask.homeId,
+        taskId: homeTask.id,
+        taskName: homeTask.nameSnapshot,
+        homeLabel: home.addressOrLot ?? "Home",
+        confirmed: true,
+      }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
+    }
     return { processed: true, action: "confirmed", taskId: homeTask.id }
   } else if (isNo) {
     await prisma.homeTask.update({
       where: { id: homeTask.id },
       data: { status: "Declined" },
     })
+    const companyId = homeTask.companyId ?? (homeTask.home as { companyId?: string } | null)?.companyId
+    if (companyId && homeTask.home) {
+      const home = homeTask.home as { addressOrLot?: string }
+      const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
+      await notifySmsConfirmationReceived({
+        companyId,
+        homeId: homeTask.homeId,
+        taskId: homeTask.id,
+        taskName: homeTask.nameSnapshot,
+        homeLabel: home.addressOrLot ?? "Home",
+        confirmed: false,
+      }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
+    }
     return { processed: true, action: "declined", taskId: homeTask.id }
   }
 

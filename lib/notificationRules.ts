@@ -8,6 +8,7 @@
  * - notifyTaskRescheduled: app/api/tasks/[id]/reschedule/route.ts
  * - notifyTaskCompleted: app/api/tasks/[id]/route.ts (PATCH when status → Completed)
  * - notifyPunchAdded: app/api/tasks/[id]/punch-items/route.ts (POST)
+ * - notifySmsConfirmationReceived: lib/twilio.ts handleInboundSMS (when contractor replies Y/N)
  * - notifyForecastSlip: app/api/homes/[id]/forecast/route.ts (when forecast date moves out)
  * - TODO notifyTaskOverdue: call from cron or schedule view when task.scheduledDate < today and status not Completed (e.g. app/api/calendar/events/route.ts or a daily job)
  * - TODO notifyConfirmationMissing: call from cron for tasks in PendingConfirm for > X hours (e.g. app/api/tasks/[id]/send-confirmation/route.ts or a scheduled job)
@@ -175,6 +176,32 @@ export async function notifyTaskOverdue(params: {
     homeId,
     targetRole,
     requiresAction: true,
+  })
+}
+
+export async function notifySmsConfirmationReceived(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  confirmed: boolean
+  targetRole?: NotificationTargetRole
+}) {
+  const { companyId, homeId, taskId, taskName, homeLabel, confirmed, targetRole = "ANY" } = params
+  return upsertOrCreate({
+    companyId,
+    severity: "INFO",
+    category: "CONTRACTOR",
+    title: confirmed ? "Task confirmed via SMS" : "Task declined via SMS",
+    message: confirmed
+      ? `${taskName} at ${homeLabel} was confirmed by the contractor.`
+      : `${taskName} at ${homeLabel} was declined by the contractor.`,
+    entityType: "TASK",
+    entityId: taskId,
+    homeId,
+    targetRole,
+    requiresAction: false,
   })
 }
 
