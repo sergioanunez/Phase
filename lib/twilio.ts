@@ -36,13 +36,45 @@ async function getSmsSenderName(companyId: string | null): Promise<string> {
   return "Phase"
 }
 
+export type BuildConfirmationSmsParams = {
+  tenantName: string
+  taskName: string
+  address: string
+  /** Community/subdivision name. If empty or omitted, that line is omitted (no blank line). */
+  community?: string | null
+  /** Scheduled date in MM/dd format (e.g. "03/03"). */
+  scheduledDateMmDd: string
+  /** Reference code for reply matching (stored with outbound SMS). */
+  refCode: string
+}
+
+/**
+ * Build the confirmation request SMS body to match the target copy format.
+ * Line breaks and footer are exact for compliance and reply matching.
+ */
+export function buildConfirmationSms(params: BuildConfirmationSmsParams): string {
+  const { tenantName, taskName, address, community, scheduledDateMmDd, refCode } = params
+  const communityLine = community?.trim() ? `${community.trim()}\n` : ""
+  return `${tenantName} scheduled:
+
+${taskName}
+${address}
+${communityLine}${scheduledDateMmDd}
+Ref: ${refCode}
+
+Y = Confirm
+N = Reschedule
+
+STOP to opt out. HELP for help.`
+}
+
 export async function sendConfirmationSMS(
   homeTaskId: string,
   to: string,
   subdivision: string,
   home: string,
   task: string,
-  date: string
+  dateMmDd: string
 ): Promise<string> {
   // Validate Twilio client is configured
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -71,13 +103,16 @@ export async function sendConfirmationSMS(
     where: { id: homeTaskId },
     select: { companyId: true },
   })
-  const senderName = await getSmsSenderName(taskRow?.companyId ?? null)
+  const tenantName = await getSmsSenderName(taskRow?.companyId ?? null)
 
-  const message = `${senderName}:
-Please confirm (Y/N):
-${subdivision} ${home} – ${task} on ${date}
-Reply Y or N
-Code:${confirmationCode}`
+  const message = buildConfirmationSms({
+    tenantName,
+    taskName: task,
+    address: home,
+    community: subdivision?.trim() || null,
+    scheduledDateMmDd: dateMmDd,
+    refCode: confirmationCode,
+  })
 
   try {
     const twilioMessage = await getClient().messages.create({
@@ -258,9 +293,10 @@ export async function handleInboundSMS(
     },
   })
 
-  // Try to extract confirmation code
+  // Try to extract confirmation/reference code (Ref: in new format, Code: legacy)
+  const refMatch = body.match(/Ref:\s*(\w+)/i)
   const codeMatch = body.match(/[Cc]ode:\s*(\w+)/i)
-  const confirmationCode = codeMatch ? codeMatch[1].toUpperCase() : null
+  const confirmationCode = refMatch ? refMatch[1].toUpperCase() : codeMatch ? codeMatch[1].toUpperCase() : null
   const fromDigits10 = phoneDigitsForMatch(from)
 
   // Find task by confirmation code (primary method)
