@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms webhook] received", { fromLast4: String(from).slice(-4), bodyLength: String(body).length })
+    }
+
     const result = await handleInboundSMS(from, to, body)
 
     if (process.env.NODE_ENV !== "test") {

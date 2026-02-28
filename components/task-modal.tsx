@@ -361,7 +361,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                title="Save schedule (if needed) and send a text to the vendor’s default contact (the number that opted in to SMS — not the office number)"
+                title="Save schedule and send a text to the vendor’s default contact"
               >
                 {sendingSMS ? (
                   <Loader2 className="h-4 w-4 animate-spin shrink-0" />

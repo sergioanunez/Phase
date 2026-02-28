@@ -369,7 +369,13 @@ export async function handleInboundSMS(
 
   if (!homeTask) {
     if (process.env.NODE_ENV !== "test") {
-      console.log("[sms] no matching task", { from: fromDigits10, body: body.trim().slice(0, 20), confirmationCode })
+      const recentCount = await prisma.homeTask.count({ where: { status: "PendingConfirm" } })
+      console.log("[sms] no matching task", {
+        fromLast4: fromDigits10.slice(-4),
+        bodySample: (body || "").trim().slice(0, 30),
+        confirmationCode,
+        pendingConfirmTaskCount: recentCount,
+      })
     }
     return { processed: false, reason: "No matching task found" }
   }
@@ -380,8 +386,8 @@ export async function handleInboundSMS(
     data: { homeTaskId: homeTask.id },
   })
 
-  // Parse response
-  const response = body.trim().toUpperCase()
+  // Parse response (lenient: trim, collapse whitespace, strip non-ASCII so "Y" / "YES" always recognized)
+  const response = (body || "").replace(/\s+/g, " ").trim().toUpperCase().replace(/[^\x20-\x7E]/g, "")
   const isYes = response === "Y" || response.startsWith("YES")
   const isNo = response === "N" || response.startsWith("NO")
 
@@ -390,6 +396,9 @@ export async function handleInboundSMS(
       where: { id: homeTask.id },
       data: { status: "Confirmed" },
     })
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms] task confirmed", { taskId: homeTask.id, from: fromDigits10 })
+    }
     return { processed: true, action: "confirmed", taskId: homeTask.id }
   } else if (isNo) {
     await prisma.homeTask.update({
