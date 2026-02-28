@@ -220,6 +220,12 @@ function inboundFromToE164(from: string): string {
   return from.startsWith("+") ? from : `+${digits}`
 }
 
+/** Last 10 digits for US number comparison (handles +1XXXXXXXXXX vs XXXXXXXXXX) */
+function phoneDigitsForMatch(phone: string): string {
+  const d = (phone || "").replace(/\D/g, "")
+  return d.length >= 10 ? d.slice(-10) : d
+}
+
 export async function handleInboundSMS(
   from: string,
   to: string,
@@ -255,6 +261,7 @@ export async function handleInboundSMS(
   // Try to extract confirmation code
   const codeMatch = body.match(/[Cc]ode:\s*(\w+)/i)
   const confirmationCode = codeMatch ? codeMatch[1].toUpperCase() : null
+  const fromDigits10 = phoneDigitsForMatch(from)
 
   // Find task by confirmation code (primary method)
   let homeTask = confirmationCode
@@ -278,39 +285,92 @@ export async function handleInboundSMS(
         },
       })
     : null
+  if (homeTask && process.env.NODE_ENV !== "test") {
+    console.log("[sms] confirmation matched by code", { taskId: homeTask.id, from: fromDigits10 })
+  }
 
-  // Fallback: find latest PendingConfirm task for this phone number
+  // Fallback 1: find PendingConfirm task whose outbound confirmation was sent TO this number (most reliable)
   if (!homeTask) {
-    const contractor = await prisma.contractor.findFirst({
-      where: {
-        phone: {
-          contains: normalizedFrom,
+    const recentPending = await prisma.homeTask.findMany({
+      where: { status: "PendingConfirm" },
+      orderBy: { lastConfirmationAt: "desc" },
+      take: 50,
+      include: {
+        smsMessages: {
+          where: { direction: "Outbound", confirmationCode: { not: null } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
         },
       },
     })
+    for (const task of recentPending) {
+      const outbound = task.smsMessages[0]
+      if (outbound && phoneDigitsForMatch(outbound.to) === fromDigits10) {
+        homeTask = await prisma.homeTask.findUnique({
+          where: { id: task.id },
+          include: {
+            contractor: true,
+            home: { include: { subdivision: true } },
+          },
+        })
+        if (homeTask && process.env.NODE_ENV !== "test") {
+          console.log("[sms] confirmation matched by outbound To", { taskId: homeTask.id, from: fromDigits10 })
+        }
+        break
+      }
+    }
+  }
 
-    if (contractor) {
+  // Fallback 2: find contact User by phone (digits-only match) then latest PendingConfirm for that contractor
+  if (!homeTask) {
+    const contractorContacts = await prisma.user.findMany({
+      where: { contractorId: { not: null }, phoneE164: { not: null } },
+      select: { contractorId: true, phoneE164: true },
+    })
+    const contactUser = contractorContacts.find(
+      (u) => u.phoneE164 && phoneDigitsForMatch(u.phoneE164) === fromDigits10
+    )
+    if (contactUser?.contractorId) {
       homeTask = await prisma.homeTask.findFirst({
         where: {
-          contractorId: contractor.id,
+          contractorId: contactUser.contractorId,
           status: "PendingConfirm",
         },
-        orderBy: {
-          lastConfirmationAt: "desc",
-        },
+        orderBy: { lastConfirmationAt: "desc" },
         include: {
           contractor: true,
-          home: {
-            include: {
-              subdivision: true,
-            },
-          },
+          home: { include: { subdivision: true } },
         },
       })
+      if (homeTask && process.env.NODE_ENV !== "test") {
+        console.log("[sms] confirmation matched by contact phoneE164", { taskId: homeTask.id, from: fromDigits10 })
+      }
+    }
+    // Legacy: match by contractor office phone
+    if (!homeTask) {
+      const contractor = await prisma.contractor.findFirst({
+        where: { phone: { contains: fromDigits10 } },
+      })
+      if (contractor) {
+        homeTask = await prisma.homeTask.findFirst({
+          where: {
+            contractorId: contractor.id,
+            status: "PendingConfirm",
+          },
+          orderBy: { lastConfirmationAt: "desc" },
+          include: {
+            contractor: true,
+            home: { include: { subdivision: true } },
+          },
+        })
+      }
     }
   }
 
   if (!homeTask) {
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms] no matching task", { from: fromDigits10, body: body.trim().slice(0, 20), confirmationCode })
+    }
     return { processed: false, reason: "No matching task found" }
   }
 

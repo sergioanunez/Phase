@@ -26,6 +26,16 @@ export async function POST(request: NextRequest) {
 
     const result = await handleInboundSMS(from, to, body)
 
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms webhook] inbound result", {
+        from: from?.slice(-4),
+        processed: result.processed,
+        action: result.action,
+        reason: result.reason,
+        taskId: result.taskId,
+      })
+    }
+
     const message =
       result.action === "opt_out"
         ? "You have been unsubscribed from SMS notifications."
