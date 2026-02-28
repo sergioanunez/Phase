@@ -221,6 +221,7 @@ export async function POST(
       )
     }
 
+    // Send only to the vendor's default contact (or first eligible contact) who opted in to SMS — never the office number.
     const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
     const recipient = await getSmsRecipientForContractor(task.contractor.id)
     if (!recipient.allowed) {

@@ -147,22 +147,28 @@ export async function DELETE(
   { params }: { params: Promise<{ companyId: string }> }
 ) {
   if (isBuildTime) return buildGuardResponse()
-  const { requireSuperAdmin } = await import("@/lib/super-admin")
-  const { prisma } = await import("@/lib/prisma")
-  const { createSuperAdminAuditLog } = await import("@/lib/audit")
-  const check = await requireSuperAdmin()
-  if ("error" in check) return check.error
-  const actorId = check.id
+  try {
+    const { requireSuperAdmin } = await import("@/lib/super-admin")
+    const { prisma } = await import("@/lib/prisma")
+    const { createSuperAdminAuditLog } = await import("@/lib/audit")
+    const check = await requireSuperAdmin()
+    if ("error" in check) return check.error
+    const actorId = check.id
 
-  const { companyId } = await params
-  const company = await prisma.company.findUnique({ where: { id: companyId } })
-  if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 })
+    const { companyId } = await params
+    const company = await prisma.company.findUnique({ where: { id: companyId } })
+    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 })
 
-  await createSuperAdminAuditLog(actorId, "COMPANY_DELETED", {
-    companyId,
-    name: company.name,
-  }, companyId, "Company", companyId)
+    await createSuperAdminAuditLog(actorId, "COMPANY_DELETED", {
+      companyId,
+      name: company.name,
+    }, companyId, "Company", companyId)
 
-  await prisma.company.delete({ where: { id: companyId } })
-  return NextResponse.json({ success: true })
+    await prisma.company.delete({ where: { id: companyId } })
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("DELETE /api/super-admin/companies/[companyId] error:", err)
+    const message = err instanceof Error ? err.message : "Failed to delete company"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

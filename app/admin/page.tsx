@@ -108,6 +108,8 @@ interface AdminUser {
   isActive: boolean
   status?: "INVITED" | "ACTIVE" | "DISABLED"
   contractor?: { id: string; companyName: string } | null
+  /** Set when contact accepts invite with SMS consent; used for confirmation texts (never office number). */
+  phoneE164?: string | null
 }
 
 interface CompanyBranding {
@@ -2508,6 +2510,9 @@ export default function AdminPage() {
                           <CardTitle className="text-lg">{u.name}</CardTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
                             <span>{u.email}</span>
+                            {u.phoneE164 && (
+                              <span title="SMS number (set when contact accepted invite)">{u.phoneE164}</span>
+                            )}
                             <span className="font-medium text-foreground">{u.role}</span>
                             {u.contractor && (
                               <span>— {u.contractor.companyName}</span>

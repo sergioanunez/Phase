@@ -26,6 +26,8 @@ interface EditUserDialogUser {
   contractorId: string | null
   isActive: boolean
   contractor?: { id: string; companyName: string } | null
+  /** Set when contact accepts invite with SMS consent; used for confirmation texts. */
+  phoneE164?: string | null
 }
 
 interface EditUserDialogProps {
@@ -166,6 +168,16 @@ export function EditUserDialog({
                 placeholder="e.g., jane@company.com"
               />
             </div>
+
+            {user.phoneE164 && (
+              <div>
+                <label className="block text-sm font-medium mb-1">SMS phone</label>
+                <p className="text-sm text-muted-foreground py-1.5">
+                  {user.phoneE164}
+                  <span className="block text-xs mt-0.5">Set when contact accepted invite with SMS consent. Confirmation texts go to this number.</span>
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1">

@@ -31,6 +31,7 @@ export default function SuperAdminCompaniesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteName, setDeleteName] = useState("")
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   const fetchCompanies = () => {
     setLoading(true)
@@ -58,15 +59,21 @@ export default function SuperAdminCompaniesPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return
+    setDeleteError("")
     setDeleteLoading(true)
     try {
-      const res = await fetch(`/api/super-admin/companies/${deleteId}`, { method: "DELETE" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to delete")
+      const res = await fetch(`/api/super-admin/companies/${deleteId}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to delete company")
       setDeleteId(null)
       setDeleteName("")
+      setDeleteError("")
       fetchCompanies()
     } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete company")
       console.error(err)
     } finally {
       setDeleteLoading(false)
@@ -233,7 +240,7 @@ export default function SuperAdminCompaniesPage() {
                         {" · "}
                         <button
                           type="button"
-                          onClick={() => { setDeleteId(c.id); setDeleteName(c.name) }}
+                          onClick={() => { setDeleteId(c.id); setDeleteName(c.name); setDeleteError("") }}
                           className="font-medium text-red-600 hover:underline"
                         >
                           Delete
@@ -299,7 +306,7 @@ export default function SuperAdminCompaniesPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => { setDeleteId(c.id); setDeleteName(c.name) }}
+                        onClick={() => { setDeleteId(c.id); setDeleteName(c.name); setDeleteError("") }}
                         className="flex items-center gap-1 rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -374,10 +381,13 @@ export default function SuperAdminCompaniesPage() {
             <p className="mt-2 text-sm text-gray-600">
               This will permanently delete <strong>{deleteName}</strong> and all related data (homes, users, etc.). This cannot be undone.
             </p>
+            {deleteError && (
+              <p className="mt-2 text-sm text-red-600" role="alert">{deleteError}</p>
+            )}
             <div className="mt-4 flex gap-3">
               <button
                 type="button"
-                onClick={() => { setDeleteId(null); setDeleteName("") }}
+                onClick={() => { setDeleteId(null); setDeleteName(""); setDeleteError("") }}
                 disabled={deleteLoading}
                 className="flex-1 rounded-md border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
