@@ -80,12 +80,13 @@ export async function POST(
     }
 
     // Send cancellation SMS when task has a contractor we may have texted (Confirmed, PendingConfirm, or Scheduled) — to default contact only
+    const contractor = task.contractor
     const shouldSendCancelSms =
-      task.contractor &&
+      contractor &&
       (task.status === "Confirmed" || task.status === "PendingConfirm" || task.status === "Scheduled")
-    if (shouldSendCancelSms) {
+    if (shouldSendCancelSms && contractor) {
       const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
-      const recipient = await getSmsRecipientForContractor(task.contractor.id)
+      const recipient = await getSmsRecipientForContractor(contractor.id)
       if (recipient.allowed) {
         try {
           const { sendCancellationSMS } = await import("@/lib/twilio")
@@ -103,7 +104,7 @@ export async function POST(
           // Continue with cancellation even if SMS fails
         }
       } else {
-        logSmsBlocked(task.contractor.id, recipient.reason, { taskId: task.id, action: "cancel_schedule" })
+        logSmsBlocked(contractor.id, recipient.reason, { taskId: task.id, action: "cancel_schedule" })
       }
     }
 
