@@ -197,17 +197,23 @@ export async function POST(
       result
     )
 
-    const { notifyPunchAdded } = await import("@/lib/notificationRules")
+    const { notifyPunchItemsAddedToTask } = await import("@/lib/notificationRules")
     if (task.home && task.companyId) {
-      await notifyPunchAdded({
+      const openPunchCount = await prisma.punchItem.count({
+        where: {
+          relatedHomeTaskId: params.id,
+          status: { in: ["Open", "ReadyForReview"] },
+        },
+      })
+      await notifyPunchItemsAddedToTask({
         companyId: task.companyId,
         homeId: result.homeId,
-        punchId: result.id,
         taskId: params.id,
-        punchTitle: result.title,
+        taskName: task.nameSnapshot,
         homeLabel: (task.home as { addressOrLot?: string }).addressOrLot ?? "Home",
+        punchCount: openPunchCount,
         createdByUserId: user.id,
-      }).catch((err) => console.error("notifyPunchAdded:", err))
+      }).catch((err) => console.error("notifyPunchItemsAddedToTask:", err))
     }
 
     return NextResponse.json(result, { status: 201 })

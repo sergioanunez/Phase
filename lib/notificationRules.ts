@@ -7,7 +7,7 @@
  * - notifyTaskScheduled: app/api/tasks/[id]/route.ts (PATCH when status → Scheduled)
  * - notifyTaskRescheduled: app/api/tasks/[id]/reschedule/route.ts
  * - notifyTaskCompleted: app/api/tasks/[id]/route.ts (PATCH when status → Completed)
- * - notifyPunchAdded: app/api/tasks/[id]/punch-items/route.ts (POST)
+ * - notifyPunchItemsAddedToTask: app/api/tasks/[id]/punch-items/route.ts (POST, one notification per task)
  * - notifySmsConfirmationReceived: lib/twilio.ts handleInboundSMS (when contractor replies Y/N)
  * - notifyForecastSlip: app/api/homes/[id]/forecast/route.ts (when forecast date moves out)
  * - TODO notifyTaskOverdue: call from cron or schedule view when task.scheduledDate < today and status not Completed (e.g. app/api/calendar/events/route.ts or a daily job)
@@ -128,25 +128,27 @@ export async function notifyTaskCompleted(params: {
   })
 }
 
-export async function notifyPunchAdded(params: {
+/** One notification per task when punch items are added (not per punch item). */
+export async function notifyPunchItemsAddedToTask(params: {
   companyId: string
   homeId: string
-  punchId: string
   taskId: string
-  punchTitle: string
+  taskName: string
   homeLabel: string
+  punchCount?: number
   createdByUserId?: string | null
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, punchId, taskId, punchTitle, homeLabel, createdByUserId, targetRole = "ANY" } = params
+  const { companyId, homeId, taskId, taskName, homeLabel, punchCount, createdByUserId, targetRole = "ANY" } = params
+  const countStr = punchCount != null && punchCount > 0 ? ` (${punchCount} ${punchCount === 1 ? "item" : "items"})` : ""
   return upsertOrCreate({
     companyId,
     severity: "ATTENTION",
     category: "QUALITY",
-    title: "Punch item added",
-    message: `"${punchTitle}" at ${homeLabel}.`,
-    entityType: "PUNCH",
-    entityId: punchId,
+    title: "Punch items added to task",
+    message: `Punch items added to ${taskName} at ${homeLabel}${countStr}.`,
+    entityType: "TASK",
+    entityId: taskId,
     homeId,
     createdByUserId,
     targetRole,
