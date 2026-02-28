@@ -79,8 +79,11 @@ export async function POST(
       )
     }
 
-    // Send cancellation SMS if task is Confirmed and has a contractor (to opted-in contact only)
-    if (task.status === "Confirmed" && task.contractor) {
+    // Send cancellation SMS when task has a contractor we may have texted (Confirmed, PendingConfirm, or Scheduled) — to default contact only
+    const shouldSendCancelSms =
+      task.contractor &&
+      (task.status === "Confirmed" || task.status === "PendingConfirm" || task.status === "Scheduled")
+    if (shouldSendCancelSms) {
       const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
       const recipient = await getSmsRecipientForContractor(task.contractor.id)
       if (recipient.allowed) {
