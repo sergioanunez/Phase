@@ -25,8 +25,12 @@ export function TrialExpiredOverlay() {
   useEffect(() => {
     if (!pathname) return
     if (pathname.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
+    if (pathname.startsWith("/super-admin")) {
+      setBilling(null)
+      return
+    }
     if (status !== "authenticated") return
-    if (!session?.user || session.user.role === "SUPER_ADMIN") return
+    if (!session?.user || (session.user as { role?: string }).role === "SUPER_ADMIN") return
 
     fetch("/api/billing/status", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : null))
@@ -50,10 +54,13 @@ export function TrialExpiredOverlay() {
   }, [pathname, status, session])
 
   if (
+    !pathname ||
+    pathname.startsWith("/super-admin") ||
     !billing ||
     !billing.trialExpired ||
     billing.subscriptionStatus === "active" ||
-    !session?.user
+    !session?.user ||
+    (session.user as { role?: string }).role === "SUPER_ADMIN"
   ) {
     return null
   }
