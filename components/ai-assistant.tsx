@@ -24,13 +24,13 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { data: session } = useSession()
 
-  if (pathname && MARKETING_PATHS.includes(pathname)) {
-    return null
-  }
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  if (pathname && MARKETING_PATHS.includes(pathname)) {
+    return null
+  }
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
