@@ -96,10 +96,10 @@ export default function StartTrialPage() {
         setLoading(false)
         return
       }
-      // Refetch session so client has updated user.companyId before navigating
-      await getSession()
-      router.push(provisionData.redirectTo ?? "/homes")
-      router.refresh()
+      // Full-page redirect so the next request gets a fresh session (companyId from DB in session callback)
+      const target = provisionData.redirectTo ?? "/homes"
+      window.location.href = target
+      return
     } catch (err) {
       console.error("Trial start error:", err)
       setError("Something went wrong. Please try again.")

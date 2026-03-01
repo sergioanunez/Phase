@@ -20,19 +20,28 @@ export function TrialBanner() {
   const router = useRouter()
   const [billing, setBilling] = useState<BillingStatus | null>(null)
   const [hidden, setHidden] = useState(false)
+  const [billingError, setBillingError] = useState(false)
 
   useEffect(() => {
     if (!pathname) return
     if (pathname.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
     if (pathname.startsWith("/super-admin")) {
       setBilling(null)
+      setBillingError(false)
       return
     }
     if (status !== "authenticated") return
     if (!session?.user || (session.user as { role?: string }).role === "SUPER_ADMIN") return
 
+    setBillingError(false)
     fetch("/api/billing/status", { credentials: "same-origin" })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 403) setBillingError(true)
+          return null
+        }
+        return res.json()
+      })
       .then((data) => {
         if (!data) return
         const state: BillingStatus = {
@@ -56,7 +65,7 @@ export function TrialBanner() {
         setBilling(state)
       })
       .catch(() => {
-        // ignore errors
+        setBillingError(true)
       })
   }, [pathname, status, session])
 
@@ -67,6 +76,14 @@ export function TrialBanner() {
     !hidden &&
     billing &&
     billing.canRestoreTrial
+
+  const showBillingError =
+    pathname &&
+    !pathname.startsWith("/super-admin") &&
+    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    !hidden &&
+    billingError &&
+    !billing
 
   if (showRestoreTrial) {
     const handleRestoreTrial = async () => {
@@ -88,6 +105,35 @@ export function TrialBanner() {
           >
             Restore trial status
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (showBillingError) {
+    return (
+      <div className="border-b border-amber-200 bg-amber-50 text-sm text-slate-800">
+        <div className="app-header-nav-width mx-auto flex flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-6 md:px-8">
+          <span>Your account may not be linked to a company yet.</span>
+          <div className="flex gap-2">
+            <a href="/start-trial" className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700">
+              Start free trial
+            </a>
+            <button
+              type="button"
+              className="rounded-md border border-amber-600 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/trial/ensure-trial", { method: "POST", credentials: "same-origin" })
+                  if (res.ok) window.location.reload()
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              Restore trial
+            </button>
+          </div>
         </div>
       </div>
     )
