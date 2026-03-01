@@ -100,8 +100,13 @@ export function FlowFeedItem({ action }: { action: FlowAction }) {
               </div>
             )}
             <div>
-              <dt className="text-muted-foreground">Get ready lead</dt>
-              <dd>{action.prepLeadDays} working days</dd>
+              <dt className="text-muted-foreground">Lead time</dt>
+              <dd className="text-sm">
+                {action.prepLeadDays} day{action.prepLeadDays === 1 ? "" : "s"}
+                {action.leadTimeSource === "override" && " (override)"}
+                {action.leadTimeSource === "contractor" && " (contractor)"}
+                {action.leadTimeSource === "unassigned" && " (unassigned)"}
+              </dd>
             </div>
             {action.dependencyStatus && action.dependencyStatus.length > 0 && (
               <div>

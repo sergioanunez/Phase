@@ -18,6 +18,7 @@ const updateContractorSchema = z.object({
   email: z.string().email().optional().nullable(),
   trade: z.string().optional().nullable(),
   preferredNoticeDays: z.number().int().positive().optional().nullable(),
+  leadDays: z.number().int().min(0).max(60).optional(),
   defaultContactId: z.string().nullable().optional(),
 })
 
@@ -57,17 +58,20 @@ export async function PATCH(
       }
     }
 
+    const updatePayload: Record<string, unknown> = {
+      companyName: data.companyName,
+      contactName: data.contactName,
+      phone: data.phone,
+      email: data.email,
+      trade: data.trade,
+      preferredNoticeDays: data.preferredNoticeDays,
+      ...(data.defaultContactId !== undefined && { defaultContactId: data.defaultContactId }),
+    }
+    if (data.leadDays !== undefined) updatePayload.leadDays = data.leadDays
+
     const after = await prisma.contractor.update({
       where: { id: params.id },
-      data: {
-        companyName: data.companyName,
-        contactName: data.contactName,
-        phone: data.phone,
-        email: data.email,
-        trade: data.trade,
-        preferredNoticeDays: data.preferredNoticeDays,
-        ...(data.defaultContactId !== undefined && { defaultContactId: data.defaultContactId }),
-      },
+      data: updatePayload,
     })
 
     await createAuditLog(

@@ -18,6 +18,7 @@ const createContractorSchema = z.object({
   email: z.string().email().optional().nullable(),
   trade: z.string().optional().nullable(),
   preferredNoticeDays: z.number().int().positive().optional().nullable(),
+  leadDays: z.number().int().min(0).max(60).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         email: data.email,
         trade: data.trade,
         preferredNoticeDays: data.preferredNoticeDays,
+        leadDays: data.leadDays ?? 0,
         active: true,
       },
     })

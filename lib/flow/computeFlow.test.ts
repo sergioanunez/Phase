@@ -76,3 +76,41 @@ describe("prep lead days max", () => {
     expect(result).toBe(2)
   })
 })
+
+/** Inline resolution logic matching computeFlow: contractor lead from override vs assigned contractor vs unassigned */
+function contractorLeadDays(
+  contractorLeadOverrideDays: number | null,
+  contractorId: string | null,
+  contractorLeadDaysValue: number
+): number {
+  if (contractorLeadOverrideDays != null) return contractorLeadOverrideDays
+  if (contractorId) return contractorLeadDaysValue
+  return 0
+}
+
+function leadTimeSource(
+  contractorLeadOverrideDays: number | null,
+  contractorId: string | null
+): "contractor" | "override" | "unassigned" {
+  if (contractorLeadOverrideDays != null) return "override"
+  if (contractorId) return "contractor"
+  return "unassigned"
+}
+
+describe("contractor lead time resolution", () => {
+  it("uses override when contractorLeadOverrideDays is set", () => {
+    expect(contractorLeadDays(5, "c1", 3)).toBe(5)
+    expect(leadTimeSource(5, "c1")).toBe("override")
+  })
+  it("uses contractor leadDays when no override and contractor assigned", () => {
+    expect(contractorLeadDays(null, "c1", 4)).toBe(4)
+    expect(leadTimeSource(null, "c1")).toBe("contractor")
+  })
+  it("returns 0 and unassigned when no contractor", () => {
+    expect(contractorLeadDays(null, null, 10)).toBe(0)
+    expect(leadTimeSource(null, null)).toBe("unassigned")
+  })
+  it("override takes precedence over contractor when both present", () => {
+    expect(contractorLeadDays(2, "c1", 7)).toBe(2)
+  })
+})

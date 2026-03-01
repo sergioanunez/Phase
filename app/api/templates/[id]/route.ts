@@ -22,6 +22,8 @@ const updateTemplateSchema = z.object({
   prepLeadDays: z.number().int().min(0).optional(),
   requiresOrdering: z.boolean().optional(),
   materialLeadDays: z.number().int().min(0).optional(),
+  contractorId: z.string().nullable().optional(),
+  contractorLeadOverrideDays: z.number().int().min(0).nullable().optional(),
 })
 
 export async function GET(
@@ -72,6 +74,18 @@ export async function PATCH(
       )
     }
 
+    if (data.contractorId != null && data.contractorId !== "") {
+      const contractor = await prisma.contractor.findFirst({
+        where: { id: data.contractorId, companyId: ctx.companyId },
+      })
+      if (!contractor) {
+        return NextResponse.json(
+          { error: "Contractor not found or does not belong to this company" },
+          { status: 400 }
+        )
+      }
+    }
+
     const updateData: any = {}
     if (data.name !== undefined) updateData.name = data.name
     if (data.defaultDurationDays !== undefined) updateData.defaultDurationDays = data.defaultDurationDays
@@ -85,6 +99,8 @@ export async function PATCH(
     if (data.prepLeadDays !== undefined) updateData.prepLeadDays = data.prepLeadDays
     if (data.requiresOrdering !== undefined) updateData.requiresOrdering = data.requiresOrdering
     if (data.materialLeadDays !== undefined) updateData.materialLeadDays = data.materialLeadDays
+    if (data.contractorId !== undefined) updateData.contractorId = data.contractorId
+    if (data.contractorLeadOverrideDays !== undefined) updateData.contractorLeadOverrideDays = data.contractorLeadOverrideDays
 
     // Ensure at least one field is being updated
     if (Object.keys(updateData).length === 0) {

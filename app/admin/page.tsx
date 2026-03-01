@@ -68,6 +68,9 @@ interface WorkTemplateItem {
   prepLeadDays?: number
   requiresOrdering?: boolean
   materialLeadDays?: number
+  contractorId?: string | null
+  contractorLeadOverrideDays?: number | null
+  contractor?: { id: string; companyName: string; trade: string | null; leadDays: number } | null
   dependencies?: Array<{
     dependsOnItemId: string
     dependsOnItem: {
@@ -95,6 +98,7 @@ interface Contractor {
   email: string | null
   trade: string | null
   preferredNoticeDays: number | null
+  leadDays?: number
   defaultContactId?: string | null
   defaultContact?: { id: string; name: string; email: string } | null
   users?: ContractorContact[]
@@ -162,6 +166,9 @@ export default function AdminPage() {
   const [editingTemplatePrepLeadDays, setEditingTemplatePrepLeadDays] = useState("")
   const [editingTemplateRequiresOrdering, setEditingTemplateRequiresOrdering] = useState(false)
   const [editingTemplateMaterialLeadDays, setEditingTemplateMaterialLeadDays] = useState("")
+  const [editingTemplateContractorId, setEditingTemplateContractorId] = useState("")
+  const [editingTemplateContractorLeadOverrideDays, setEditingTemplateContractorLeadOverrideDays] = useState("")
+  const [showTemplateAdvanced, setShowTemplateAdvanced] = useState(false)
   const [editingGateTemplateId, setEditingGateTemplateId] = useState<string | null>(null)
   const [editingGateName, setEditingGateName] = useState("")
   const [editingGateScope, setEditingGateScope] = useState<"DownstreamOnly" | "AllScheduling">("DownstreamOnly")
@@ -201,6 +208,7 @@ export default function AdminPage() {
     email: "",
     trade: "",
     preferredNoticeDays: "",
+    leadDays: "",
   })
   const [companyBranding, setCompanyBranding] = useState<CompanyBranding | null>(null)
   const [brandForm, setBrandForm] = useState({
@@ -751,6 +759,7 @@ export default function AdminPage() {
       email: contractor.email || "",
       trade: contractor.trade || "",
       preferredNoticeDays: contractor.preferredNoticeDays?.toString() || "",
+      leadDays: contractor.leadDays?.toString() ?? "",
     })
   }
 
@@ -763,6 +772,7 @@ export default function AdminPage() {
       email: "",
       trade: "",
       preferredNoticeDays: "",
+      leadDays: "",
     })
   }
 
@@ -792,6 +802,18 @@ export default function AdminPage() {
         updateData.preferredNoticeDays = null
       }
 
+      if (editingContractor.leadDays.trim() === "") {
+        updateData.leadDays = 0
+      } else {
+        const leadDays = parseInt(editingContractor.leadDays)
+        if (!isNaN(leadDays) && leadDays >= 0) {
+          if (leadDays > 60) {
+            if (!window.confirm("Lead time over 60 days is unusual. Save anyway?")) return
+          }
+          updateData.leadDays = leadDays
+        }
+      }
+
       const res = await fetch(`/api/contractors/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -807,6 +829,7 @@ export default function AdminPage() {
           email: "",
           trade: "",
           preferredNoticeDays: "",
+          leadDays: "",
         })
         handleRefresh()
       } else {
@@ -828,6 +851,9 @@ export default function AdminPage() {
     setEditingTemplatePrepLeadDays((template.prepLeadDays ?? 0).toString())
     setEditingTemplateRequiresOrdering(template.requiresOrdering ?? false)
     setEditingTemplateMaterialLeadDays((template.materialLeadDays ?? 0).toString())
+    setEditingTemplateContractorId(template.contractorId ?? "")
+    setEditingTemplateContractorLeadOverrideDays(template.contractorLeadOverrideDays?.toString() ?? "")
+    setShowTemplateAdvanced(false)
   }
 
   const handleCancelEditTemplate = () => {
@@ -839,6 +865,9 @@ export default function AdminPage() {
     setEditingTemplatePrepLeadDays("")
     setEditingTemplateRequiresOrdering(false)
     setEditingTemplateMaterialLeadDays("")
+    setEditingTemplateContractorId("")
+    setEditingTemplateContractorLeadOverrideDays("")
+    setShowTemplateAdvanced(false)
   }
 
   const handleSaveTemplate = async (id: string) => {
@@ -871,6 +900,19 @@ export default function AdminPage() {
       return
     }
 
+    const contractorLeadOverrideDays =
+      editingTemplateContractorLeadOverrideDays.trim() === ""
+        ? null
+        : (() => {
+            const n = parseInt(editingTemplateContractorLeadOverrideDays)
+            if (isNaN(n) || n < 0) {
+              alert("Override lead days must be 0 or greater")
+              return undefined
+            }
+            return n
+          })()
+    if (contractorLeadOverrideDays === undefined) return
+
     try {
       const updateData: any = {
         name: editingTemplateName.trim(),
@@ -880,6 +922,8 @@ export default function AdminPage() {
         prepLeadDays: editingTemplatePrepLeadDays === "" ? 0 : prepLeadDays,
         requiresOrdering: editingTemplateRequiresOrdering,
         materialLeadDays: editingTemplateRequiresOrdering ? (editingTemplateMaterialLeadDays === "" ? 0 : materialLeadDays) : 0,
+        contractorId: editingTemplateContractorId.trim() || null,
+        contractorLeadOverrideDays,
       }
 
       const res = await fetch(`/api/templates/${id}`, {
@@ -897,6 +941,9 @@ export default function AdminPage() {
         setEditingTemplatePrepLeadDays("")
         setEditingTemplateRequiresOrdering(false)
         setEditingTemplateMaterialLeadDays("")
+        setEditingTemplateContractorId("")
+        setEditingTemplateContractorLeadOverrideDays("")
+        setShowTemplateAdvanced(false)
         handleRefresh()
       } else {
         const data = await res.json()
@@ -1951,6 +1998,46 @@ export default function AdminPage() {
                                   </div>
                                 )}
                               </div>
+                              <div className="mt-2 pt-2 border-t border-border">
+                                <label className="text-xs text-muted-foreground mb-1 block">Contractor</label>
+                                <select
+                                  value={editingTemplateContractorId}
+                                  onChange={(e) => setEditingTemplateContractorId(e.target.value)}
+                                  className="w-full max-w-md px-2 py-1.5 border rounded-md text-sm bg-white dark:bg-gray-900"
+                                >
+                                  <option value="">No contractor</option>
+                                  {contractors.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.companyName}
+                                      {c.trade ? ` (${c.trade})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="text-xs text-muted-foreground mt-1">Lead time pulled from contractor settings.</p>
+                              </div>
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowTemplateAdvanced(!showTemplateAdvanced)}
+                                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                                >
+                                  {showTemplateAdvanced ? "Hide" : "Show"} advanced
+                                </button>
+                                {showTemplateAdvanced && (
+                                  <div className="mt-2 pl-2 border-l-2 border-border">
+                                    <label className="text-xs text-muted-foreground mb-1 block">Override lead days</label>
+                                    <input
+                                      type="number"
+                                      value={editingTemplateContractorLeadOverrideDays}
+                                      onChange={(e) => setEditingTemplateContractorLeadOverrideDays(e.target.value)}
+                                      className="w-24 px-2 py-1 border rounded-md text-sm"
+                                      placeholder="—"
+                                      min="0"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-0.5">Leave empty to use contractor lead time.</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -1968,6 +2055,9 @@ export default function AdminPage() {
                               <span>Order: {template.sortOrder}</span>
                               {template.optionalCategory && (
                                 <span>Category: {template.optionalCategory}</span>
+                              )}
+                              {template.contractor && (
+                                <span>Contractor: {template.contractor.companyName}{template.contractor.trade ? ` (${template.contractor.trade})` : ""}</span>
                               )}
                               {(template.prepLeadDays ?? 0) > 0 && (
                                 <span>Prep lead: {template.prepLeadDays} days</span>
@@ -2330,6 +2420,24 @@ export default function AdminPage() {
                                   min="1"
                                 />
                               </div>
+                              <div>
+                                <label className="text-xs text-muted-foreground">Lead time (days)</label>
+                                <input
+                                  type="number"
+                                  value={editingContractor.leadDays}
+                                  onChange={(e) =>
+                                    setEditingContractor({
+                                      ...editingContractor,
+                                      leadDays: e.target.value,
+                                    })
+                                  }
+                                  className="w-full px-2 py-1 border rounded-md text-sm"
+                                  placeholder="0"
+                                  min="0"
+                                  max="60"
+                                />
+                                <p className="text-xs text-muted-foreground mt-0.5">Default lead time for Flow prep / Get Ready. Used by task templates assigned to this vendor.</p>
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -2388,6 +2496,12 @@ export default function AdminPage() {
                             <div>
                               <span className="font-medium">Trade: </span>
                               {contractor.trade}
+                            </div>
+                          )}
+                          {(contractor.leadDays ?? 0) > 0 && (
+                            <div>
+                              <span className="font-medium">Lead time: </span>
+                              {contractor.leadDays} days
                             </div>
                           )}
                           {contractor.preferredNoticeDays && (

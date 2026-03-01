@@ -434,6 +434,11 @@ model WorkTemplateItem {
   requiresOrdering    Boolean       @default(false)
   /// Flow: material lead time in working days (only when requiresOrdering=true).
   materialLeadDays    Int           @default(0)
+  /// Assigned contractor for this template; lead time comes from Contractor.leadDays unless contractorLeadOverrideDays is set.
+  contractorId        String?
+  contractor          Contractor?   @relation(fields: [contractorId], references: [id], onDelete: SetNull)
+  /// Optional override for contractor lead days; when set, used instead of Contractor.leadDays.
+  contractorLeadOverrideDays Int?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -448,6 +453,7 @@ model WorkTemplateItem {
   @@index([companyId, sortOrder])
   @@index([sortOrder])
   @@index([isCriticalGate])
+  @@index([contractorId])
 }
 
 model HomeTask {
@@ -526,6 +532,8 @@ model Contractor {
   active              Boolean  @default(true)
   smsEnabled          Boolean  @default(true)
   preferredNoticeDays Int?
+  /// Default lead time in working days for Flow prep/Get Ready (source of truth for tasks assigned to this contractor).
+  leadDays            Int      @default(0)
   defaultContactId    String?  // User (contact) to use for SMS when task assigned to this vendor
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -536,6 +544,7 @@ model Contractor {
   homeTasks           HomeTask[]
   assignedPunchItems  PunchItem[]
   contractorAssignments ContractorAssignment[]
+  templateItems       WorkTemplateItem[]
 
   @@index([companyId])
   @@index([companyId, active])

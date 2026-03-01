@@ -117,18 +117,12 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       tasks: {
         include: {
           templateItem: {
-            select: {
-              id: true,
-              name: true,
-              defaultDurationDays: true,
-              sortOrder: true,
-              prepLeadDays: true,
-              requiresOrdering: true,
-              materialLeadDays: true,
+            include: {
+              contractor: { select: { companyName: true, leadDays: true } },
               dependencies: { select: { dependsOnItemId: true } },
             },
           },
-          contractor: { select: { companyName: true, preferredNoticeDays: true } },
+          contractor: { select: { companyName: true } },
         },
         orderBy: { sortOrderSnapshot: "asc" },
       },
@@ -239,14 +233,22 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       const template = task.templateItem
       if (!template) continue
 
-      const contractorLead =
-        task.contractor?.preferredNoticeDays != null ? task.contractor.preferredNoticeDays : 0
-      const materialLead = template.requiresOrdering ? template.materialLeadDays : 0
+      const contractorLeadDays =
+        template.contractorLeadOverrideDays != null
+          ? template.contractorLeadOverrideDays
+          : template.contractor?.leadDays ?? 0
+      const materialLead = template.requiresOrdering ? (template.materialLeadDays ?? 0) : 0
       const prepLeadDays = Math.max(
         template.prepLeadDays ?? 0,
-        contractorLead,
+        contractorLeadDays,
         materialLead
       )
+      const leadTimeSource: "contractor" | "override" | "unassigned" =
+        template.contractorLeadOverrideDays != null
+          ? "override"
+          : template.contractorId
+            ? "contractor"
+            : "unassigned"
       const fs = forecastStart[task.id]
       const ff = forecastFinish[task.id]
       if (!fs || !ff) continue
@@ -255,7 +257,8 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       const forecastStartStr = toDateOnly(fs)
       const forecastFinishStr = toDateOnly(ff)
 
-      const contractorName = task.contractor?.companyName ?? undefined
+      const contractorName =
+        template.contractor?.companyName ?? task.contractor?.companyName ?? undefined
       const dependencyStatus = preds.map((p) => ({
         name: taskById[p]?.nameSnapshot ?? "?",
         complete: (taskById[p]?.status as TaskStatus) === COMPLETED,
@@ -288,6 +291,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           forecastFinish: forecastFinishStr,
           prepStart: prepStartStr,
           prepLeadDays,
+          leadTimeSource,
           executionEligible: true,
           requiresOrdering: template.requiresOrdering ?? false,
           isOverdue,
@@ -314,6 +318,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           forecastFinish: forecastFinishStr,
           prepStart: prepStartStr,
           prepLeadDays,
+          leadTimeSource,
           executionEligible,
           requiresOrdering: template.requiresOrdering ?? false,
           isOverdue,

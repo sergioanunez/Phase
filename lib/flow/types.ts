@@ -12,6 +12,8 @@ export type FlowAction = {
   forecastFinish: string
   prepStart: string
   prepLeadDays: number
+  /** How prep lead was determined: contractor (from template's contractor), override (template override), unassigned */
+  leadTimeSource?: "contractor" | "override" | "unassigned"
   executionEligible: boolean
   requiresOrdering: boolean
   isOverdue: boolean

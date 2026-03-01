@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
             dependsOnItem: { select: { id: true, name: true } },
           },
         },
+        contractor: { select: { id: true, companyName: true, trade: true, leadDays: true } },
       },
     })
 
