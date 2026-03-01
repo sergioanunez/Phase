@@ -177,6 +177,12 @@ function SignInForm() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                Don&apos;t have an account?{" "}
+                <Link href="/start-trial" className="text-primary font-medium hover:underline">
+                  Start your 30-day free trial
+                </Link>
+              </p>
             </form>
           </CardContent>
         </Card>
