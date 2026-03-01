@@ -99,10 +99,10 @@ export async function POST(request: NextRequest) {
     })
 
     // Ensure trial fields are set (self-heal if anything was missing)
-    const trialStartsAt = result.trialStartsAt ?? new Date()
-    const trialEndsAt =
+    const startsAt = result.trialStartsAt ?? new Date()
+    const endsAt =
       result.trialEndsAt ?? (() => {
-        const end = new Date(trialStartsAt)
+        const end = new Date(startsAt)
         end.setDate(end.getDate() + 30)
         return end
       })()
@@ -111,8 +111,8 @@ export async function POST(request: NextRequest) {
       data: {
         status: "TRIAL",
         subscriptionStatus: "trialing",
-        trialStartsAt,
-        trialEndsAt,
+        trialStartsAt: startsAt,
+        trialEndsAt: endsAt,
       },
     })
 
