@@ -4,19 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  Bell,
-  ChevronLeft,
-  ClipboardList,
-  Calendar,
-  Check,
-  XCircle,
-  RefreshCw,
-  AlertTriangle,
-  Info,
-  Users,
-  Wrench,
-} from "lucide-react"
+import { Bell, ChevronLeft } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { format, formatDistanceToNow } from "date-fns"
@@ -28,7 +16,7 @@ const BUILDER_ROLES = ["Admin", "Manager", "Superintendent"]
 type HierarchyNotification = {
   id: string
   severity: "CRITICAL" | "ATTENTION" | "INFO"
-  category: "SCHEDULE" | "QUALITY" | "CONTRACTOR" | "SYSTEM"
+  category: string
   title: string
   message: string
   entityType: string
@@ -41,34 +29,106 @@ type HierarchyNotification = {
   createdBy: { id: string; name: string } | null
 }
 
-const CATEGORY_ICON: Record<string, typeof Calendar> = {
-  SCHEDULE: Calendar,
-  QUALITY: ClipboardList,
-  CONTRACTOR: Users,
-  SYSTEM: Wrench,
+const SEVERITY_BAND_CLASS: Record<string, string> = {
+  CRITICAL: "bg-red-500/80",
+  ATTENTION: "bg-amber-400/80",
+  INFO: "bg-blue-400/70",
 }
 
-const SEVERITY_ICON = {
-  CRITICAL: AlertTriangle,
-  ATTENTION: AlertTriangle,
-  INFO: Info,
-} as const
+const FILTERS = [
+  { value: "ALL", label: "All" },
+  { value: "CRITICAL", label: "Critical" },
+  { value: "ATTENTION", label: "Attention" },
+  { value: "INFO", label: "Informational" },
+  { value: "ACTION", label: "Requires Action" },
+] as const
 
-const TYPE_CONFIG: Record<
-  NotificationItem["type"],
-  { label: string; icon: typeof Bell; color: string }
-> = {
-  task_scheduled: { label: "Scheduled", icon: Calendar, color: "text-blue-600" },
-  task_confirmed: { label: "Confirmed", icon: Check, color: "text-green-600" },
-  task_completed: { label: "Completed", icon: Check, color: "text-green-600" },
-  task_cancelled: { label: "Cancelled", icon: XCircle, color: "text-red-600" },
-  task_rescheduled: { label: "Rescheduled", icon: RefreshCw, color: "text-amber-600" },
-  punch_added: { label: "Punch added", icon: ClipboardList, color: "text-violet-600" },
-}
+type FilterValue = (typeof FILTERS)[number]["value"]
 
 function getViewHref(n: HierarchyNotification): string {
   if (n.homeId) return `/homes/${n.homeId}`
   return "/"
+}
+
+function filterNotifications(
+  list: HierarchyNotification[],
+  filter: FilterValue
+): HierarchyNotification[] {
+  if (filter === "ALL") return list
+  if (filter === "ACTION") return list.filter((n) => n.requiresAction)
+  return list.filter((n) => n.severity === filter)
+}
+
+interface NotificationCardProps {
+  n: HierarchyNotification
+  onMarkRead: (id: string) => void
+  onResolve: (id: string) => void
+  actioningId: string | null
+}
+
+function NotificationCard({ n, onMarkRead, onResolve, actioningId }: NotificationCardProps) {
+  const isUnread = !n.reviewedAt
+  const bandClass = SEVERITY_BAND_CLASS[n.severity] ?? "bg-gray-400/60"
+
+  const handleClick = () => {
+    if (isUnread) onMarkRead(n.id)
+  }
+
+  return (
+    <article
+      className={cn(
+        "relative rounded-md border border-border bg-white py-3 pl-4 pr-4 shadow-sm transition-colors",
+        isUnread && "bg-muted/30"
+      )}
+      onClick={handleClick}
+    >
+      <div
+        className={cn("absolute left-0 top-0 h-full w-1.5 rounded-l-md", bandClass)}
+        aria-hidden
+      />
+      <div className="flex flex-col gap-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <h3
+            className={cn(
+              "min-w-0 flex-1 text-sm",
+              isUnread ? "font-semibold text-foreground" : "font-normal text-foreground"
+            )}
+          >
+            {n.title}
+          </h3>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">{n.message}</p>
+        {(n.requiresAction || n.homeId) && (
+          <div className="mt-2 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+            {n.homeId && (
+              <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+                <Link href={getViewHref(n)} onClick={() => isUnread && onMarkRead(n.id)}>
+                  View
+                </Link>
+              </Button>
+            )}
+            {n.requiresAction && !n.resolvedAt && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-8 text-xs"
+                onClick={() => {
+                  onMarkRead(n.id)
+                  onResolve(n.id)
+                }}
+                disabled={actioningId === n.id}
+              >
+                {actioningId === n.id ? "Resolving…" : "Resolve"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  )
 }
 
 export default function NotificationsPage() {
@@ -78,8 +138,7 @@ export default function NotificationsPage() {
   const [hierarchyList, setHierarchyList] = useState<HierarchyNotification[]>([])
   const [activityList, setActivityList] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [onlyRequiresAction, setOnlyRequiresAction] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState<string>("")
+  const [filter, setFilter] = useState<FilterValue>("ALL")
   const [actioningId, setActioningId] = useState<string | null>(null)
 
   const isBuilder = session?.user && BUILDER_ROLES.includes(session.user.role)
@@ -87,19 +146,16 @@ export default function NotificationsPage() {
   const role = session?.user?.role
   const description =
     role === "Superintendent"
-      ? "Activity and alerts across your assigned homes. Resolve items that require attention."
+      ? "Activity and alerts across your assigned homes."
       : role === "Manager"
-        ? "Operational alerts and activity across your homes. Stay ahead of issues that require attention."
+        ? "Operational alerts and activity across your homes."
         : role === "Admin"
-          ? "System activity and operational alerts for your organization. Review and resolve items that require action."
-          : "Recent alerts and activity. Resolve items that require attention."
+          ? "System activity and operational alerts for your organization."
+          : "Recent alerts and activity."
 
   const fetchNotifications = useCallback(() => {
     if (status !== "authenticated") return
-    const params = new URLSearchParams()
-    if (isBuilder && onlyRequiresAction) params.set("onlyRequiresAction", "true")
-    if (isBuilder && categoryFilter) params.set("category", categoryFilter)
-    fetch(`/api/notifications?${params.toString()}`)
+    fetch("/api/notifications")
       .then((res) => (res.ok ? res.json() : {}))
       .then((data: { kind?: "hierarchy" | "activity"; notifications?: HierarchyNotification[] | NotificationItem[] }) => {
         setKind(data.kind ?? "activity")
@@ -111,7 +167,7 @@ export default function NotificationsPage() {
         setActivityList([])
       })
       .finally(() => setLoading(false))
-  }, [status, isBuilder, onlyRequiresAction, categoryFilter])
+  }, [status])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -123,25 +179,39 @@ export default function NotificationsPage() {
     fetchNotifications()
   }, [status, router, fetchNotifications])
 
-  const handleReview = async (id: string) => {
-    setActioningId(id)
-    try {
-      const res = await fetch(`/api/notifications/${id}/review`, { method: "POST" })
-      if (res.ok) fetchNotifications()
-    } finally {
-      setActioningId(null)
-    }
-  }
+  const handleMarkRead = useCallback(
+    async (id: string) => {
+      const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH" })
+      if (res.ok) {
+        setHierarchyList((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, reviewedAt: new Date().toISOString() } : n))
+        )
+      }
+    },
+    []
+  )
 
-  const handleResolve = async (id: string) => {
-    setActioningId(id)
-    try {
-      const res = await fetch(`/api/notifications/${id}/resolve`, { method: "POST" })
-      if (res.ok) fetchNotifications()
-    } finally {
-      setActioningId(null)
+  const handleMarkAllRead = useCallback(async () => {
+    const res = await fetch("/api/notifications/mark-all-read", { method: "PATCH" })
+    if (res.ok) {
+      setHierarchyList((prev) =>
+        prev.map((n) => ({ ...n, reviewedAt: new Date().toISOString() }))
+      )
     }
-  }
+  }, [])
+
+  const handleResolve = useCallback(
+    async (id: string) => {
+      setActioningId(id)
+      try {
+        const res = await fetch(`/api/notifications/${id}/resolve`, { method: "POST" })
+        if (res.ok) fetchNotifications()
+      } finally {
+        setActioningId(null)
+      }
+    },
+    [fetchNotifications]
+  )
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -151,7 +221,8 @@ export default function NotificationsPage() {
     )
   }
 
-  const unreadCount = kind === "hierarchy" ? hierarchyList.filter((n) => !n.reviewedAt).length : 0
+  const filteredList = filterNotifications(hierarchyList, filter)
+  const unreadCount = hierarchyList.filter((n) => !n.reviewedAt).length
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
@@ -166,128 +237,67 @@ export default function NotificationsPage() {
           </Link>
         </header>
 
-        <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-        {isBuilder ? (
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {description}
-          </p>
-        ) : (
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Events on your assigned homes (last 24 hours).
-          </p>
-        )}
-
-        {isBuilder && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={onlyRequiresAction}
-                onChange={(e) => setOnlyRequiresAction(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              Only requires action
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm"
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {isBuilder ? description : "Events on your assigned homes (last 24 hours)."}
+            </p>
+          </div>
+          {isBuilder && kind === "hierarchy" && unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              className="text-sm text-muted-foreground hover:underline shrink-0"
             >
-              <option value="">All categories</option>
-              <option value="SCHEDULE">Schedule</option>
-              <option value="QUALITY">Quality</option>
-              <option value="CONTRACTOR">Contractor</option>
-              <option value="SYSTEM">System</option>
-            </select>
-            {unreadCount > 0 && (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-                {unreadCount} unread
-              </span>
-            )}
+              Mark all as read
+            </button>
+          )}
+        </div>
+
+        {isBuilder && kind === "hierarchy" && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {FILTERS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFilter(value)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  filter === value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
         {loading ? (
           <div className="mt-8 text-center text-sm text-muted-foreground">Loading…</div>
         ) : kind === "hierarchy" ? (
-          hierarchyList.length === 0 ? (
+          filteredList.length === 0 ? (
             <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
               <Bell className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="mt-4 text-sm text-muted-foreground">No notifications</p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                {filter === "ALL" ? "No notifications" : "No notifications match this filter"}
+              </p>
             </div>
           ) : (
-            <div className="mt-6 space-y-8">
-              {(["CRITICAL", "ATTENTION", "INFO"] as const).map((severity) => {
-                const items = hierarchyList.filter((n) => n.severity === severity)
-                if (items.length === 0) return null
-                const titles = { CRITICAL: "Critical", ATTENTION: "Needs Attention", INFO: "Informational" }
-                const Icon = SEVERITY_ICON[severity]
-                return (
-                  <section key={severity}>
-                    <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Icon className="h-4 w-4" />
-                      {titles[severity]}
-                    </h2>
-                    <ul className="space-y-3">
-                      {items.map((n) => {
-                        const CatIcon = CATEGORY_ICON[n.category] ?? Bell
-                        const isUnread = !n.reviewedAt
-                        return (
-                          <li
-                            key={n.id}
-                            className={cn(
-                              "rounded-xl border bg-white p-4 shadow-sm",
-                              isUnread && "border-l-4 border-l-primary"
-                            )}
-                          >
-                            <div className="flex gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                                <CatIcon className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-foreground">{n.title}</p>
-                                <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {format(new Date(n.createdAt), "MMM d, h:mm a")}
-                                  {n.createdBy?.name && ` · ${n.createdBy.name}`}
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {n.homeId && (
-                                    <Button asChild size="sm" variant="outline">
-                                      <Link href={getViewHref(n)}>View</Link>
-                                    </Button>
-                                  )}
-                                  {!n.reviewedAt && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleReview(n.id)}
-                                      disabled={actioningId === n.id}
-                                    >
-                                      Mark reviewed
-                                    </Button>
-                                  )}
-                                  {n.requiresAction && !n.resolvedAt && (
-                                    <Button
-                                      size="sm"
-                                      variant="default"
-                                      onClick={() => handleResolve(n.id)}
-                                      disabled={actioningId === n.id}
-                                    >
-                                      {actioningId === n.id ? "Resolving…" : "Resolve"}
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </section>
-                )
-              })}
-            </div>
+            <ul className="mt-6 space-y-3">
+              {filteredList.map((n) => (
+                <li key={n.id}>
+                  <NotificationCard
+                    n={n}
+                    onMarkRead={handleMarkRead}
+                    onResolve={handleResolve}
+                    actioningId={actioningId}
+                  />
+                </li>
+              ))}
+            </ul>
           )
         ) : activityList.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
@@ -296,33 +306,27 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <ul className="mt-6 space-y-3">
-            {activityList.map((n) => {
-              const config = TYPE_CONFIG[n.type]
-              const Icon = config.icon
-              return (
-                <li key={n.id}>
-                  <Link
-                    href={`/homes/${n.homeId}`}
-                    className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:bg-gray-50"
-                  >
-                    <div className="flex gap-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 ${config.color}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground">{n.title}</p>
-                        <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">{n.subtitle}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {n.userName} · {formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}
-                          {" · "}
-                          {format(new Date(n.timestamp), "MMM d, h:mm a")}
-                        </p>
-                      </div>
+            {activityList.map((n) => (
+              <li key={n.id}>
+                <Link
+                  href={`/homes/${n.homeId}`}
+                  className="block rounded-md border border-border bg-white py-3 px-4 shadow-sm transition-colors hover:bg-muted/30"
+                >
+                  <div className="flex flex-col gap-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-foreground">{n.title}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(n.timestamp), "MMM d, h:mm a")}
+                      </span>
                     </div>
-                  </Link>
-                </li>
-              )
-            })}
+                    <p className="text-sm text-muted-foreground line-clamp-1">{n.subtitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {n.userName} · {formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </div>

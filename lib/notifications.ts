@@ -30,12 +30,6 @@ export interface CreateNotificationData {
   expiresAt?: Date | null
 }
 
-const severityOrder: Record<NotificationSeverity, number> = {
-  CRITICAL: 0,
-  ATTENTION: 1,
-  INFO: 2,
-}
-
 export async function createNotification(data: CreateNotificationData) {
   return prisma.notification.create({
     data: {
@@ -77,6 +71,40 @@ export async function resolveNotification(notificationId: string, userId: string
   return prisma.notification.update({
     where: { id: notificationId },
     data: { resolvedAt: new Date() },
+  })
+}
+
+/** Mark one notification as read (reviewedAt). Tenant-scoped. */
+export async function markNotificationRead(notificationId: string, companyId: string) {
+  const n = await prisma.notification.findFirst({
+    where: { id: notificationId, companyId },
+    select: { id: true },
+  })
+  if (!n) return null
+  return prisma.notification.update({
+    where: { id: notificationId },
+    data: { reviewedAt: new Date() },
+  })
+}
+
+/** Mark all unread notifications for a user in the tenant as read. */
+export async function markAllNotificationsReadForUser(
+  userId: string,
+  role: NotificationTargetRole,
+  companyId: string
+) {
+  const where: Prisma.NotificationWhereInput = {
+    companyId,
+    reviewedAt: null,
+    OR: [
+      { targetUserId: userId },
+      { targetRole: role },
+      { targetRole: "ANY" },
+    ],
+  }
+  return prisma.notification.updateMany({
+    where,
+    data: { reviewedAt: new Date() },
   })
 }
 
@@ -134,12 +162,6 @@ export async function listNotificationsForUser(options: ListNotificationsForUser
     include: {
       createdBy: { select: { id: true, name: true } },
     },
-  })
-
-  list.sort((a, b) => {
-    const sev = severityOrder[a.severity] - severityOrder[b.severity]
-    if (sev !== 0) return sev
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
   return list

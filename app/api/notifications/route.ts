@@ -46,14 +46,10 @@ export async function GET(request: NextRequest) {
       if (!targetRole) {
         return NextResponse.json({ kind: "hierarchy", notifications: [], count: 0 })
       }
-      const onlyRequiresAction = request.nextUrl.searchParams.get("onlyRequiresAction") === "true"
-      const category = request.nextUrl.searchParams.get("category") as import("@prisma/client").NotificationCategory | null
       const list = await listNotificationsForUser({
         userId: ctx.userId,
         role: targetRole,
         companyId,
-        onlyRequiresAction: onlyRequiresAction || undefined,
-        category: category || undefined,
       })
       const count = list.filter((n) => !n.reviewedAt).length
       return NextResponse.json({ kind: "hierarchy", notifications: list, count })
