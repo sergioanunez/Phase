@@ -28,7 +28,7 @@ export function AIAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  if (pathname && MARKETING_PATHS.includes(pathname)) {
+  if (pathname && (MARKETING_PATHS.includes(pathname) || pathname.startsWith("/super-admin"))) {
     return null
   }
 
