@@ -164,7 +164,12 @@ export async function DELETE(
       name: company.name,
     }, companyId, "Company", companyId)
 
-    await prisma.company.delete({ where: { id: companyId } })
+    // Delete HomeTasks first: they reference WorkTemplateItem (RESTRICT). Cascading from
+    // Company would delete WorkTemplateItems and hit HomeTask_templateItemId_fkey.
+    await prisma.$transaction(async (tx) => {
+      await tx.homeTask.deleteMany({ where: { companyId } })
+      await tx.company.delete({ where: { id: companyId } })
+    })
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("DELETE /api/super-admin/companies/[companyId] error:", err)
