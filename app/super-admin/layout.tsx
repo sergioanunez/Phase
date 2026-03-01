@@ -2,9 +2,9 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import Link from "next/link"
-import { LayoutDashboard, Building2, MessageSquare, FileText } from "lucide-react"
+import { LayoutDashboard, Building2, MessageSquare, FileText, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 
@@ -13,17 +13,26 @@ export default function SuperAdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
+    if (status === "loading") return
     if (session?.user?.role !== "SUPER_ADMIN") {
       router.push("/")
     }
-  }, [session, router])
+  }, [session, status, router])
 
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  if (status === "loading" || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" aria-label="Loading" />
+      </div>
+    )
+  }
+
+  if (session.user?.role !== "SUPER_ADMIN") {
     return null
   }
 
