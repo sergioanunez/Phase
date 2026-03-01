@@ -8,10 +8,10 @@ import { Menu, X } from "lucide-react"
 import logoImage from "../../public/logo.png"
 
 const NAV_LINKS = [
-  { href: "#benefits", label: "Benefits" },
-  { href: "#how-it-works", label: "How It Works" },
-  { href: "#screens", label: "Screens" },
+  { href: "#problem", label: "Problem" },
+  { href: "#benefits", label: "How We Solve" },
   { href: "#pricing", label: "Pricing" },
+  { href: "#custom", label: "Custom" },
   { href: "#faq", label: "FAQ" },
 ]
 

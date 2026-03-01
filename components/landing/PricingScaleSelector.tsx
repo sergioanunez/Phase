@@ -17,24 +17,24 @@ const TIERS: Array<{
     id: "starter",
     name: "Starter",
     limit: "Up to 5 active homes",
-    price: "$149 / month",
-    description: "Great for small builders standardizing their first master schedule.",
+    price: "$199/month",
+    description: "Ideal for small teams.",
     popular: false,
   },
   {
     id: "growth",
     name: "Growth",
     limit: "Up to 25 active homes",
-    price: "$399 / month",
-    description: "Best for production builders running multiple homes at once.",
+    price: "$399/month",
+    description: "Best for production builders.",
     popular: true,
   },
   {
     id: "scale",
     name: "Scale",
     limit: "Unlimited active homes",
-    price: "Starting at $799 / month",
-    description: "Designed for high-volume operations and manager oversight.",
+    price: "$799/month",
+    description: "For high-volume operations.",
     popular: false,
   },
 ]
@@ -142,48 +142,15 @@ export function PricingScaleSelector() {
           href="/start-trial"
           className="min-h-[48px] inline-flex w-full items-center justify-center rounded-xl bg-[#2563eb] px-6 text-base font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 sm:w-auto sm:min-w-[200px]"
         >
-          Start 30-day free trial
+          Start 30-Day Free Trial
         </Link>
-        <p className="text-sm text-gray-500">Upgrade or customize anytime</p>
+        <p className="text-sm text-gray-500">Start free. Upgrade when your volume grows.</p>
       </div>
 
       {/* Footnote – muted, close to cluster */}
       <p className="text-xs text-gray-400">
         Active homes = homes currently under construction. Completed homes don&apos;t count.
       </p>
-
-      {/* White Label – separate premium band */}
-      <div className="-mx-4 mt-8 rounded-none bg-neutral-50 px-4 py-10 sm:-mx-6 sm:px-6 sm:py-12 lg:-mx-8 lg:px-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-lg font-semibold text-gray-900">White Label</h4>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
-                Custom
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-gray-600">
-              For builders who want Phase branded as their own or need custom workflows.
-            </p>
-            <p className="mt-2 text-sm text-gray-600">
-              Use Phase under your own brand and domain. We&apos;ll scope and price it with you.
-            </p>
-            <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-gray-600">
-              <li>Custom branding and domain</li>
-              <li>Tailored workflows and permissions</li>
-              <li>Dedicated support</li>
-            </ul>
-          </div>
-          <div className="shrink-0 sm:pt-1">
-            <Link
-              href="/contact?plan=white-label"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border-2 border-gray-800 bg-transparent px-5 text-sm font-semibold text-gray-800 hover:bg-gray-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2"
-            >
-              Request white label quote
-            </Link>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

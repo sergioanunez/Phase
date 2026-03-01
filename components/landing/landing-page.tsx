@@ -3,13 +3,11 @@ import { LandingNav } from "./landing-nav"
 import { LandingFooter } from "./landing-footer"
 import { PricingSection } from "./pricing-section"
 import {
-  Calendar,
-  MessageSquare,
-  LayoutDashboard,
-  CheckCircle2,
-  ClipboardList,
-  Shield,
-} from "lucide-react"
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 const SECTION_CLASS = "mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
 const CARD_CLASS =
@@ -22,23 +20,26 @@ export function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className={`${SECTION_CLASS} pt-12 sm:pt-16`}>
+        <section className={`${SECTION_CLASS} pt-14 sm:pt-20 pb-12`}>
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-center">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
-                Keep your builds moving without chasing people.
+              <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
+                Keep Your Builds Moving.
               </h1>
-              <p className="mt-6 text-lg text-gray-600 sm:text-xl">
-                Phase helps homebuilders schedule work, confirm subcontractors by text, and track progress in real time—without spreadsheets or constant calls.
+              <p className="mt-6 text-lg text-gray-600 sm:text-xl max-w-xl">
+                Phase helps home builders reduce cycle time by improving execution, communication, and visibility.
+              </p>
+              <p className="mt-2 text-base font-medium text-gray-700 sm:text-lg">
+                Your field operating system.
               </p>
               <div className="mt-10">
                 <Link
                   href="/start-trial"
                   className="min-h-[48px] shrink-0 inline-flex items-center justify-center rounded-xl bg-[#2563eb] px-6 text-base font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 whitespace-nowrap"
                 >
-                  Start 30-day free trial
+                  Start 30-Day Free Trial
                 </Link>
-                <p className="mt-2 text-sm text-gray-500">Upgrade or customize anytime</p>
+                <p className="mt-2 text-sm text-gray-500">Upgrade anytime. No per-seat pricing.</p>
               </div>
             </div>
             <div className="relative">
@@ -73,163 +74,125 @@ export function LandingPage() {
         </section>
 
         {/* The Problem */}
-        <section id="problem" className={`${SECTION_CLASS} bg-gray-50/80`}>
+        <section id="problem" className={`${SECTION_CLASS} bg-gray-100/90`}>
           <div className="mx-auto max-w-3xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Scheduling shouldn&apos;t slow your builds down.
+              Build Delays Don&apos;t Happen All at Once.
             </h2>
             <p className="mt-4 text-base text-gray-700 sm:text-lg">
-              When scheduling lives in texts, spreadsheets, and memory, it breaks quickly:
+              When scheduling lives in texts, spreadsheets, and memory, it breaks quickly.
             </p>
             <ul className="mt-6 space-y-3 sm:space-y-4">
-              <li className="flex gap-3 text-gray-600 sm:text-base">
-                <span className="text-gray-400 shrink-0">•</span>
-                <span><strong className="font-semibold text-gray-900">Schedules drift out of sync</strong> within days</span>
+              <li className="flex gap-3 text-gray-700 sm:text-base">
+                <span className="text-gray-500 shrink-0">•</span>
+                <span>Subcontractors miss work or claim they weren&apos;t notified</span>
               </li>
-              <li className="flex gap-3 text-gray-600 sm:text-base">
-                <span className="text-gray-400 shrink-0">•</span>
-                <span><strong className="font-semibold text-gray-900">Subcontractors miss work</strong> or say they weren&apos;t notified</span>
+              <li className="flex gap-3 text-gray-700 sm:text-base">
+                <span className="text-gray-500 shrink-0">•</span>
+                <span>Materials aren&apos;t ordered early enough</span>
               </li>
-              <li className="flex gap-3 text-gray-600 sm:text-base">
-                <span className="text-gray-400 shrink-0">•</span>
-                <span><strong className="font-semibold text-gray-900">Superintendents spend too much time</strong> coordinating instead of building</span>
+              <li className="flex gap-3 text-gray-700 sm:text-base">
+                <span className="text-gray-500 shrink-0">•</span>
+                <span>Punch lists sit inside text threads</span>
               </li>
-              <li className="flex gap-3 text-gray-600 sm:text-base">
-                <span className="text-gray-400 shrink-0">•</span>
-                <span><strong className="font-semibold text-gray-900">Managers see delays</strong> only after they impact the schedule</span>
+              <li className="flex gap-3 text-gray-700 sm:text-base">
+                <span className="text-gray-500 shrink-0">•</span>
+                <span>Delays become visible only after they impact the schedule</span>
               </li>
             </ul>
-            <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
-              <p className="text-base font-medium text-gray-800 sm:text-lg">
-                Phase centralizes scheduling and automates confirmations—so work moves forward with clarity and accountability.
-              </p>
+            <div className="mt-10 space-y-3 rounded-lg border border-gray-200 bg-white px-4 py-5 sm:px-6 sm:py-6">
+              <p className="text-base font-semibold text-gray-900">Longer build cycles.</p>
+              <p className="text-base font-semibold text-gray-900">Overloaded superintendents.</p>
+              <p className="text-base font-semibold text-gray-900">Reactive management instead of controlled execution.</p>
             </div>
+            <p className="mt-8 text-lg font-semibold text-gray-900">
+              Most builders don&apos;t have a scheduling problem.<br />
+              They have an execution problem.
+            </p>
           </div>
         </section>
 
-        {/* Benefits */}
+        {/* How We Solve It */}
         <section id="benefits" className={SECTION_CLASS}>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            Why builders use Phase
-          </h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
-            {[
-              {
-                title: "One schedule, applied across every home",
-                body: "A single master schedule drives every job. Changes propagate automatically—no version drift, no outdated spreadsheets.",
-                highlight: false,
-              },
-              {
-                title: "Automatic subcontractor confirmations by text",
-                body: "Subcontractors confirm by SMS. You see who's committed and who isn't—without chasing.",
-                highlight: true,
-              },
-              {
-                title: "Real-time visibility for managers",
-                body: "See what's on track and what's behind as it happens. Focus on exceptions, not status meetings.",
-                highlight: false,
-              },
-              {
-                title: "Early warning before delays compound",
-                body: "Identify risk early and adjust before delays cascade across trades and homes.",
-                highlight: true,
-              },
-            ].map((card, i) => (
-              <div
-                key={i}
-                className={
-                  card.highlight
-                    ? "rounded-2xl border border-gray-200 bg-gray-50 p-6 shadow-sm sm:p-8"
-                    : CARD_CLASS
-                }
-              >
-                <h3 className="text-lg font-semibold text-gray-900">{card.title}</h3>
-                <p className="mt-2 text-sm text-gray-600">{card.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* How It Works */}
-        <section id="how-it-works" className={`${SECTION_CLASS} bg-white`}>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            How it works
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Designed to fit into existing workflows.
-          </p>
-          <div className="relative mt-10 flex flex-col gap-8 lg:flex-row lg:gap-4">
-            <div
-              className="absolute top-6 left-[12.5%] right-[12.5%] z-0 hidden h-0.5 bg-gray-300 lg:block"
-              aria-hidden="true"
-            />
-            {[
-              { step: 1, title: "Build the schedule once", desc: "Define phases and work items once. Reuse across every home.", highlight: false },
-              { step: 2, title: "Supers schedule homes in minutes", desc: "Assign dates and contractors per home—no duplicate data entry.", highlight: true },
-              { step: 3, title: "Subcontractors confirm by text", desc: "Subs reply Y/N by SMS. Confirmations update automatically.", highlight: true },
-              { step: 4, title: "Managers track by exception", desc: "Dashboards surface what's behind so leaders focus only where needed.", highlight: false },
-            ].map((item) => (
-              <div key={item.step} className="relative z-10 flex flex-1 flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2563eb] text-lg font-bold text-white">
-                  {item.step}
+          <div className="mx-auto max-w-6xl">
+            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              A System That Controls the Field
+            </h2>
+            <p className="mt-4 text-base text-gray-600 sm:text-lg max-w-2xl">
+              Phase centralizes execution into one operating layer built specifically for residential construction.
+            </p>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { title: "Flow Mode", desc: "Daily action feed that tells your team exactly what needs to happen — before delays occur." },
+                { title: "Critical Path Forecasting", desc: "Working-day completion forecasts powered by dependencies and sequencing logic." },
+                { title: "Gates & Blocking", desc: "Tasks cannot start until predecessors are complete. No skipped steps." },
+                { title: "Smart Notifications", desc: "Real-time alerts when work is scheduled, confirmed, reported complete, or at risk." },
+                { title: "Subcontractor Panel", desc: "Trades see only their tasks, punch lists, and calendar. No clutter." },
+                { title: "SMS Confirmations", desc: "Send schedules in batch. Receive confirmations instantly." },
+                { title: "Punch Lists", desc: "Create, assign, batch send via SMS, and track verification — all structured." },
+                { title: "Live Calendar", desc: "Visualize every home, every task, every dependency." },
+                { title: "Management Dashboard", desc: "See forecast drift, reliability, and project health in real time." },
+                { title: "Plans Viewer", desc: "Access floor plans directly inside the system." },
+              ].map((item) => (
+                <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
+                  <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
                 </div>
-                <h3 className={`mt-4 text-gray-900 ${item.highlight ? "font-semibold" : "font-medium text-gray-800"}`}>
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Product Preview / Screens */}
-        <section id="screens" className={SECTION_CLASS}>
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            Built for the way you work
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Focused views for the field, management, and leadership.
-          </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
-            {[
-              { icon: ClipboardList, label: "Per-home schedule, always current", desc: "Per-home task list with dates and contractors—always aligned with the master schedule.", highlight: false },
-              { icon: CheckCircle2, label: "Confirmations built into every task", desc: "SMS status, confirm/decline, and reschedule—without chasing.", highlight: true },
-              { icon: LayoutDashboard, label: "Manager visibility in real time", desc: "On-track vs behind, with exception-based drilldowns.", highlight: false },
-              { icon: Shield, label: "Quality gates that prevent rework", desc: "Block progress until critical punchlists are completed and signed off.", highlight: true },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className={
-                  item.highlight
-                    ? "rounded-2xl border border-gray-200 bg-gray-50 p-6 shadow-sm sm:p-8"
-                    : CARD_CLASS
-                }
-              >
-                <item.icon className="h-10 w-10 text-primary" />
-                <h3 className="mt-4 font-semibold text-gray-900">{item.label}</h3>
-                <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
+              <p className="text-base font-medium text-gray-800">Everything lives in one place.</p>
+              <p className="mt-1 text-base text-gray-700">No spreadsheets. No scattered messages. No guesswork.</p>
+            </div>
           </div>
         </section>
 
         {/* Pricing */}
         <PricingSection />
 
-        {/* Philosophy band */}
-        <section className="bg-gray-50 py-10 md:py-14 mt-8">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl text-left">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
-                Built for real adoption
-              </p>
-              <p className="text-lg md:text-xl font-semibold text-gray-900 mb-3">
-                Built alongside active homebuilding teams.
-              </p>
-              <div className="space-y-2 text-base text-gray-700">
-                <p>Designed for real jobsite adoption.</p>
-                <p>Focused on flow, not paperwork.</p>
-              </div>
+        {/* White Label */}
+        <section id="white-label" className={`${SECTION_CLASS} bg-gray-50/80`}>
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Branded Experience — +$99/month
+            </h2>
+            <p className="mt-4 text-base text-gray-700 sm:text-lg">
+              Make Phase feel like your own internal system.
+            </p>
+            <ul className="mt-6 space-y-2 text-gray-700">
+              <li className="flex gap-2">• Your logo on login and dashboard</li>
+              <li className="flex gap-2">• Your primary brand color across the platform</li>
+              <li className="flex gap-2">• A unified experience for your team and subcontractors</li>
+            </ul>
+            <p className="mt-6 text-sm text-gray-600">Available on any plan.</p>
+          </div>
+        </section>
+
+        {/* Custom Development */}
+        <section id="custom" className={SECTION_CLASS}>
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Need More Than Software?
+            </h2>
+            <p className="mt-4 text-base text-gray-700 sm:text-lg">
+              For builders scaling operations or formalizing franchise systems, we offer tailored development:
+            </p>
+            <ul className="mt-6 space-y-2 text-gray-700">
+              <li className="flex gap-2">• Custom workflow logic</li>
+              <li className="flex gap-2">• Specialized reporting</li>
+              <li className="flex gap-2">• Operational automation</li>
+              <li className="flex gap-2">• Internal integrations</li>
+            </ul>
+            <p className="mt-6 text-base font-medium text-gray-900">
+              This is system engineering, not a feature add-on.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/contact"
+                className="min-h-[48px] inline-flex items-center justify-center rounded-xl border-2 border-gray-800 bg-transparent px-6 text-base font-semibold text-gray-800 hover:bg-gray-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2"
+              >
+                Request a Custom Quote
+              </Link>
             </div>
           </div>
         </section>
@@ -237,59 +200,46 @@ export function LandingPage() {
         {/* FAQ */}
         <section id="faq" className={SECTION_CLASS}>
           <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            Frequently asked questions
+            FAQ
           </h2>
-          <dl className="mt-10 space-y-8">
+          <Accordion type="single" collapsible className="mt-10">
             {[
-              {
-                q: "Who is Phase for?",
-                a: "Homebuilders and production builders who need reliable scheduling, subcontractor confirmations, and manager visibility without spreadsheets or constant calls.",
-              },
-              {
-                q: "Do subcontractors need an app?",
-                a: "No. Subcontractors confirm or decline via SMS. They can also use a simple web view (My Schedule) if you invite them.",
-              },
-              {
-                q: "How long does onboarding take?",
-                a: "Typically a few days to load your master schedule and homes. We work with you to match your phases and trade names.",
-              },
-              {
-                q: "Can it match our process?",
-                a: "Yes. Work items, phases, and contractor assignments are configurable. Critical gates and punch workflows can be modeled to match how you build.",
-              },
-              {
-                q: "Does it replace Procore or Buildertrend?",
-                a: "Phase is focused on scheduling and confirmations. It can complement project or ERP tools rather than replace them.",
-              },
-              {
-                q: "How secure is it?",
-                a: "Data is stored in a secure cloud. Access is role-based. We follow standard security practices and can discuss compliance if needed.",
-              },
-              {
-                q: "Can we start internal-only?",
-                a: "Yes. You can roll out to superintendents and managers first, then add subcontractor SMS and invite when ready.",
-              },
+              { q: "Is Phase only for large builders?", a: "No. It works for small teams and scaling operations alike." },
+              { q: "Do subcontractors need to pay?", a: "No. Subcontractor access is included in every plan." },
+              { q: "Do I pay per superintendent or user?", a: "No per-seat pricing. Add your entire team." },
+              { q: "Is this just a task manager?", a: "No. Phase enforces sequencing, dependencies, and forecast logic." },
+              { q: "Will my subcontractors use it?", a: "Yes. They see only their tasks, calendar, and punch lists." },
+              { q: "Is there a contract?", a: "No long-term contracts. Start with a 30-day free trial." },
             ].map((faq, i) => (
-              <div key={i}>
-                <dt className="text-base font-semibold text-gray-900">{faq.q}</dt>
-                <dd className="mt-2 text-sm text-gray-600">{faq.a}</dd>
-              </div>
+              <AccordionItem key={i} value={`faq-${i}`}>
+                <AccordionTrigger className="text-left">{faq.q}</AccordionTrigger>
+                <AccordionContent className="text-gray-600">{faq.a}</AccordionContent>
+              </AccordionItem>
             ))}
-          </dl>
+          </Accordion>
         </section>
 
         {/* Final CTA */}
         <section className={`${SECTION_CLASS} bg-white`}>
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              See how Phase would run your builds.
+              Run Your Field Like a System.
             </h2>
+            <div className="mt-6 space-y-2 text-base text-gray-700">
+              <p>When execution improves, cycle time improves.</p>
+              <p>When visibility improves, stress decreases.</p>
+              <p>When coordination improves, builds move faster.</p>
+            </div>
+            <p className="mt-6 text-lg font-semibold text-gray-900">
+              Stop managing around the chaos.<br />
+              Start operating with discipline.
+            </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center">
               <Link
                 href="/start-trial"
                 className="min-h-[48px] inline-flex items-center justify-center rounded-xl bg-[#2563eb] px-6 text-base font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
               >
-                Start 30-day free trial
+                Start Your 30-Day Free Trial
               </Link>
               <Link
                 href="/auth/signin"
@@ -298,6 +248,10 @@ export function LandingPage() {
                 Login Area
               </Link>
             </div>
+            <p className="mt-4 text-sm text-gray-500">
+              All features included. Upgrade anytime.<br />
+              Keep your builds moving.
+            </p>
           </div>
         </section>
       </main>
