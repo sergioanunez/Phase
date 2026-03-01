@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { signIn } from "next-auth/react"
+import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -96,6 +96,8 @@ export default function StartTrialPage() {
         setLoading(false)
         return
       }
+      // Refetch session so client has updated user.companyId before navigating
+      await getSession()
       router.push(provisionData.redirectTo ?? "/homes")
       router.refresh()
     } catch (err) {

@@ -11,6 +11,7 @@ type BillingStatus = {
   trialActive: boolean
   remainingTrialDays: number | null
   activeHomesCount: number
+  canRestoreTrial?: boolean
 }
 
 export function TrialBanner() {
@@ -41,6 +42,7 @@ export function TrialBanner() {
           remainingTrialDays:
             typeof data.remainingTrialDays === "number" ? data.remainingTrialDays : null,
           activeHomesCount: data.activeHomesCount ?? 0,
+          canRestoreTrial: !!data.canRestoreTrial,
         }
         const dismissKey = `trial-banner-dismissed:${state.tenantId}`
         const dismissedRaw =
@@ -57,6 +59,39 @@ export function TrialBanner() {
         // ignore errors
       })
   }, [pathname, status, session])
+
+  const showRestoreTrial =
+    pathname &&
+    !pathname.startsWith("/super-admin") &&
+    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    !hidden &&
+    billing &&
+    billing.canRestoreTrial
+
+  if (showRestoreTrial) {
+    const handleRestoreTrial = async () => {
+      try {
+        const res = await fetch("/api/trial/ensure-trial", { method: "POST", credentials: "same-origin" })
+        if (res.ok) window.location.reload()
+      } catch {
+        // ignore
+      }
+    }
+    return (
+      <div className="border-b border-amber-200 bg-amber-50 text-sm text-slate-800">
+        <div className="app-header-nav-width mx-auto flex flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-6 md:px-8">
+          <span>Signed up for a free trial but don&apos;t see it?</span>
+          <button
+            type="button"
+            className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700"
+            onClick={handleRestoreTrial}
+          >
+            Restore trial status
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (
     !pathname ||

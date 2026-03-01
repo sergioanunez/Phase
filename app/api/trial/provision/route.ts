@@ -95,7 +95,25 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      return { companyId: company.id }
+      return { companyId: company.id, trialStartsAt, trialEndsAt }
+    })
+
+    // Ensure trial fields are set (self-heal if anything was missing)
+    const trialStartsAt = result.trialStartsAt ?? new Date()
+    const trialEndsAt =
+      result.trialEndsAt ?? (() => {
+        const end = new Date(trialStartsAt)
+        end.setDate(end.getDate() + 30)
+        return end
+      })()
+    await prisma.company.update({
+      where: { id: result.companyId },
+      data: {
+        status: "TRIAL",
+        subscriptionStatus: "trialing",
+        trialStartsAt,
+        trialEndsAt,
+      },
     })
 
     return NextResponse.json({

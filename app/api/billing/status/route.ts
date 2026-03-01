@@ -25,6 +25,7 @@ export async function GET() {
           trialStartsAt: true,
           trialEndsAt: true,
           planKey: true,
+          stripeSubscriptionId: true,
         },
       }),
       getTenantUsage(prisma, tenantId),
@@ -35,8 +36,16 @@ export async function GET() {
     }
 
     const now = new Date()
-    const trialEndsAt = company.trialEndsAt ?? null
     const subscriptionStatus = company.subscriptionStatus ?? null
+    const isTrialingStatus = subscriptionStatus === "trialing"
+    // Treat company.status === "TRIAL" as trialing so trial UI shows even if subscriptionStatus wasn't set
+    const isTrialCompany = company.status === "TRIAL" || isTrialingStatus
+    let trialEndsAt = company.trialEndsAt ?? null
+    if (!trialEndsAt && isTrialCompany && company.trialStartsAt) {
+      const end = new Date(company.trialStartsAt)
+      end.setDate(end.getDate() + 30)
+      trialEndsAt = end
+    }
 
     let remainingTrialDays: number | null = null
     let trialActive = false
@@ -44,9 +53,9 @@ export async function GET() {
     if (trialEndsAt) {
       const msRemaining = trialEndsAt.getTime() - now.getTime()
       remainingTrialDays = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)))
-      trialActive = subscriptionStatus === "trialing" && msRemaining > 0
-      trialExpired = subscriptionStatus === "trialing" && msRemaining <= 0
-    } else if (subscriptionStatus === "trialing") {
+      trialActive = isTrialCompany && msRemaining > 0
+      trialExpired = isTrialCompany && msRemaining <= 0
+    } else if (isTrialCompany) {
       trialExpired = true
     }
 
@@ -58,10 +67,16 @@ export async function GET() {
       pricePerMonth: PLAN_PRICES[recommendedKey],
     }
 
+    // So trial banner shows: when we treat as trial company, expose as trialing
+    const effectiveSubscriptionStatus = isTrialCompany ? "trialing" : subscriptionStatus
+    const canRestoreTrial =
+      company.status !== "TRIAL" && !subscriptionStatus && !company.stripeSubscriptionId
+
     return NextResponse.json({
       tenantId,
-      subscriptionStatus,
+      subscriptionStatus: effectiveSubscriptionStatus,
       companyStatus: company.status,
+      canRestoreTrial,
       trialStartsAt: company.trialStartsAt,
       trialEndsAt,
       remainingTrialDays,
