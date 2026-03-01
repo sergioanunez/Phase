@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Calendar, MessageSquare } from "lucide-react"
 import { LandingNav } from "./landing-nav"
 import { LandingFooter } from "./landing-footer"
 import { PricingSection } from "./pricing-section"
