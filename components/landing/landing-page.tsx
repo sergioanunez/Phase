@@ -125,7 +125,8 @@ export function LandingPage() {
             <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { title: "Flow Mode", desc: "Daily action feed that tells your team exactly what needs to happen — before delays occur." },
-                { title: "Critical Path Forecasting", desc: "Working-day completion forecasts powered by dependencies and sequencing logic." },
+                { title: "Critical Path Forecasting", desc: "Working-day completion forecasts powered by dependencies and sequencing logic.", supportingLine: "Deterministic at its core. Enhanced with intelligent insights." },
+                { title: "AI Risk & Schedule Insights", desc: "Surface delay risks, forecast drift, and sequencing issues using intelligent analysis layered on top of deterministic scheduling logic." },
                 { title: "Gates & Blocking", desc: "Tasks cannot start until predecessors are complete. No skipped steps." },
                 { title: "Smart Notifications", desc: "Real-time alerts when work is scheduled, confirmed, reported complete, or at risk." },
                 { title: "Subcontractor Panel", desc: "Trades see only their tasks, punch lists, and calendar. No clutter." },
@@ -138,6 +139,9 @@ export function LandingPage() {
                 <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                   <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
                   <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
+                  {"supportingLine" in item && item.supportingLine && (
+                    <p className="mt-2 text-xs text-gray-500">{item.supportingLine}</p>
+                  )}
                 </div>
               ))}
             </div>

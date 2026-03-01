@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Sparkles, X, Send } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
+
+const MARKETING_PATHS = ["/", "/contact", "/start-trial"]
 
 interface Message {
   role: "user" | "assistant"
@@ -13,12 +16,17 @@ interface Message {
 }
 
 export function AIAssistant() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { data: session } = useSession()
+
+  if (pathname && MARKETING_PATHS.includes(pathname)) {
+    return null
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
