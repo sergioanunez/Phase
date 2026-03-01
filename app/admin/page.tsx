@@ -163,7 +163,6 @@ export default function AdminPage() {
   const [editingTemplateDuration, setEditingTemplateDuration] = useState("")
   const [editingTemplateOrder, setEditingTemplateOrder] = useState("")
   const [editingTemplateCategory, setEditingTemplateCategory] = useState("")
-  const [editingTemplatePrepLeadDays, setEditingTemplatePrepLeadDays] = useState("")
   const [editingTemplateRequiresOrdering, setEditingTemplateRequiresOrdering] = useState(false)
   const [editingTemplateMaterialLeadDays, setEditingTemplateMaterialLeadDays] = useState("")
   const [editingTemplateContractorId, setEditingTemplateContractorId] = useState("")
@@ -848,7 +847,6 @@ export default function AdminPage() {
     setEditingTemplateDuration(template.defaultDurationDays.toString())
     setEditingTemplateOrder(template.sortOrder.toString())
     setEditingTemplateCategory(template.optionalCategory || "")
-    setEditingTemplatePrepLeadDays((template.prepLeadDays ?? 0).toString())
     setEditingTemplateRequiresOrdering(template.requiresOrdering ?? false)
     setEditingTemplateMaterialLeadDays((template.materialLeadDays ?? 0).toString())
     setEditingTemplateContractorId(template.contractorId ?? "")
@@ -862,7 +860,6 @@ export default function AdminPage() {
     setEditingTemplateDuration("")
     setEditingTemplateOrder("")
     setEditingTemplateCategory("")
-    setEditingTemplatePrepLeadDays("")
     setEditingTemplateRequiresOrdering(false)
     setEditingTemplateMaterialLeadDays("")
     setEditingTemplateContractorId("")
@@ -885,12 +882,6 @@ export default function AdminPage() {
     const order = parseInt(editingTemplateOrder)
     if (isNaN(order)) {
       alert("Order must be a number")
-      return
-    }
-
-    const prepLeadDays = parseInt(editingTemplatePrepLeadDays)
-    if (editingTemplatePrepLeadDays !== "" && (isNaN(prepLeadDays) || prepLeadDays < 0)) {
-      alert("Prep lead days must be 0 or greater")
       return
     }
 
@@ -919,7 +910,6 @@ export default function AdminPage() {
         defaultDurationDays: duration,
         sortOrder: order,
         optionalCategory: editingTemplateCategory.trim() || null,
-        prepLeadDays: editingTemplatePrepLeadDays === "" ? 0 : prepLeadDays,
         requiresOrdering: editingTemplateRequiresOrdering,
         materialLeadDays: editingTemplateRequiresOrdering ? (editingTemplateMaterialLeadDays === "" ? 0 : materialLeadDays) : 0,
         contractorId: editingTemplateContractorId.trim() || null,
@@ -938,7 +928,6 @@ export default function AdminPage() {
         setEditingTemplateDuration("")
         setEditingTemplateOrder("")
         setEditingTemplateCategory("")
-        setEditingTemplatePrepLeadDays("")
         setEditingTemplateRequiresOrdering(false)
         setEditingTemplateMaterialLeadDays("")
         setEditingTemplateContractorId("")
@@ -1962,17 +1951,6 @@ export default function AdminPage() {
                                 </div>
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-border">
-                                <div>
-                                  <label className="text-xs text-muted-foreground mb-1 block">Prep lead (days)</label>
-                                  <input
-                                    type="number"
-                                    value={editingTemplatePrepLeadDays}
-                                    onChange={(e) => setEditingTemplatePrepLeadDays(e.target.value)}
-                                    className="w-full px-2 py-1 border rounded-md text-sm"
-                                    placeholder="0"
-                                    min="0"
-                                  />
-                                </div>
                                 <div className="flex items-end gap-2">
                                   <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                                     <input
@@ -2058,9 +2036,6 @@ export default function AdminPage() {
                               )}
                               {template.contractor && (
                                 <span>Contractor: {template.contractor.companyName}{template.contractor.trade ? ` (${template.contractor.trade})` : ""}</span>
-                              )}
-                              {(template.prepLeadDays ?? 0) > 0 && (
-                                <span>Prep lead: {template.prepLeadDays} days</span>
                               )}
                               {template.requiresOrdering && (
                                 <span>Ordering • Material lead: {template.materialLeadDays ?? 0}d</span>

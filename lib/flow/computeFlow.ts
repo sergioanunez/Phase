@@ -238,11 +238,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           ? template.contractorLeadOverrideDays
           : template.contractor?.leadDays ?? 0
       const materialLead = template.requiresOrdering ? (template.materialLeadDays ?? 0) : 0
-      const prepLeadDays = Math.max(
-        template.prepLeadDays ?? 0,
-        contractorLeadDays,
-        materialLead
-      )
+      const prepLeadDays = Math.max(contractorLeadDays, materialLead)
       const leadTimeSource: "contractor" | "override" | "unassigned" =
         template.contractorLeadOverrideDays != null
           ? "override"
