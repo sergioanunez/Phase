@@ -18,7 +18,8 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, Info } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search } from "lucide-react"
+import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
@@ -1658,8 +1659,8 @@ export default function AdminPage() {
 
           <TabsContent value="work-templates" className="space-y-8">
             {/* Work Items Template Section */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Work Items Template</h2>
+            <div className="mx-auto max-w-3xl px-4 sm:px-6 pt-1">
+              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Work Items Template</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 These are the work items that will be automatically created for each new home.
               </p>
@@ -1677,10 +1678,10 @@ export default function AdminPage() {
                   aria-label="Search work items or category"
                 />
               </div>
-              <div className="flex gap-2 flex-wrap mb-6">
+              <div className="flex flex-wrap gap-2 mb-6">
                 <Button
                   onClick={() => setCreateTemplateOpen(true)}
-                  variant="outline"
+                  variant="default"
                   size="sm"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -1784,27 +1785,33 @@ export default function AdminPage() {
 
                 return (
                   <>
-                  <Accordion type="multiple" className="w-full">
+                  <Accordion type="multiple" className="w-full space-y-3">
                     {sortedCategories.map((category) => {
                       const categoryTemplates = filteredByCategory[category]
                       // Sort templates within category by sortOrder
                       const sortedTemplates = [...categoryTemplates].sort((a, b) => a.sortOrder - b.sortOrder)
+                      const durationDays = categoryDurations[category]
+                      const durationLabel = durationDays === null ? "—" : `${durationDays} working days`
 
                       return (
-                        <AccordionItem key={category} value={category}>
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center justify-between w-full pr-4">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">
+                        <AccordionItem
+                          key={category}
+                          value={category}
+                          className="rounded-md border border-gray-200 border-l-4 border-l-gray-300 bg-white transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/20 dark:hover:bg-gray-900/30 border-b-0"
+                        >
+                          <AccordionTrigger className="hover:no-underline py-4 px-4 [&>svg]:shrink-0">
+                            <div className="flex flex-wrap items-center justify-between gap-2 w-full pr-2 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="font-semibold text-gray-900 dark:text-gray-100 text-left break-words">
                                   {category.replace(/Prelliminary/gi, "Preliminary")}
                                 </span>
                                 {categoryGates.some((gate) => gate.categoryName === category) && (
-                                  <span className="text-xs bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400 px-2 py-1 rounded">
+                                  <span className="text-xs bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-400 px-2 py-1 rounded shrink-0">
                                     Gate
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <Button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -1812,9 +1819,10 @@ export default function AdminPage() {
                                   }}
                                   variant="ghost"
                                   size="sm"
-                                  className={categoryGates.some((gate) => gate.categoryName === category)
-                                    ? "text-orange-600 hover:text-orange-700 dark:text-orange-400"
-                                    : "text-muted-foreground hover:text-foreground"
+                                  className={
+                                    categoryGates.some((gate) => gate.categoryName === category)
+                                      ? "min-h-[36px] min-w-[36px] sm:min-h-9 sm:min-w-9 p-0 text-orange-600 hover:text-orange-700 dark:text-orange-400"
+                                      : "min-h-[36px] min-w-[36px] sm:min-h-9 sm:min-w-9 p-0 text-muted-foreground hover:text-foreground"
                                   }
                                   title={categoryGates.some((gate) => gate.categoryName === category)
                                     ? "Remove category gate (all tasks in this category must be completed before next category)"
@@ -1823,10 +1831,8 @@ export default function AdminPage() {
                                 >
                                   <Lock className={`h-4 w-4 ${categoryGates.some((gate) => gate.categoryName === category) ? "fill-current" : ""}`} />
                                 </Button>
-                                <span className="text-sm text-muted-foreground">
-                                  ({categoryTemplates.length} item{categoryTemplates.length !== 1 ? "s" : ""})
-                                  {" • "}
-                                  {categoryDurations[category] === null ? "—" : `${categoryDurations[category]}d`}
+                                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                  {categoryTemplates.length} items · {durationLabel}
                                 </span>
                               </div>
                             </div>
@@ -2177,19 +2183,12 @@ export default function AdminPage() {
                       )
                     })}
                   </Accordion>
-                  <div className="sticky bottom-0 mt-4 border-t border-border rounded-md bg-muted/50 px-4 py-3 text-base font-semibold text-foreground">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2">
-                        Project Duration (Template Total): {projectTotalDays} working days
-                        <span
-                          className="inline-flex text-muted-foreground"
-                          title="This is the sum of all template task durations. Actual forecast duration may differ based on dependencies."
-                        >
-                          <Info className="h-4 w-4" />
-                        </span>
-                      </span>
-                    </div>
-                  </div>
+                  <TemplateSummaryCard
+                    totalWorkingDays={projectTotalDays}
+                    totalWorkItems={templates.length}
+                    categoryCount={sortedCategories.length}
+                    infoTitle="This is the sum of all template task durations. Actual forecast duration may differ based on dependencies."
+                  />
                   </>
                 )
               })()}
