@@ -36,6 +36,7 @@ export async function getTenantEntitlements(
       maxActiveHomes: true,
       entitlementsJson: true,
       brandAppName: true,
+      pricingTier: true,
     },
   })
   if (!company) {
@@ -63,7 +64,10 @@ export async function getTenantEntitlements(
         ? null
         : fromJson.maxUsers
       : null
-  const whiteLabelEnabled = fromJson?.whiteLabelEnabled ?? !!company.brandAppName
+  // White label is only enabled when pricing tier is WHITE_LABEL (super admin can downgrade tier).
+  const whiteLabelFromEntitlements = fromJson?.whiteLabelEnabled ?? !!company.brandAppName
+  const whiteLabelEnabled =
+    company.pricingTier === "WHITE_LABEL" ? whiteLabelFromEntitlements : false
 
   return {
     maxActiveHomes,
