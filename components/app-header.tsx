@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import logoImage from "../public/logo.png"
 import { UserMenu } from "@/components/user-menu"
+import { TrialBanner } from "@/components/billing/trial-banner"
 import { getTenantBrandColor } from "@/lib/tenant/theme"
 
 type Branding = {
@@ -65,6 +66,7 @@ export function AppHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm">
+      <TrialBanner />
       <div className="app-header-nav-width mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 md:px-8">
         <Link href={logoHref} className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
           {useCustomLogo ? (
