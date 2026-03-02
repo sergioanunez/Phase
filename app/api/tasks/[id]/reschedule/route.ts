@@ -123,7 +123,6 @@ export async function POST(
 
     await createAuditLog(user.id, "HomeTask", params.id, "UPDATE", before, after, before.home.companyId ?? undefined)
 
-    const companyId = before.home.companyId
     if (companyId) {
       const { notifyTaskRescheduled } = await import("@/lib/notificationRules")
       await notifyTaskRescheduled({
