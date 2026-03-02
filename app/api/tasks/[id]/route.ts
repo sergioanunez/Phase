@@ -159,6 +159,21 @@ export async function PATCH(
 
     // Check for dependency blocking and gate blocking before allowing scheduling
     if (data.scheduledDate !== undefined && data.scheduledDate) {
+      if (ctx.companyId) {
+        const { getBillingGates, UPGRADE_TITLE, UPGRADE_BODY } = await import("@/lib/billing/entitlements")
+        const gates = await getBillingGates(prisma, ctx.companyId)
+        if (!gates.canScheduleTasks) {
+          return NextResponse.json(
+            {
+              error: UPGRADE_BODY,
+              code: "TRIAL_ENDED",
+              upgradeHint: "/admin/billing",
+              title: UPGRADE_TITLE,
+            },
+            { status: 403 }
+          )
+        }
+      }
       // Check template-level dependencies mapped onto this home's tasks
       const currentTaskWithTemplate = await prisma.homeTask.findUnique({
         where: { id: params.id },

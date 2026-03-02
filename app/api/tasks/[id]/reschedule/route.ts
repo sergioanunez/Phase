@@ -41,6 +41,21 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
+    const companyId = before.home.companyId
+    const { getBillingGates, UPGRADE_TITLE, UPGRADE_BODY } = await import("@/lib/billing/entitlements")
+    const gates = await getBillingGates(prisma, companyId)
+    if (!gates.canScheduleTasks) {
+      return NextResponse.json(
+        {
+          error: UPGRADE_BODY,
+          code: "TRIAL_ENDED",
+          upgradeHint: "/admin/billing",
+          title: UPGRADE_TITLE,
+        },
+        { status: 403 }
+      )
+    }
+
     // Only allow rescheduling for Scheduled or Confirmed tasks
     if (before.status !== "Scheduled" && before.status !== "Confirmed") {
       return NextResponse.json(

@@ -126,6 +126,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createHomeSchema.parse(body)
 
+    const { getBillingGates, UPGRADE_TITLE, UPGRADE_BODY } = await import("@/lib/billing/entitlements")
+    const gates = await getBillingGates(prisma, ctx.companyId!)
+    if (!gates.canCreateHomes) {
+      return NextResponse.json(
+        { error: UPGRADE_BODY, code: "TRIAL_ENDED", upgradeHint: "/admin/billing", title: UPGRADE_TITLE },
+        { status: 403 }
+      )
+    }
+
     const company = await prisma.company.findFirst({
       where: { id: ctx.companyId },
       select: { status: true },

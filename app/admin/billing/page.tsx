@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -8,6 +8,7 @@ import { Navigation } from "@/components/navigation"
 import { SettingsNav } from "@/components/settings-nav"
 import { CreditCard, Loader2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { recommendPlan } from "@/lib/billing/recommendation"
 
 const BILLING_PATH = "/admin/billing"
 
@@ -136,6 +137,18 @@ export default function AdminBillingPage() {
 
   const success = searchParams.get("success") === "1"
   const canceled = searchParams.get("canceled") === "1"
+  const highlightPlanKey = searchParams.get("highlight") ?? null
+  const plansSectionRef = useRef<HTMLDivElement>(null)
+  const recommendedPlanKey =
+    usage != null ? recommendPlan(usage.activeHomesCount) : null
+
+  useEffect(() => {
+    if (!highlightPlanKey || !plansSectionRef.current || !data?.plans?.length) return
+    const el = document.getElementById(`plan-card-${highlightPlanKey}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [highlightPlanKey, data?.plans?.length])
 
   if (status === "loading" || !session?.user) {
     return (
@@ -303,11 +316,12 @@ export default function AdminBillingPage() {
               </section>
             )}
 
-            <section>
+            <section ref={plansSectionRef}>
               <h2 className="text-sm font-medium text-foreground mb-3">Plans</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan) => {
                   const isCurrent = subscription?.planKey === plan.planKey
+                  const isRecommended = recommendedPlanKey === plan.planKey && !isCurrent
                   const canSubscribe = !!plan.stripePriceId
                   const planOrder = ["starter", "growth", "scale"] as const
                   const currentIdx = subscription?.planKey ? planOrder.indexOf(subscription.planKey as any) : -1
@@ -321,9 +335,17 @@ export default function AdminBillingPage() {
                   return (
                     <div
                       key={plan.planKey}
-                      className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col"
+                      id={`plan-card-${plan.planKey}`}
+                      className={`rounded-xl border bg-white p-5 flex flex-col ${highlightPlanKey === plan.planKey ? "border-primary ring-2 ring-primary/20" : "border-gray-200"}`}
                     >
-                      <div className="font-semibold">{plan.label}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{plan.label}</span>
+                        {isRecommended && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
                       <div className="text-lg font-semibold text-primary mt-1">{plan.priceLabel}</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {plan.maxActiveHomes == null ? "Unlimited" : `${plan.maxActiveHomes} active homes`}

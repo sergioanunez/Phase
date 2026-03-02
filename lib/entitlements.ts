@@ -159,6 +159,18 @@ export async function canCreateHome(
     select: { status: true },
   })
   if (!company) return { allowed: false, error: "Company not found" }
+
+  const { getBillingGates } = await import("@/lib/billing/entitlements")
+  const gates = await getBillingGates(prisma, tenantId)
+  if (!gates.canCreateHomes) {
+    return {
+      allowed: false,
+      error:
+        "Your trial has ended. Upgrade to schedule tasks, create punchlists, and add homes or subdivisions.",
+      upgradeHint: "/admin/billing",
+    }
+  }
+
   const subStatus = company.status
   if (subStatus !== "ACTIVE" && subStatus !== "TRIAL") {
     return {

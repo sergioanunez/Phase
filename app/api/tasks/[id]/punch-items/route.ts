@@ -136,6 +136,20 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
+    const { getBillingGates, UPGRADE_TITLE, UPGRADE_BODY } = await import("@/lib/billing/entitlements")
+    const gates = await getBillingGates(prisma, task.home.companyId)
+    if (!gates.canCreatePunchlists) {
+      return NextResponse.json(
+        {
+          error: UPGRADE_BODY,
+          code: "TRIAL_ENDED",
+          upgradeHint: "/admin/billing",
+          title: UPGRADE_TITLE,
+        },
+        { status: 403 }
+      )
+    }
+
     // Create punch item in a transaction to update task counts
     const result = await prisma.$transaction(async (tx) => {
       const punchItem = await tx.punchItem.create({

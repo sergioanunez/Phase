@@ -4,70 +4,28 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { X } from "lucide-react"
-
-type BillingStatus = {
-  tenantId: string
-  subscriptionStatus: string | null
-  trialActive: boolean
-  remainingTrialDays: number | null
-  activeHomesCount: number
-  canRestoreTrial?: boolean
-}
+import { useBillingStatus } from "@/lib/billing/useBillingStatus"
+import { getTrialBannerMiddleText } from "@/lib/billing/trial-copy"
 
 export function TrialBanner() {
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const router = useRouter()
-  const [billing, setBilling] = useState<BillingStatus | null>(null)
+  const { billing, error: billingError } = useBillingStatus()
   const [hidden, setHidden] = useState(false)
-  const [billingError, setBillingError] = useState(false)
 
   useEffect(() => {
-    if (!pathname) return
-    if (pathname.startsWith("/auth") || pathname === "/" || pathname === "/contact") return
-    if (pathname.startsWith("/super-admin")) {
-      setBilling(null)
-      setBillingError(false)
-      return
+    if (!billing?.tenantId) return
+    const dismissKey = `trial-banner-dismissed:${billing.tenantId}`
+    const dismissedRaw =
+      typeof window !== "undefined" ? window.localStorage.getItem(dismissKey) : null
+    if (dismissedRaw) {
+      const ts = Number(dismissedRaw)
+      if (!Number.isNaN(ts) && Date.now() - ts < 24 * 60 * 60 * 1000) {
+        setHidden(true)
+      }
     }
-    if (status !== "authenticated") return
-    if (!session?.user || (session.user as { role?: string }).role === "SUPER_ADMIN") return
-
-    setBillingError(false)
-    fetch("/api/billing/status", { credentials: "same-origin" })
-      .then((res) => {
-        if (!res.ok) {
-          if (res.status === 403) setBillingError(true)
-          return null
-        }
-        return res.json()
-      })
-      .then((data) => {
-        if (!data) return
-        const state: BillingStatus = {
-          tenantId: data.tenantId,
-          subscriptionStatus: data.subscriptionStatus ?? null,
-          trialActive: !!data.trialActive,
-          remainingTrialDays:
-            typeof data.remainingTrialDays === "number" ? data.remainingTrialDays : null,
-          activeHomesCount: data.activeHomesCount ?? 0,
-          canRestoreTrial: !!data.canRestoreTrial,
-        }
-        const dismissKey = `trial-banner-dismissed:${state.tenantId}`
-        const dismissedRaw =
-          typeof window !== "undefined" ? window.localStorage.getItem(dismissKey) : null
-        if (dismissedRaw) {
-          const ts = Number(dismissedRaw)
-          if (!Number.isNaN(ts) && Date.now() - ts < 24 * 60 * 60 * 1000) {
-            setHidden(true)
-          }
-        }
-        setBilling(state)
-      })
-      .catch(() => {
-        setBillingError(true)
-      })
-  }, [pathname, status, session])
+  }, [billing?.tenantId])
 
   const showRestoreTrial =
     pathname &&
@@ -84,6 +42,14 @@ export function TrialBanner() {
     !hidden &&
     billingError &&
     !billing
+
+  const showTrialBanner =
+    pathname &&
+    !pathname.startsWith("/super-admin") &&
+    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    !hidden &&
+    billing &&
+    ((billing.isTrialing && !billing.trialExpired) || (billing.trialExpired && !billing.subscriptionActive))
 
   if (showRestoreTrial) {
     const handleRestoreTrial = async () => {
@@ -139,27 +105,23 @@ export function TrialBanner() {
     )
   }
 
-  if (
-    !pathname ||
-    pathname.startsWith("/super-admin") ||
-    (session?.user as { role?: string } | undefined)?.role === "SUPER_ADMIN" ||
-    hidden ||
-    !billing ||
-    billing.subscriptionStatus !== "trialing" ||
-    !billing.trialActive ||
-    billing.remainingTrialDays == null
-  ) {
-    return null
-  }
+  if (!showTrialBanner || !billing) return null
 
-  const { remainingTrialDays, activeHomesCount, tenantId } = billing
-  const urgent = remainingTrialDays <= 7
+  const { daysRemaining, trialExpired, activeHomesCount, tenantId, recommendedPlanKey } = billing
+  const dynamicMiddle = getTrialBannerMiddleText(daysRemaining, trialExpired)
+  const ctaLabel = trialExpired && !billing.subscriptionActive ? "Upgrade" : "View plan"
+  const highlight = recommendedPlanKey ? `?highlight=${encodeURIComponent(recommendedPlanKey)}` : ""
+  const urgent = (daysRemaining ?? 0) <= 7 || trialExpired
 
   const handleDismiss = () => {
     setHidden(true)
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && tenantId) {
       window.localStorage.setItem(`trial-banner-dismissed:${tenantId}`, String(Date.now()))
     }
+  }
+
+  const handleCta = () => {
+    router.push(`/admin/billing${highlight}`)
   }
 
   return (
@@ -171,12 +133,10 @@ export function TrialBanner() {
       <div className="app-header-nav-width mx-auto flex flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-6 md:px-8">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-700">
-            Trial
+            TRIAL
           </span>
           <span>
-            <span className="font-medium">
-              {remainingTrialDays} day{remainingTrialDays === 1 ? "" : "s"} left
-            </span>
+            <span className="font-medium">{dynamicMiddle}</span>
             {activeHomesCount > 0 && (
               <span className="ml-2 text-slate-700">
                 · {activeHomesCount} active home{activeHomesCount === 1 ? "" : "s"}
@@ -188,16 +148,9 @@ export function TrialBanner() {
           <button
             type="button"
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-            onClick={() => router.push("/admin/billing")}
+            onClick={handleCta}
           >
-            Choose plan
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-transparent px-3 py-1.5 text-xs font-semibold text-primary hover:underline"
-            onClick={() => router.push("/#pricing")}
-          >
-            View pricing
+            {ctaLabel}
           </button>
           <button
             type="button"

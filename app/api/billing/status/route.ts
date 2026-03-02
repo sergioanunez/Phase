@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { recommendPlan, PLAN_LIMITS, PLAN_PRICES, type BillingPlanKey } from "@/lib/billing/recommendation"
+import { recommendPlan, getRecommendedPlanLabel, PLAN_LIMITS, PLAN_PRICES, type BillingPlanKey } from "@/lib/billing/recommendation"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -63,6 +63,7 @@ export async function GET() {
     const recommendedKey: BillingPlanKey = recommendPlan(activeHomesCount)
     const recommended = {
       planKey: recommendedKey,
+      recommendedPlanLabel: getRecommendedPlanLabel(recommendedKey),
       maxActiveHomes: PLAN_LIMITS[recommendedKey],
       pricePerMonth: PLAN_PRICES[recommendedKey],
     }
@@ -76,6 +77,7 @@ export async function GET() {
       tenantId,
       subscriptionStatus: effectiveSubscriptionStatus,
       companyStatus: company.status,
+      planKey: company.planKey ?? null,
       canRestoreTrial,
       trialStartsAt: company.trialStartsAt,
       trialEndsAt,
