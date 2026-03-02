@@ -140,7 +140,7 @@ export default function AdminBillingPage() {
   const highlightPlanKey = searchParams.get("highlight") ?? null
   const plansSectionRef = useRef<HTMLDivElement>(null)
   const recommendedPlanKey =
-    usage != null ? recommendPlan(usage.activeHomesCount) : null
+    data?.usage != null ? recommendPlan(data.usage.activeHomesCount) : null
 
   useEffect(() => {
     if (!highlightPlanKey || !plansSectionRef.current || !data?.plans?.length) return
