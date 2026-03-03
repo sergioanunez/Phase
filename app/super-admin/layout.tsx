@@ -4,7 +4,7 @@ import { signOut, useSession } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
 import Link from "next/link"
-import { LayoutDashboard, Building2, MessageSquare, FileText, Loader2, LogOut } from "lucide-react"
+import { LayoutDashboard, Building2, MessageSquare, FileText, Loader2, LogOut, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 
@@ -41,6 +41,7 @@ export default function SuperAdminLayout({
     { href: "/super-admin/companies", label: "Companies", icon: Building2 },
     { href: "/super-admin/sms", label: "SMS Health", icon: MessageSquare },
     { href: "/super-admin/audit", label: "Audit Logs", icon: FileText },
+    { href: "/super-admin/account", label: "Account", icon: User },
   ]
 
   return (
