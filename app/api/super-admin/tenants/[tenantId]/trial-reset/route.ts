@@ -81,10 +81,16 @@ export async function POST(
       )
     }
 
-    const updateData: any = {
-      trialStartsAt: newTrialStartsAt,
+    const updateData: {
+      trialStartsAt: Date | null
+      trialEndsAt: Date
+      trialResetCount: { increment: number }
+      lastTrialResetAt: Date
+      status?: "TRIAL"
+    } = {
+      trialStartsAt: newTrialStartsAt ?? null,
       trialEndsAt: newTrialEndsAt,
-      trialResetCount: (company.trialResetCount ?? 0) + 1,
+      trialResetCount: { increment: 1 },
       lastTrialResetAt: now,
     }
 
