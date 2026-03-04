@@ -12,6 +12,7 @@ import { TaskModal } from "@/components/task-modal"
 import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
+import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
@@ -566,39 +567,18 @@ export default function HomeDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Timeline */}
+        {/* Timeline: Start / Forecast / Target in chronological order */}
         {home.startDate && (home.forecastCompletionDate || home.targetCompletionDate) && (
           <Card className="mb-4">
             <CardContent className="relative p-5">
-              <div className="relative flex items-end justify-between">
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Start</span>
-                  <span className="mt-1 text-sm font-semibold">{format(new Date(home.startDate), "MMM d")}</span>
-                  <div className="relative z-10 mt-2 h-3 w-3 rounded-full bg-green-500" />
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Forecast</span>
-                  <span className="mt-1 text-sm font-semibold">
-                    {home.forecastCompletionDate
-                      ? (format(new Date(home.forecastCompletionDate), "yyyy-MM-dd") === format(today, "yyyy-MM-dd")
-                        ? "Today"
-                        : format(new Date(home.forecastCompletionDate), "MMM d"))
-                      : "—"}
-                  </span>
-                  <div className="relative z-10 mt-2 h-3 w-3 rounded-full bg-green-500" />
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Target</span>
-                  <span className="mt-1 text-sm font-semibold">
-                    {home.targetCompletionDate ? format(new Date(home.targetCompletionDate), "MMM d") : "—"}
-                  </span>
-                  <div className="relative z-10 mt-2 h-3 w-3 rounded-full border-2 border-green-500 bg-white" />
-                </div>
+              <div className="min-h-[100px]">
+                <ScheduleTimeline
+                  startDate={home.startDate}
+                  targetDate={home.targetCompletionDate ?? null}
+                  forecastDate={home.forecastCompletionDate ?? null}
+                  today={today}
+                />
               </div>
-              <div
-                className="absolute left-[16.666%] right-[16.666%] top-[72px] h-0.5 bg-green-200"
-                aria-hidden
-              />
             </CardContent>
           </Card>
         )}
