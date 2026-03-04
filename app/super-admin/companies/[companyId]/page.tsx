@@ -15,6 +15,14 @@ import {
   AlertTriangle,
   Plus,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 
 type CompanyDetail = {
   id: string
@@ -22,6 +30,7 @@ type CompanyDetail = {
   pricingTier: string
   maxActiveHomes: number | null
   status: string
+  subscriptionStatus?: string | null
   timezone: string | null
   monthlyPriceCents: number | null
   renewalDate: string | null
@@ -31,6 +40,10 @@ type CompanyDetail = {
   brandLogoUrl: string | null
   brandPrimaryColor: string | null
   brandAccentColor: string | null
+  trialStartsAt?: string | null
+  trialEndsAt?: string | null
+  trialResetCount?: number
+  lastTrialResetAt?: string | null
   usage: {
     activeHomes: number
     homesCompleted30d: number
@@ -81,6 +94,13 @@ export default function SuperAdminCompanyDetailPage() {
   const [addAdminPassword, setAddAdminPassword] = useState("")
   const [addAdminLoading, setAddAdminLoading] = useState(false)
   const [addAdminError, setAddAdminError] = useState("")
+
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false)
+  const [trialMode, setTrialMode] = useState<"RESET" | "EXTEND">("RESET")
+  const [trialExtendDays, setTrialExtendDays] = useState<string>("7")
+  const [trialSaving, setTrialSaving] = useState(false)
+  const [trialError, setTrialError] = useState<string | null>(null)
+  const [trialSuccess, setTrialSuccess] = useState(false)
 
   const [fetchError, setFetchError] = useState<string | null>(null)
 
@@ -174,6 +194,47 @@ export default function SuperAdminCompanyDetailPage() {
   const adminUsers = company.users.filter((u) =>
     ["Admin", "Manager", "Superintendent"].includes(u.role)
   )
+
+  const handleTrialSubmit = () => {
+    if (!company) return
+    setTrialError(null)
+    setTrialSuccess(false)
+    let days: number | undefined
+    if (trialMode === "EXTEND") {
+      const n = parseInt(trialExtendDays, 10)
+      if (Number.isNaN(n) || n <= 0) {
+        setTrialError("Days must be a positive integer.")
+        return
+      }
+      if (n > 365) {
+        setTrialError("Extension cannot exceed 365 days.")
+        return
+      }
+      days = n
+    }
+    setTrialSaving(true)
+    fetch(`/api/super-admin/tenants/${company.id}/trial-reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: trialMode,
+        ...(trialMode === "EXTEND" ? { days } : {}),
+      }),
+    })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok || data.error) {
+          throw new Error(data.error || "Failed to update trial.")
+        }
+        setCompany((prev) => (prev ? { ...prev, ...data } : data))
+        setTrialSuccess(true)
+        setTrialDialogOpen(false)
+      })
+      .catch((e: any) => {
+        setTrialError(e?.message || "Failed to update trial.")
+      })
+      .finally(() => setTrialSaving(false))
+  }
 
   return (
     <div className="space-y-6">
@@ -300,8 +361,152 @@ export default function SuperAdminCompanyDetailPage() {
               )}
             </div>
           </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-amber-900">Trial management</h3>
+            <p className="mt-1 text-sm text-amber-800">
+              View and adjust this tenant&apos;s trial period. This action overrides the current trial period.
+            </p>
+            <dl className="mt-3 grid grid-cols-1 gap-3 text-sm text-gray-900 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-amber-900/80">Subscription status</dt>
+                <dd className="mt-0.5">
+                  {company.subscriptionStatus ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-amber-900/80">Trial started</dt>
+                <dd className="mt-0.5">
+                  {company.trialStartsAt ? new Date(company.trialStartsAt).toLocaleDateString() : "Not set"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-amber-900/80">Trial ends</dt>
+                <dd className="mt-0.5">
+                  {company.trialEndsAt ? new Date(company.trialEndsAt).toLocaleDateString() : "Not set"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-amber-900/80">Days remaining</dt>
+                <dd className="mt-0.5">
+                  {company.trialEndsAt
+                    ? Math.max(
+                        0,
+                        Math.ceil(
+                          (new Date(company.trialEndsAt).getTime() - Date.now()) /
+                            (24 * 60 * 60 * 1000)
+                        )
+                      )
+                    : "—"}
+                </dd>
+              </div>
+            </dl>
+            <div className="mt-3 text-xs text-amber-900/90">
+              <p>This tool is for internal operations. Only Super Admins can access it.</p>
+            </div>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setTrialMode("RESET")
+                  setTrialError(null)
+                  setTrialSuccess(false)
+                  setTrialDialogOpen(true)
+                }}
+                className="inline-flex items-center rounded-md bg-amber-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-800"
+              >
+                Reset trial to 30 days
+              </button>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-amber-900" htmlFor="extendDays">
+                  Extend by
+                </label>
+                <input
+                  id="extendDays"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={trialExtendDays}
+                  onChange={(e) => setTrialExtendDays(e.target.value)}
+                  className="w-20 rounded-md border border-amber-300 px-2 py-1 text-sm"
+                />
+                <span className="text-sm text-amber-900">days</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrialMode("EXTEND")
+                    setTrialError(null)
+                    setTrialSuccess(false)
+                    setTrialDialogOpen(true)
+                  }}
+                  className="inline-flex items-center rounded-md border border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                >
+                  Extend trial
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-amber-900/80">
+              <p>
+                Resets: {company.trialResetCount ?? 0}
+                {company.lastTrialResetAt &&
+                  ` · Last reset ${new Date(company.lastTrialResetAt).toLocaleString()}`}
+              </p>
+            </div>
+            {trialError && (
+              <p className="mt-2 text-sm text-red-700" role="alert">
+                {trialError}
+              </p>
+            )}
+            {trialSuccess && (
+              <p className="mt-2 text-sm text-green-700" role="status">
+                Trial updated successfully.
+              </p>
+            )}
+          </div>
         </div>
       )}
+
+      <Dialog open={trialDialogOpen} onOpenChange={(open) => !trialSaving && setTrialDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modify tenant trial</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to modify this tenant&apos;s trial? This action overrides the current trial
+              period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 text-sm text-gray-800">
+            <p>
+              Mode: <span className="font-semibold">{trialMode === "RESET" ? "Reset to 30 days" : `Extend by ${trialExtendDays || "N"} days`}</span>
+            </p>
+          </div>
+          <DialogFooter className="mt-4">
+            <button
+              type="button"
+              className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={() => setTrialDialogOpen(false)}
+              disabled={trialSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center rounded-md bg-amber-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-800 disabled:opacity-60"
+              onClick={handleTrialSubmit}
+              disabled={trialSaving}
+            >
+              {trialSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {tab === "users" && (
         <div className="space-y-4">

@@ -179,6 +179,8 @@ model Company {
   // Trial
   trialStartsAt     DateTime?
   trialEndsAt       DateTime?
+  trialResetCount   Int        @default(0)
+  lastTrialResetAt  DateTime?
 
   /// Billing entitlements: { maxActiveHomes?, maxUsers?, whiteLabelEnabled? }. -1 = unlimited.
   entitlementsJson   Json?
