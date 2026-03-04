@@ -8,6 +8,7 @@ type CompanyRow = {
   id: string
   name: string
   pricingTier: string
+  planKey?: string | null
   maxActiveHomes: number | null
   status: string
   userCount: number
@@ -32,6 +33,19 @@ export default function SuperAdminCompaniesPage() {
   const [deleteName, setDeleteName] = useState("")
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState("")
+
+  const getTierLabel = (c: CompanyRow): string => {
+    const planLabel =
+      c.planKey && typeof c.planKey === "string"
+        ? ({
+            starter: "Starter",
+            growth: "Growth",
+            scale: "Scale",
+          } as Record<string, string>)[c.planKey.toLowerCase()] ?? c.planKey
+        : "No subscription"
+    const whiteLabelEnabled = c.pricingTier === "WHITE_LABEL"
+    return whiteLabelEnabled ? `${planLabel} · White Label` : planLabel
+  }
 
   const fetchCompanies = () => {
     setLoading(true)
@@ -199,7 +213,7 @@ export default function SuperAdminCompaniesPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600 sm:px-6">
                         <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                          {c.pricingTier}
+                          {getTierLabel(c)}
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm sm:px-6">
@@ -272,7 +286,7 @@ export default function SuperAdminCompaniesPage() {
                       </Link>
                       <div className="mt-1 flex flex-wrap gap-2">
                         <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                          {c.pricingTier}
+                          {getTierLabel(c)}
                         </span>
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${

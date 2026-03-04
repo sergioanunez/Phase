@@ -63,13 +63,12 @@ type CompanyDetail = {
   }>
 }
 
-type TabId = "overview" | "users" | "billing" | "whitelabel" | "audit"
+type TabId = "overview" | "users" | "billing" | "audit"
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: Building2 },
   { id: "users", label: "Users", icon: Users },
   { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "whitelabel", label: "White Label", icon: Palette },
   { id: "audit", label: "Audit Logs", icon: FileText },
 ]
 
@@ -747,60 +746,6 @@ export default function SuperAdminCompanyDetailPage() {
                 onChange={(e) => handlePatch({ notes: e.target.value || null })}
                 disabled={saving}
                 rows={3}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "whitelabel" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-6">
-          <h3 className="text-base font-semibold text-gray-900">White label</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Shown when tier is WHITE_LABEL or enabled per company.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">App name</label>
-              <input
-                type="text"
-                value={company.brandAppName ?? ""}
-                onChange={(e) => handlePatch({ brandAppName: e.target.value || null })}
-                disabled={saving}
-                placeholder="Phase"
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Logo URL</label>
-              <input
-                type="url"
-                value={company.brandLogoUrl ?? ""}
-                onChange={(e) => handlePatch({ brandLogoUrl: e.target.value || null })}
-                disabled={saving}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Primary color</label>
-              <input
-                type="text"
-                value={company.brandPrimaryColor ?? ""}
-                onChange={(e) => handlePatch({ brandPrimaryColor: e.target.value || null })}
-                disabled={saving}
-                placeholder="#0066cc"
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Accent color</label>
-              <input
-                type="text"
-                value={company.brandAccentColor ?? ""}
-                onChange={(e) => handlePatch({ brandAccentColor: e.target.value || null })}
-                disabled={saving}
-                placeholder="#ff6600"
                 className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
               />
             </div>

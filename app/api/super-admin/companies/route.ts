@@ -74,6 +74,7 @@ export async function GET(req: Request) {
     id: c.id,
     name: c.name,
     pricingTier: c.pricingTier,
+    planKey: c.planKey,
     maxActiveHomes: c.maxActiveHomes,
     status: c.status,
     userCount: c._count.users,
