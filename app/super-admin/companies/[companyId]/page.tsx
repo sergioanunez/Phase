@@ -9,11 +9,13 @@ import {
   Building2,
   Users,
   CreditCard,
-  Palette,
   FileText,
   UserCircle,
   AlertTriangle,
   Plus,
+  ExternalLink,
+  Copy,
+  Check,
 } from "lucide-react"
 import {
   Dialog,
@@ -65,6 +67,36 @@ type CompanyDetail = {
 
 type TabId = "overview" | "users" | "billing" | "audit"
 
+type BillingDebugPayload = {
+  company: { id: string; name: string; planName: string }
+  entitlement: {
+    access: "ACTIVE" | "LIMITED"
+    reason: string
+    limitedCapabilities: string[]
+    evaluatedAt: string
+  }
+  stripe: {
+    mode: "test" | "live"
+    customerId: string | null
+    subscriptionId: string | null
+    subscriptionStatus: string | null
+    currentPeriodEnd: string | null
+    cancelAtPeriodEnd: boolean | null
+    priceId: string | null
+    productId: string | null
+    latestInvoiceStatus: string | null
+    hostedInvoiceUrl: string | null
+    lastWebhook: { type: string; receivedAt: string } | null
+    lastSync: { syncedAt: string; result: "ok" | "error"; message?: string } | null
+    stripeDashboardUrls: { customer?: string; subscription?: string; invoice?: string }
+  }
+  manual: {
+    overrideActive: boolean
+    overrideUntil: string | null
+    notes: string | null
+  }
+}
+
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: Building2 },
   { id: "users", label: "Users", icon: Users },
@@ -94,6 +126,15 @@ export default function SuperAdminCompanyDetailPage() {
   const [addAdminPassword, setAddAdminPassword] = useState("")
   const [addAdminLoading, setAddAdminLoading] = useState(false)
   const [addAdminError, setAddAdminError] = useState("")
+
+  const [billingDebug, setBillingDebug] = useState<BillingDebugPayload | null>(null)
+  const [billingDebugLoading, setBillingDebugLoading] = useState(false)
+  const [billingDebugError, setBillingDebugError] = useState<string | null>(null)
+  const [billingSyncLoading, setBillingSyncLoading] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
+  const [manualOverrideStatus, setManualOverrideStatus] = useState<string>("")
+  const [manualOverrideUntil, setManualOverrideUntil] = useState<string>("")
+  const [manualOverrideNotes, setManualOverrideNotes] = useState<string>("")
 
   const [trialDialogOpen, setTrialDialogOpen] = useState(false)
   const [trialMode, setTrialMode] = useState<"RESET" | "EXTEND">("RESET")
@@ -143,6 +184,38 @@ export default function SuperAdminCompanyDetailPage() {
         .finally(() => setAuditLoading(false))
     }
   }, [tab, companyId])
+
+  useEffect(() => {
+    if (tab !== "billing" || !companyId) return
+    setBillingDebugError(null)
+    setBillingDebugLoading(true)
+    fetch(`/api/super-admin/companies/${companyId}/billing-debug`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error)
+        setBillingDebug(data)
+      })
+      .catch((e) => {
+        setBillingDebugError(e instanceof Error ? e.message : "Failed to load billing debug")
+        setBillingDebug(null)
+      })
+      .finally(() => setBillingDebugLoading(false))
+  }, [tab, companyId])
+
+  useEffect(() => {
+    if (tab === "billing" && company) {
+      setManualOverrideStatus(company.status ?? "")
+      setManualOverrideUntil(company.renewalDate ? company.renewalDate.slice(0, 10) : "")
+      setManualOverrideNotes(company.notes ?? "")
+    }
+  }, [tab, company])
+
+  const refetchBillingDebug = useCallback(() => {
+    if (!companyId) return
+    fetch(`/api/super-admin/companies/${companyId}/billing-debug`)
+      .then((r) => r.json())
+      .then((data) => !data.error && setBillingDebug(data))
+  }, [companyId])
 
   const handlePatch = (body: Record<string, unknown>) => {
     setSaving(true)
@@ -693,63 +766,304 @@ export default function SuperAdminCompanyDetailPage() {
       )}
 
       {tab === "billing" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-6">
-          <h3 className="text-base font-semibold text-gray-900">Billing (manual MVP)</h3>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Monthly price (cents)</label>
-              <input
-                type="number"
-                value={company.monthlyPriceCents ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value
-                  handlePatch({ monthlyPriceCents: v === "" ? null : parseInt(v, 10) })
-                }}
-                disabled={saving}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
+        <div className="space-y-6">
+          {billingDebugLoading && (
+            <div className="flex items-center justify-center rounded-lg border border-gray-200 bg-white py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Renewal date</label>
-              <input
-                type="date"
-                value={company.renewalDate ? company.renewalDate.slice(0, 10) : ""}
-                onChange={(e) =>
-                  handlePatch({ renewalDate: e.target.value ? new Date(e.target.value).toISOString() : null })
-                }
-                disabled={saving}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
+          )}
+          {billingDebugError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {billingDebugError}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Billing status</label>
-              <select
-                value={company.billingStatus ?? ""}
-                onChange={(e) =>
-                  handlePatch({
-                    billingStatus: e.target.value === "" ? null : (e.target.value as "OK" | "PAST_DUE" | "CANCELED"),
-                  })
-                }
-                disabled={saving}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              >
-                <option value="">—</option>
-                <option value="OK">OK</option>
-                <option value="PAST_DUE">PAST_DUE</option>
-                <option value="CANCELED">CANCELED</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Notes</label>
-              <textarea
-                value={company.notes ?? ""}
-                onChange={(e) => handlePatch({ notes: e.target.value || null })}
-                disabled={saving}
-                rows={3}
-                className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
-              />
-            </div>
-          </div>
+          )}
+          {!billingDebugLoading && billingDebug && (
+            <>
+              {billingDebug.stripe.mode === "test" && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <AlertTriangle className="h-5 w-5 shrink-0" />
+                  <span>Test mode — Stripe data is from test keys.</span>
+                </div>
+              )}
+
+              {/* A) Access Status */}
+              <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
+                  <h3 className="text-base font-semibold text-gray-900">Access Status</h3>
+                </div>
+                <div className="px-4 py-4 sm:px-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-4 py-1.5 text-lg font-semibold ${
+                        billingDebug.entitlement.access === "ACTIVE"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {billingDebug.entitlement.access}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      Reason: <span className="font-mono font-medium">{billingDebug.entitlement.reason}</span>
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      Evaluated: {new Date(billingDebug.entitlement.evaluatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {billingDebug.entitlement.limitedCapabilities.length > 0 && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Limited: {billingDebug.entitlement.limitedCapabilities.join(", ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* B) Stripe Snapshot */}
+              <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
+                  <h3 className="text-base font-semibold text-gray-900">Stripe Snapshot</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-2 sm:px-6">
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Customer ID</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.customerId ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Subscription ID</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.subscriptionId ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Subscription status</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.subscriptionStatus ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Current period end</span>
+                    <p className="text-sm text-gray-900">
+                      {billingDebug.stripe.currentPeriodEnd
+                        ? new Date(billingDebug.stripe.currentPeriodEnd).toLocaleDateString()
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Cancel at period end</span>
+                    <p className="text-sm text-gray-900">
+                      {billingDebug.stripe.cancelAtPeriodEnd == null ? "—" : billingDebug.stripe.cancelAtPeriodEnd ? "Yes" : "No"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Price ID</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.priceId ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Product ID</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.productId ?? "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500">Latest invoice status</span>
+                    <p className="font-mono text-sm text-gray-900">{billingDebug.stripe.latestInvoiceStatus ?? "—"}</p>
+                  </div>
+                  {billingDebug.stripe.hostedInvoiceUrl && (
+                    <div className="sm:col-span-2">
+                      <span className="text-xs font-medium text-gray-500">Hosted invoice URL</span>
+                      <p className="truncate font-mono text-sm text-blue-600">
+                        <a href={billingDebug.stripe.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">
+                          {billingDebug.stripe.hostedInvoiceUrl}
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* C) Webhook & Sync Health */}
+              <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
+                  <h3 className="text-base font-semibold text-gray-900">Webhook & Sync Health</h3>
+                </div>
+                <div className="px-4 py-4 sm:px-6 space-y-4">
+                  {billingDebug.stripe.lastWebhook && (
+                    <p className="text-sm text-gray-600">
+                      Last webhook: <span className="font-mono">{billingDebug.stripe.lastWebhook.type}</span> at{" "}
+                      {new Date(billingDebug.stripe.lastWebhook.receivedAt).toLocaleString()}
+                    </p>
+                  )}
+                  {billingDebug.stripe.lastSync && (
+                    <p className="text-sm text-gray-600">
+                      Last sync: {billingDebug.stripe.lastSync.result}{" "}
+                      {billingDebug.stripe.lastSync.message ? `— ${billingDebug.stripe.lastSync.message}` : ""} at{" "}
+                      {new Date(billingDebug.stripe.lastSync.syncedAt).toLocaleString()}
+                    </p>
+                  )}
+                  {!billingDebug.stripe.lastWebhook && !billingDebug.stripe.lastSync && (
+                    <p className="text-sm text-gray-500">No webhook or sync recorded yet.</p>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={billingSyncLoading}
+                      onClick={async () => {
+                        setBillingSyncLoading(true)
+                        try {
+                          const res = await fetch(`/api/super-admin/companies/${companyId}/billing-sync`, {
+                            method: "POST",
+                          })
+                          const data = await res.json()
+                          if (data.error) throw new Error(data.error)
+                          setBillingDebug((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  stripe: {
+                                    ...prev.stripe,
+                                    lastSync: {
+                                      syncedAt: data.syncedAt ?? new Date().toISOString(),
+                                      result: data.ok ? "ok" : "error",
+                                      message: data.debug?.message,
+                                    },
+                                  },
+                                }
+                              : prev
+                          )
+                          refetchBillingDebug()
+                          if (company) fetchCompany()
+                        } catch (e) {
+                          console.error(e)
+                        } finally {
+                          setBillingSyncLoading(false)
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {billingSyncLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Sync from Stripe now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const json = JSON.stringify(billingDebug, null, 2)
+                        navigator.clipboard.writeText(json).then(() => {
+                          setCopySuccess(true)
+                          setTimeout(() => setCopySuccess(false), 2000)
+                        })
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copySuccess ? "Copied!" : "Copy Debug JSON"}
+                    </button>
+                    {billingDebug.stripe.stripeDashboardUrls.customer && (
+                      <a
+                        href={billingDebug.stripe.stripeDashboardUrls.customer}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open Stripe customer
+                      </a>
+                    )}
+                    {billingDebug.stripe.stripeDashboardUrls.subscription && (
+                      <a
+                        href={billingDebug.stripe.stripeDashboardUrls.subscription}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open Stripe subscription
+                      </a>
+                    )}
+                    {billingDebug.stripe.stripeDashboardUrls.invoice && (
+                      <a
+                        href={billingDebug.stripe.stripeDashboardUrls.invoice}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open Stripe invoice
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* D) Manual Override */}
+              <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
+                  <h3 className="text-base font-semibold text-gray-900">Manual Override</h3>
+                  <p className="mt-1 text-sm text-gray-500">Changes are audited. Use to force access or extend renewal.</p>
+                </div>
+                <div className="px-4 py-4 sm:px-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Override status</label>
+                      <select
+                        value={manualOverrideStatus}
+                        onChange={(e) => setManualOverrideStatus(e.target.value)}
+                        disabled={saving}
+                        className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="TRIAL">TRIAL</option>
+                        <option value="DISABLED">DISABLED</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Override until (date)</label>
+                      <input
+                        type="date"
+                        value={manualOverrideUntil}
+                        onChange={(e) => setManualOverrideUntil(e.target.value)}
+                        disabled={saving}
+                        className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Notes</label>
+                      <textarea
+                        value={manualOverrideNotes}
+                        onChange={(e) => setManualOverrideNotes(e.target.value)}
+                        disabled={saving}
+                        rows={3}
+                        className="mt-1 w-full rounded-md border border-gray-300 py-2 px-3 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={async () => {
+                        setSaving(true)
+                        try {
+                          const r = await fetch(`/api/super-admin/companies/${companyId}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              status: manualOverrideStatus || null,
+                              renewalDate: manualOverrideUntil ? new Date(manualOverrideUntil).toISOString() : null,
+                              notes: manualOverrideNotes || null,
+                            }),
+                          })
+                          const data = await r.json()
+                          if (data.error) throw new Error(data.error)
+                          setCompany((prev) => (prev ? { ...prev, ...data } : data))
+                          refetchBillingDebug()
+                        } catch (e) {
+                          console.error(e)
+                        } finally {
+                          setSaving(false)
+                        }
+                      }}
+                      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : "Save (audited)"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

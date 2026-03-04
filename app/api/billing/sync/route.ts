@@ -1,24 +1,10 @@
 import { NextResponse } from "next/server"
-import Stripe from "stripe"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { stripe, getPlanByPriceId, entitlementsFromPlan, WHITE_LABEL_PRICE_ID } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
+import { syncCompanySubscription } from "@/lib/billing/syncSubscription"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
-
-function mapStripeStatus(stripeStatus: string): "ACTIVE" | "TRIAL" | "PAST_DUE" | "DISABLED" {
-  switch (stripeStatus) {
-    case "active":
-      return "ACTIVE"
-    case "trialing":
-      return "TRIAL"
-    case "past_due":
-    case "unpaid":
-      return "PAST_DUE"
-    default:
-      return "DISABLED"
-  }
-}
 
 /**
  * POST /api/billing/sync
@@ -35,34 +21,12 @@ export async function POST() {
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("users:write")
 
-    const company = await prisma.company.findFirst({
-      where: { id: ctx.companyId },
-      select: { id: true, stripeCustomerId: true },
-    })
-    if (!company?.stripeCustomerId) {
-      return NextResponse.json({ synced: false, reason: "no_customer" })
-    }
-
-    const list = await stripe.subscriptions.list({
-      customer: company.stripeCustomerId,
-      status: "active",
-      limit: 1,
-    })
-    const subStripe = list.data[0]
-    if (!subStripe) {
-      // trialing subscription might not be "active"
-      const trialing = await stripe.subscriptions.list({
-        customer: company.stripeCustomerId,
-        status: "trialing",
-        limit: 1,
-      })
-      const sub = trialing.data[0]
-      if (!sub) return NextResponse.json({ synced: false, reason: "no_subscription" })
-      await applySub(prisma, sub, company.id)
-      return NextResponse.json({ synced: true })
-    }
-    await applySub(prisma, subStripe, company.id)
-    return NextResponse.json({ synced: true })
+    const result = await syncCompanySubscription(prisma, ctx.companyId)
+    if (result.ok) return NextResponse.json({ synced: true })
+    return NextResponse.json(
+      { synced: false, reason: result.reason, error: result.message },
+      { status: result.reason === "no_customer" ? 400 : 500 }
+    )
   } catch (e) {
     console.error("POST /api/billing/sync error:", e)
     return NextResponse.json(
@@ -70,55 +34,4 @@ export async function POST() {
       { status: 500 }
     )
   }
-}
-
-async function applySub(
-  prisma: { company: { update: any } },
-  sub: Stripe.Subscription,
-  companyId: string
-) {
-  const expanded =
-    sub.items?.data?.[0]?.price && typeof sub.items.data[0].price === "object"
-      ? sub
-      : await stripe!.subscriptions.retrieve(sub.id, { expand: ["items.data.price"] })
-
-  const items = expanded.items?.data ?? []
-  const firstItemPrice = items[0]?.price
-  const firstPriceId =
-    typeof firstItemPrice === "string" ? firstItemPrice : (firstItemPrice as Stripe.Price | undefined)?.id
-  const plan = firstPriceId ? getPlanByPriceId(firstPriceId) : null
-
-  const hasWhiteLabelAddOn =
-    !!WHITE_LABEL_PRICE_ID &&
-    items.some((item) => {
-      const price = item.price
-      const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
-      return priceId === WHITE_LABEL_PRICE_ID
-    })
-
-  const baseEntitlements = plan ? entitlementsFromPlan(plan) : null
-  const entitlements =
-    baseEntitlements || hasWhiteLabelAddOn
-      ? {
-          ...(baseEntitlements ?? {}),
-          whiteLabelEnabled: (baseEntitlements?.whiteLabelEnabled ?? false) || hasWhiteLabelAddOn,
-        }
-      : null
-
-  const status = mapStripeStatus(expanded.status)
-  await prisma.company.update({
-    where: { id: companyId },
-    data: {
-      stripeSubscriptionId: expanded.id,
-      subscriptionStatus: expanded.status,
-      planKey: plan?.planKey ?? null,
-      currentPeriodEnd: expanded.current_period_end
-        ? new Date(expanded.current_period_end * 1000)
-        : null,
-      entitlementsJson: entitlements ?? undefined,
-      pricingTier: hasWhiteLabelAddOn ? "WHITE_LABEL" : undefined,
-      status,
-      billingStatus: status === "PAST_DUE" ? "PAST_DUE" : "OK",
-    },
-  })
 }
