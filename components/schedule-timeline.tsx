@@ -52,7 +52,7 @@ export function ScheduleTimeline({
   const forecastLeft = `calc(${trackLeft} + (100% - 4rem - 10px) * ${forecastPercent} / 100)`
 
   return (
-    <div className="relative w-full overflow-hidden px-8 py-1 pb-2">
+    <div className="relative w-full min-h-[115px] overflow-hidden px-8 py-1 pb-2">
       {/* Single track: Start (0%) → Target (100%) */}
       <div
         className="absolute rounded-full bg-muted"
