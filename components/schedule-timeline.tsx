@@ -60,20 +60,7 @@ export function ScheduleTimeline({
         aria-hidden
       />
 
-      {/* Optional tint: early = green from Forecast to Target; late = red from Target backwards */}
-      {hasAll && status === "ahead" && (
-        <div
-          className="absolute h-[6px] rounded-r-full bg-green-400/40 pointer-events-none"
-          style={{
-            top: TRACK_TOP_PX,
-            left: forecastLeft,
-            right: trackRight,
-            height: TRACK_H,
-            transform: "translateX(-50%)",
-          }}
-          aria-hidden
-        />
-      )}
+      {/* Optional tint when behind: red from Target backwards */}
       {hasAll && status === "behind" && (
         <div
           className="absolute rounded-full bg-destructive/25 pointer-events-none"
