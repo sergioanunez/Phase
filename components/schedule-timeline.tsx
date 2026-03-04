@@ -43,7 +43,9 @@ export function ScheduleTimeline({
       ? "bg-green-500"
       : status === "on-time"
         ? "bg-muted-foreground"
-        : "bg-destructive"
+        : diffDays < 7
+          ? "bg-amber-500"
+          : "bg-destructive"
 
   const showForecastLabel = forecastPercent >= 18 && forecastPercent <= 82
 
@@ -174,6 +176,8 @@ export function ScheduleTimeline({
                 "mt-2 rounded-full border px-2.5 py-1 text-xs font-medium max-w-[140px] text-center",
                 chip.variant === "success" &&
                   "border-green-500/50 bg-green-500/15 text-green-700 dark:text-green-400",
+                chip.variant === "warning" &&
+                  "border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-400",
                 chip.variant === "danger" &&
                   "border-destructive/50 bg-destructive/15 text-destructive",
                 chip.variant === "neutral" &&
@@ -187,8 +191,34 @@ export function ScheduleTimeline({
         </div>
       )}
 
-      {/* Spacer so chip doesn't overlap content below */}
-      <div className="h-16" aria-hidden />
+      {/* Day count under the bar: ahead (green), behind <7 (yellow), behind ≥7 (red) */}
+      {hasAll && (
+        <div className="mt-6 flex justify-center">
+          <span
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              diffDays < 0 && "text-green-600 dark:text-green-400",
+              diffDays === 0 && "text-muted-foreground",
+              diffDays > 0 && diffDays < 7 && "text-amber-600 dark:text-amber-400",
+              diffDays >= 7 && "text-destructive"
+            )}
+            aria-label={
+              diffDays < 0
+                ? `${Math.abs(diffDays)} days ahead of target`
+                : diffDays === 0
+                  ? "On target"
+                  : `${diffDays} days behind target`
+            }
+          >
+            {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
+            {diffDays === 0 && "On target"}
+            {diffDays > 0 && `${diffDays} days behind target`}
+          </span>
+        </div>
+      )}
+
+      {/* Spacer so content doesn't overlap below */}
+      <div className="h-4" aria-hidden />
     </div>
   )
 }

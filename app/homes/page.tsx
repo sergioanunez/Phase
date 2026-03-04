@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { TaskStatus } from "@prisma/client"
 import { PlanViewer } from "@/components/plan-viewer"
@@ -185,16 +185,9 @@ export default function HomesPage() {
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
       <div className="app-container px-4">
-        {/* Page title area: back + Homes breadcrumb, large Homes title */}
+        {/* Page title area */}
         <div className="mb-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Homes
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold text-foreground">Homes</h1>
             {filterLabel && (
               <>

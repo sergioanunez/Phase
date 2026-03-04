@@ -51,8 +51,11 @@ export function getScheduleBadge(deltaDays: number): ScheduleBadge {
 }
 
 /** Chip for delta under forecast: text only (no date), variant for styling. */
-export type DeltaChip = { text: string; ariaLabel: string; variant: "success" | "danger" | "neutral" }
+export type DeltaChip = { text: string; ariaLabel: string; variant: "success" | "warning" | "danger" | "neutral" }
 
+/**
+ * Variant rules: ahead = green, behind <7 days = yellow, behind ≥7 days = red, on target = neutral.
+ */
 export function getDeltaChip(diffDays: number): DeltaChip {
   if (diffDays < 0) {
     const absDiff = Math.abs(diffDays)
@@ -61,7 +64,8 @@ export function getDeltaChip(diffDays: number): DeltaChip {
   }
   if (diffDays > 0) {
     const day = diffDays === 1 ? "day" : "days"
-    return { text: `${diffDays} ${day} late`, ariaLabel: `${diffDays} ${day} late`, variant: "danger" }
+    const variant = diffDays < 7 ? "warning" : "danger"
+    return { text: `${diffDays} ${day} late`, ariaLabel: `${diffDays} ${day} late`, variant }
   }
   return { text: "On target", ariaLabel: "On target", variant: "neutral" }
 }
