@@ -44,11 +44,35 @@ export async function GET() {
           currentPeriodEnd: true,
           status: true,
           pricingTier: true,
+          trialStartsAt: true,
+          trialEndsAt: true,
         },
       }),
       getTenantEntitlements(prisma, tenantId),
       getTenantUsage(prisma, tenantId),
     ])
+
+    const now = new Date()
+    const subscriptionStatus = company?.subscriptionStatus ?? null
+    const isTrialingStatus = subscriptionStatus === "trialing"
+    const isTrialCompany = company?.status === "TRIAL" || isTrialingStatus
+    let trialEndsAt: Date | null = company?.trialEndsAt ?? null
+    if (!trialEndsAt && isTrialCompany && company?.trialStartsAt) {
+      const end = new Date(company.trialStartsAt)
+      end.setDate(end.getDate() + 30)
+      trialEndsAt = end
+    }
+    let remainingTrialDays: number | null = null
+    let trialActive = false
+    let trialExpired = false
+    if (trialEndsAt) {
+      const msRemaining = trialEndsAt.getTime() - now.getTime()
+      remainingTrialDays = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)))
+      trialActive = isTrialCompany && msRemaining > 0
+      trialExpired = isTrialCompany && msRemaining <= 0
+    } else if (isTrialCompany) {
+      trialExpired = true
+    }
 
     const subscription = company
       ? {
@@ -64,6 +88,12 @@ export async function GET() {
 
     return NextResponse.json({
       subscription,
+      trial: {
+        trialEndsAt: trialEndsAt?.toISOString() ?? null,
+        remainingTrialDays,
+        trialActive,
+        trialExpired,
+      },
       usage: {
         activeHomesCount: usage.activeHomesCount,
         usersCount: usage.usersCount,
@@ -83,6 +113,7 @@ export async function GET() {
     // Return 200 with fallback so billing page still loads (e.g. missing DB columns in production)
     return NextResponse.json({
       subscription: null,
+      trial: { trialEndsAt: null, remainingTrialDays: null, trialActive: false, trialExpired: false },
       usage: {
         activeHomesCount: 0,
         usersCount: 0,

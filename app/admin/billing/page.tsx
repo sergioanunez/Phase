@@ -6,9 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { SettingsNav } from "@/components/settings-nav"
-import { CreditCard, Loader2, ExternalLink } from "lucide-react"
+import { CreditCard, Loader2, ExternalLink, FileText, Palette } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { recommendPlan } from "@/lib/billing/recommendation"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  recommendPlan,
+  getPlanLimit,
+  getRecommendedPlanReason,
+  PLAN_LABELS,
+  type BillingPlanKey,
+} from "@/lib/billing/recommendation"
 
 const BILLING_PATH = "/admin/billing"
 
@@ -17,6 +24,13 @@ type Usage = {
   usersCount: number
   maxActiveHomes: number | null
   maxUsers: number | null
+}
+
+type Trial = {
+  trialEndsAt: string | null
+  remainingTrialDays: number | null
+  trialActive: boolean
+  trialExpired: boolean
 }
 
 type Subscription = {
@@ -41,10 +55,13 @@ type Plan = {
 
 type BillingData = {
   subscription: Subscription | null
+  trial?: Trial
   usage: Usage
   plans: Plan[]
   error?: string
 }
+
+const PLAN_ORDER: BillingPlanKey[] = ["starter", "growth", "scale"]
 
 export default function AdminBillingPage() {
   const { data: session, status } = useSession()
@@ -139,15 +156,26 @@ export default function AdminBillingPage() {
   const canceled = searchParams.get("canceled") === "1"
   const highlightPlanKey = searchParams.get("highlight") ?? null
   const plansSectionRef = useRef<HTMLDivElement>(null)
-  const recommendedPlanKey =
-    data?.usage != null ? recommendPlan(data.usage.activeHomesCount) : null
+  const usage = data?.usage
+  const subscription = data?.subscription
+  const trial = data?.trial ?? { trialEndsAt: null, remainingTrialDays: null, trialActive: false, trialExpired: false }
+  const plans = data?.plans ?? []
+  const currentPlanKey = (subscription?.planKey?.toLowerCase() ?? null) as BillingPlanKey | null
+  const activeHomes = usage?.activeHomesCount ?? 0
+  const planLimit = getPlanLimit(currentPlanKey)
+  const recommendedPlanKey = usage != null ? recommendPlan(usage.activeHomesCount) : null
+  const recommendedReason = currentPlanKey && recommendedPlanKey && usage
+    ? getRecommendedPlanReason(recommendedPlanKey, usage.activeHomesCount, currentPlanKey)
+    : null
+  const isOverLimit = planLimit != null && activeHomes > planLimit
+  const isNearLimit = planLimit != null && planLimit > 0 && activeHomes >= planLimit * 0.8 && !isOverLimit
+  const subscriptionActive = subscription?.subscriptionStatus === "active"
+  const whiteLabelEnabled = subscription?.whiteLabelEnabled ?? false
 
   useEffect(() => {
     if (!highlightPlanKey || !plansSectionRef.current || !data?.plans?.length) return
     const el = document.getElementById(`plan-card-${highlightPlanKey}`)
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" })
-    }
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
   }, [highlightPlanKey, data?.plans?.length])
 
   if (status === "loading" || !session?.user) {
@@ -168,9 +196,7 @@ export default function AdminBillingPage() {
     )
   }
 
-  const usage = data?.usage
-  const subscription = data?.subscription
-  const plans = data?.plans ?? []
+  const planLabel = currentPlanKey ? (PLAN_LABELS[currentPlanKey] ?? currentPlanKey) : null
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
@@ -189,7 +215,7 @@ export default function AdminBillingPage() {
             Billing
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Manage your plan, usage, and billing. Subscribe or upgrade below; use Manage billing to update payment or cancel.
+            Manage your plan and usage. All features included. No per-seat pricing.
           </p>
         </header>
 
@@ -214,124 +240,178 @@ export default function AdminBillingPage() {
             <div className="text-muted-foreground">Loading…</div>
           </div>
         ) : data ? (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {data.error && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm text-amber-800">{data.error}</p>
               </div>
             )}
+
+            {/* Trial active card */}
+            {trial.trialActive && !subscriptionActive && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-blue-900">Trial active</h3>
+                  <p className="mt-1 text-sm text-blue-800">
+                    Trial ends: {trial.trialEndsAt ? new Date(trial.trialEndsAt).toLocaleDateString() : "—"}
+                    {trial.remainingTrialDays != null && ` · Days left: ${trial.remainingTrialDays}`}
+                  </p>
+                  <p className="mt-2 text-sm text-blue-800">
+                    Access continues after trial ends, but creating new schedules, punchlists, and tasks is locked until you subscribe.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => plansSectionRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  >
+                    Choose a plan
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Action required (trial expired, no subscription) */}
+            {trial.trialExpired && !subscriptionActive && (
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-amber-900">Action required</h3>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Subscribe to continue creating work.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => plansSectionRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  >
+                    Subscribe to continue creating work
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Subscription not active warning (e.g. past_due) */}
             {subscription && subscription.companyStatus !== "ACTIVE" && subscription.companyStatus !== "TRIAL" && (
-              <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm text-amber-800">
                   Your subscription is not active. Some features may be limited until billing is updated.{" "}
-                  <Link href={BILLING_PATH} className="font-medium underline">
-                    Manage billing
-                  </Link>
+                  <Link href={BILLING_PATH} className="font-medium underline">Manage billing</Link>
                 </p>
-              </section>
+              </div>
             )}
-            {subscription && (
-              <section className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="text-sm font-medium text-foreground mb-2">Current plan</h2>
-                <div className="flex flex-wrap items-center gap-4">
-                  <span className="text-lg font-semibold">
-                    {subscription.planKey
-                      ? plans.find((p) => p.planKey === subscription.planKey)?.label ?? subscription.planKey
-                      : subscription.pricingTier === "WHITE_LABEL" || subscription.whiteLabelEnabled
-                        ? "White Label"
-                        : "No active subscription"}
+
+            {/* Summary card: plan + usage + add-ons */}
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                {/* Row 1: Subscription + trial chip */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-foreground">
+                    {currentPlanKey ? (PLAN_LABELS[currentPlanKey] ?? currentPlanKey) : "No active subscription"}
                   </span>
-                  {subscription.subscriptionStatus && (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                      {subscription.subscriptionStatus}
+                  {trial.trialActive && !subscriptionActive && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                      Trial
                     </span>
                   )}
-                  {subscription.currentPeriodEnd && (
+                  {subscription?.currentPeriodEnd && subscriptionActive && (
                     <span className="text-sm text-muted-foreground">
                       Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                     </span>
                   )}
                 </div>
-                {subscription.hasCustomer && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={handleManageBilling}
-                    disabled={portalLoading}
-                  >
-                    {portalLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                    )}
-                    Manage billing
-                  </Button>
-                )}
-              </section>
-            )}
 
-            {usage && (
-              <section className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="text-sm font-medium text-foreground mb-1">Active homes</h2>
-                <p className="text-2xl font-semibold tabular-nums text-foreground">
-                  {usage.activeHomesCount}
-                  {usage.maxActiveHomes == null ? " / Unlimited" : ` / ${usage.maxActiveHomes}`}
-                </p>
-                {usage.maxActiveHomes != null && (
-                  <div className="mt-3">
-                    <div
-                      className="h-2 w-full rounded-full bg-gray-200 overflow-hidden"
-                      role="progressbar"
-                      aria-valuenow={
-                        usage.maxActiveHomes > 0
-                          ? Math.min(100, (usage.activeHomesCount / usage.maxActiveHomes) * 100)
-                          : 0
-                      }
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    >
-                      <div
-                        className="h-full rounded-full bg-primary transition-[width]"
-                        style={{
-                          width: `${
-                            usage.maxActiveHomes > 0
-                              ? Math.min(100, (usage.activeHomesCount / usage.maxActiveHomes) * 100)
-                              : 0
-                          }%`,
-                        }}
-                      />
+                {/* Row 2: Active homes + limit + progress */}
+                <div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground">Homes in production</span>
+                    <div className="flex items-center gap-2">
+                      {isOverLimit && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                          Over limit
+                        </span>
+                      )}
+                      <span className="text-sm tabular-nums text-foreground">
+                        {activeHomes} active home{activeHomes !== 1 ? "s" : ""}
+                        {planLimit != null ? ` / ${planLimit} limit` : ""}
+                      </span>
                     </div>
                   </div>
-                )}
-                {usage.maxUsers != null && (
-                  <>
-                    <h2 className="text-sm font-medium text-foreground mb-1 mt-4">Users</h2>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {usage.usersCount}
-                      {usage.maxUsers == null ? " / Unlimited" : ` / ${usage.maxUsers}`}
-                    </p>
-                  </>
-                )}
-              </section>
-            )}
+                  {planLimit != null && (
+                    <div className="mt-2">
+                      <div
+                        className="h-2 w-full rounded-full bg-gray-200 overflow-hidden"
+                        role="progressbar"
+                        aria-valuenow={Math.min(100, (activeHomes / planLimit) * 100)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-[width] ${
+                            isOverLimit ? "bg-red-500" : isNearLimit ? "bg-amber-500" : "bg-primary"
+                          }`}
+                          style={{
+                            width: `${Math.min(100, (activeHomes / planLimit) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      {isOverLimit && planLabel && (
+                        <p className="mt-1.5 text-sm text-red-600">
+                          You&apos;re over the {planLabel} limit. Close completed homes or upgrade.
+                        </p>
+                      )}
+                      {isNearLimit && !isOverLimit && planLabel && (
+                        <p className="mt-1.5 text-sm text-amber-700">
+                          You&apos;re nearing the {planLabel} limit.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
+                {/* Row 3: Add-ons summary */}
+                <div className="text-sm text-muted-foreground">
+                  White Label: {whiteLabelEnabled ? "Enabled" : "Not enabled"}
+                </div>
+
+                {/* Billing actions */}
+                {subscription?.hasCustomer && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                    <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={portalLoading}>
+                      {portalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                      Manage billing
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={portalLoading}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      View invoices
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Plans */}
             <section ref={plansSectionRef}>
-              <h2 className="text-sm font-medium text-foreground mb-3">Plans</h2>
+              <p className="text-sm text-muted-foreground mb-3">
+                All features included. No per-seat pricing. Upgrade only when you grow.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan) => {
-                  const isCurrent = subscription?.planKey === plan.planKey
-                  const isRecommended = recommendedPlanKey === plan.planKey && !isCurrent
-                  const canSubscribe = !!plan.stripePriceId
-                  const planOrder = ["starter", "growth", "scale"] as const
-                  const currentIdx = subscription?.planKey ? planOrder.indexOf(subscription.planKey as any) : -1
-                  const thisIdx = planOrder.indexOf(plan.planKey as any)
+                  const planKey = plan.planKey.toLowerCase() as BillingPlanKey
+                  const isCurrent = currentPlanKey === planKey
+                  const isRecommended = recommendedPlanKey === planKey && !isCurrent
+                  const currentIdx = currentPlanKey ? PLAN_ORDER.indexOf(currentPlanKey) : -1
+                  const thisIdx = PLAN_ORDER.indexOf(planKey)
                   const isUpgrade = currentIdx >= 0 && thisIdx > currentIdx
+                  const isDowngrade = currentIdx >= 0 && thisIdx < currentIdx
+                  const canSubscribe = !!plan.stripePriceId
                   const buttonLabel = isCurrent
                     ? "Current plan"
                     : isUpgrade
-                      ? "Upgrade"
-                      : "Subscribe"
+                      ? `Upgrade to ${plan.label}`
+                      : isDowngrade
+                        ? `Downgrade to ${plan.label}`
+                        : `Subscribe to ${plan.label}`
+                  const showReason = isRecommended && recommendedReason
+
                   return (
                     <div
                       key={plan.planKey}
@@ -348,15 +428,16 @@ export default function AdminBillingPage() {
                       </div>
                       <div className="text-lg font-semibold text-primary mt-1">{plan.priceLabel}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {plan.maxActiveHomes == null ? "Unlimited" : `${plan.maxActiveHomes} active homes`}
-                        {plan.maxUsers != null && ` · ${plan.maxUsers} users`}
-                        {plan.whiteLabelEnabled && " · White label"}
+                        {plan.maxActiveHomes == null ? "Unlimited active homes" : `${plan.maxActiveHomes} active homes`}
                       </div>
+                      {showReason && (
+                        <p className="mt-2 text-xs text-muted-foreground">{recommendedReason}</p>
+                      )}
                       <div className="mt-4 flex-1 flex items-end">
                         {canSubscribe ? (
                           <Button
                             size="sm"
-                            variant={isCurrent ? "secondary" : "default"}
+                            variant={isCurrent ? "secondary" : isDowngrade ? "outline" : "default"}
                             className="w-full"
                             onClick={() => handleSubscribe(plan.planKey)}
                             disabled={isCurrent || checkoutPlanKey !== null}
@@ -368,7 +449,9 @@ export default function AdminBillingPage() {
                             )}
                           </Button>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Contact sales</span>
+                          <Button size="sm" variant="outline" className="w-full" disabled>
+                            {buttonLabel}
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -377,9 +460,44 @@ export default function AdminBillingPage() {
               </div>
             </section>
 
-            <p className="text-sm text-muted-foreground">
-              Reached your limit? Complete homes from the schedule so they no longer count as active, or upgrade your plan.
-            </p>
+            {/* Add-ons */}
+            <section>
+              <h3 className="text-sm font-medium text-foreground mb-3">Add-ons</h3>
+              <Card>
+                <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-muted/50 p-2">
+                      <Palette className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">White Label</span>
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                          +$99/mo
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Show your logo on login + in-app header and use your brand color belt.
+                      </p>
+                      <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${whiteLabelEnabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
+                        {whiteLabelEnabled ? "Enabled" : "Not enabled"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {whiteLabelEnabled ? (
+                      <Link href="/admin?tab=white-label">
+                        <Button variant="outline" size="sm">Manage in White Label settings</Button>
+                      </Link>
+                    ) : (
+                      <Link href="/admin?tab=white-label">
+                        <Button variant="outline" size="sm">Enable White Label</Button>
+                      </Link>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
           </div>
         ) : (
           <div className="rounded-xl border border-gray-200 bg-white p-6">
