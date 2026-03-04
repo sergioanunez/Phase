@@ -17,19 +17,20 @@ export interface PlanConfig {
   priceLabel: string
 }
 
-function getPriceId(envKey: string): string {
-  return process.env[envKey] ?? ""
+/** Supports both STRIPE_PRICE_STARTER_ID and STRIPE_STARTER_PRICE_ID naming. */
+function getPriceId(primary: string, alternate: string): string {
+  return process.env[primary] ?? process.env[alternate] ?? ""
 }
 
 /**
  * Internal plan map: planKey -> Stripe Price ID + entitlement defaults.
- * Env: STRIPE_PRICE_STARTER_ID, STRIPE_PRICE_GROWTH_ID, STRIPE_PRICE_SCALE_ID.
+ * Env: STRIPE_PRICE_STARTER_ID or STRIPE_STARTER_PRICE_ID (same for growth, scale).
  * -1 = unlimited.
  */
 export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
   starter: {
     planKey: "starter",
-    stripePriceId: getPriceId("STRIPE_PRICE_STARTER_ID"),
+    stripePriceId: getPriceId("STRIPE_PRICE_STARTER_ID", "STRIPE_STARTER_PRICE_ID"),
     maxActiveHomes: 5,
     maxUsers: 10,
     whiteLabelEnabled: false,
@@ -38,7 +39,7 @@ export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
   },
   growth: {
     planKey: "growth",
-    stripePriceId: getPriceId("STRIPE_PRICE_GROWTH_ID"),
+    stripePriceId: getPriceId("STRIPE_PRICE_GROWTH_ID", "STRIPE_GROWTH_PRICE_ID"),
     maxActiveHomes: 25,
     maxUsers: 25,
     whiteLabelEnabled: false,
@@ -47,7 +48,7 @@ export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
   },
   scale: {
     planKey: "scale",
-    stripePriceId: getPriceId("STRIPE_PRICE_SCALE_ID"),
+    stripePriceId: getPriceId("STRIPE_PRICE_SCALE_ID", "STRIPE_SCALE_PRICE_ID"),
     maxActiveHomes: -1,
     maxUsers: -1,
     whiteLabelEnabled: false,
