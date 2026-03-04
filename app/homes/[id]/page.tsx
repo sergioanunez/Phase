@@ -551,7 +551,7 @@ export default function HomeDetailPage() {
                       <p className="mt-3 text-sm text-muted-foreground">
                         {completedTasks} / {totalTasks} tasks completed
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 w-full min-w-0">
                         <ProgressBar value={progress} status={barStatus} showChevron={false} />
                       </div>
                     </>

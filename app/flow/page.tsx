@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { ChevronLeft, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { FlowHomeCard } from "@/components/flow/flow-home-card"
 import { TaskActionSheet } from "@/components/flow/task-action-sheet"
@@ -101,16 +101,7 @@ export default function FlowPage() {
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-28 pt-16">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Link
-            href="/homes"
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-5 w-5" />
-            <span className="text-sm">Homes</span>
-          </Link>
-        </div>
-        <h1 className="text-xl font-semibold text-foreground">Flow</h1>
+        <h1 className="mb-4 text-xl font-semibold text-foreground">Flow</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Flow shows what to do today to keep homes moving.
         </p>

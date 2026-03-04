@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { useSession } from "next-auth/react"
-import Link from "next/link"
 import {
   format,
   startOfWeek,
@@ -14,7 +13,6 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns"
-import { ChevronLeft } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { SegmentedControl, type CalendarViewMode } from "@/components/calendar/segmented-control"
 import { FilterChipsRow } from "@/components/calendar/filter-chips-row"
@@ -239,14 +237,7 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
       <div className="app-container px-4">
         <div className="mb-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Calendar
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">Calendar</h1>
+          <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             View and manage scheduled work by date. Filter by inspection type or contractor.
           </p>
