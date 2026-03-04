@@ -31,6 +31,7 @@ type CompanyDetail = {
   maxActiveHomes: number | null
   status: string
   subscriptionStatus?: string | null
+  planKey?: string | null
   timezone: string | null
   monthlyPriceCents: number | null
   renewalDate: string | null
@@ -195,6 +196,16 @@ export default function SuperAdminCompanyDetailPage() {
     ["Admin", "Manager", "Superintendent"].includes(u.role)
   )
 
+  const planLabel =
+    company.planKey && typeof company.planKey === "string"
+      ? {
+          starter: "Starter",
+          growth: "Growth",
+          scale: "Scale",
+        }[company.planKey.toLowerCase() as "starter" | "growth" | "scale"] ?? company.planKey
+      : "No subscription"
+  const whiteLabelEnabled = company.pricingTier === "WHITE_LABEL"
+
   const handleTrialSubmit = () => {
     if (!company) return
     setTrialError(null)
@@ -262,7 +273,8 @@ export default function SuperAdminCompanyDetailPage() {
             {company.status}
           </span>
           <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-            {company.pricingTier}
+            {planLabel}
+            {whiteLabelEnabled ? " · White Label" : ""}
           </span>
         </div>
       </div>
@@ -325,17 +337,6 @@ export default function SuperAdminCompanyDetailPage() {
                 <option value="DISABLED">DISABLED</option>
                 <option value="PAST_DUE">PAST_DUE</option>
               </select>
-              <select
-                value={company.pricingTier}
-                onChange={(e) => handlePatch({ pricingTier: e.target.value })}
-                disabled={saving}
-                className="rounded-md border border-gray-300 py-2 px-3 text-sm"
-              >
-                <option value="SMALL">SMALL</option>
-                <option value="MID">MID</option>
-                <option value="LARGE">LARGE</option>
-                <option value="WHITE_LABEL">WHITE_LABEL</option>
-              </select>
               <input
                 type="number"
                 min={1}
@@ -350,6 +351,17 @@ export default function SuperAdminCompanyDetailPage() {
                 disabled={saving}
                 className="w-32 rounded-md border border-gray-300 py-2 px-3 text-sm"
               />
+              <div className="flex flex-col justify-center text-xs text-gray-700 space-y-0.5">
+                <span>
+                  <strong>Plan:</strong> {planLabel}
+                </span>
+                <span>
+                  <strong>White Label add-on:</strong> {whiteLabelEnabled ? "Enabled" : "Not enabled"}
+                </span>
+                <span className="text-[11px] text-gray-500">
+                  To change plan or White Label, impersonate the tenant and use their Billing page.
+                </span>
+              </div>
               {company.status === "ACTIVE" && (
                 <button
                   type="button"
