@@ -166,13 +166,13 @@ export function ScheduleTimeline({
               )}
               aria-label={
                 diffDays < 0
-                  ? `${Math.abs(diffDays)} days ahead of target`
+                  ? `${Math.abs(diffDays)} days ahead`
                   : diffDays === 0
                     ? "On target"
                     : `${diffDays} days behind target`
               }
             >
-              {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
+              {diffDays < 0 && `${Math.abs(diffDays)} days ahead`}
               {diffDays === 0 && "On target"}
               {diffDays > 0 && `${diffDays} days behind target`}
             </span>
