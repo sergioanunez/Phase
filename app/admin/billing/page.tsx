@@ -90,21 +90,31 @@ export default function AdminBillingPage() {
     if (status !== "authenticated") return
 
     setLoadError(null)
-    fetch("/api/billing", { credentials: "same-origin" })
-      .then(async (res) => {
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          throw new Error(json.error || `Failed to load billing (${res.status})`)
-        }
-        return json
-      })
-      .then(setData)
-      .catch((err) => {
-        setData(null)
-        setLoadError(err instanceof Error ? err.message : "Unable to load billing. Try again later.")
-      })
-      .finally(() => setLoading(false))
-  }, [status, router])
+    const justSuccess = searchParams.get("success") === "1"
+    const loadBilling = () =>
+      fetch("/api/billing", { credentials: "same-origin" })
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            throw new Error(json.error || `Failed to load billing (${res.status})`)
+          }
+          return json
+        })
+        .then(setData)
+        .catch((err) => {
+          setData(null)
+          setLoadError(err instanceof Error ? err.message : "Unable to load billing. Try again later.")
+        })
+        .finally(() => setLoading(false))
+
+    if (justSuccess) {
+      fetch("/api/billing/sync", { method: "POST", credentials: "same-origin" })
+        .then(() => loadBilling())
+        .catch(() => loadBilling())
+    } else {
+      loadBilling()
+    }
+  }, [status, router, searchParams])
 
   const handleSubscribe = async (planKey: string) => {
     setError(null)

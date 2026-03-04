@@ -192,10 +192,11 @@ async function applySubscriptionToCompany(
   sub: Stripe.Subscription,
   companyId: string
 ) {
-  const priceId =
-    sub.items?.data?.[0]?.price?.id ??
-    (sub.items?.data?.[0] as any)?.price?.id
-  const plan = getPlanByPriceId(priceId)
+  // Stripe sends price as string (id) in webhook events; only expanded when we retrieve()
+  const item = sub.items?.data?.[0]
+  const price = item?.price
+  const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
+  const plan = priceId ? getPlanByPriceId(priceId) : null
   const entitlements = plan ? entitlementsFromPlan(plan) : null
   const status = mapStripeStatusToCompanyStatus(sub.status)
   await prisma.company.update({
