@@ -47,12 +47,12 @@ export function ScheduleTimeline({
 
   const showForecastLabel = forecastPercent >= 18 && forecastPercent <= 82
 
-  const trackLeft = "1rem"
-  const trackRight = "1rem"
-  const forecastLeft = `calc(${trackLeft} + (100% - 2rem) * ${forecastPercent} / 100)`
+  const trackLeft = "calc(2rem + 5px)"
+  const trackRight = "calc(2rem + 5px)"
+  const forecastLeft = `calc(${trackLeft} + (100% - 4rem - 10px) * ${forecastPercent} / 100)`
 
   return (
-    <div className="relative w-full overflow-hidden px-4 py-2 sm:px-6">
+    <div className="relative w-full overflow-hidden px-8 py-2">
       {/* Single track: Start (0%) → Target (100%) */}
       <div
         className="absolute rounded-full bg-muted"
@@ -87,11 +87,11 @@ export function ScheduleTimeline({
         />
       )}
 
-      {/* Start marker (0%) */}
+      {/* Start marker (0%): keep fully inside container */}
       {start != null && (
         <div
           className="absolute flex flex-col items-start"
-          style={{ left: trackLeft, top: 0, transform: "translateX(-50%)" }}
+          style={{ left: trackLeft, top: 0 }}
         >
           <div
             className="rounded-full bg-muted-foreground shrink-0"
@@ -109,14 +109,13 @@ export function ScheduleTimeline({
         </div>
       )}
 
-      {/* Target marker (100%): right edge at track end, marker centered */}
+      {/* Target marker (100%): keep fully inside container, no overflow */}
       {target != null && (
         <div
           className="absolute flex flex-col items-end"
           style={{
-            right: trackRight,
+            right: "2rem",
             top: 0,
-            transform: `translateX(${ANCHOR_SIZE / 2}px)`,
           }}
         >
           <div
