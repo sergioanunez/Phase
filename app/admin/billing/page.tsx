@@ -164,6 +164,11 @@ export default function AdminBillingPage() {
   }
 
   const handleEnableWhiteLabel = async () => {
+    const confirmed = window.confirm(
+      "Enable White Label for +$99/mo on your existing subscription? This will be billed using your current payment method."
+    )
+    if (!confirmed) return
+
     setError(null)
     setWhiteLabelLoading(true)
     try {
