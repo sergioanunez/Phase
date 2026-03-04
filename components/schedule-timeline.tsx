@@ -5,7 +5,6 @@ import {
   getDeltaDays,
   getScheduleStatus,
   getForecastPercent,
-  getDeltaChip,
 } from "@/lib/schedule-timeline"
 import { cn } from "@/lib/utils"
 
@@ -35,7 +34,6 @@ export function ScheduleTimeline({
   const hasAll = start != null && target != null && forecast != null
   const diffDays = hasAll ? getDeltaDays(forecast, target) : 0
   const status = getScheduleStatus(diffDays)
-  const chip = hasAll ? getDeltaChip(diffDays) : null
   const forecastPercent = hasAll ? getForecastPercent(start, target, forecast) : 50
 
   const forecastMarkerColor =
@@ -136,7 +134,7 @@ export function ScheduleTimeline({
         </div>
       )}
 
-      {/* Forecast marker (forecastPercent %) + delta chip under it */}
+      {/* Forecast marker (forecastPercent %) */}
       {forecast != null && start != null && target != null && (
         <div
           className="absolute flex flex-col items-center"
@@ -169,25 +167,6 @@ export function ScheduleTimeline({
               ? "Today"
               : format(forecast, "MMM d")}
           </span>
-          {/* Delta chip directly under forecast: no date, color by early/late/on target */}
-          {chip != null && (
-            <span
-              className={cn(
-                "mt-2 rounded-full border px-2.5 py-1 text-xs font-medium max-w-[140px] text-center",
-                chip.variant === "success" &&
-                  "border-green-500/50 bg-green-500/15 text-green-700 dark:text-green-400",
-                chip.variant === "warning" &&
-                  "border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-400",
-                chip.variant === "danger" &&
-                  "border-destructive/50 bg-destructive/15 text-destructive",
-                chip.variant === "neutral" &&
-                  "border-border bg-muted text-muted-foreground"
-              )}
-              aria-label={chip.ariaLabel}
-            >
-              {chip.text}
-            </span>
-          )}
         </div>
       )}
 
