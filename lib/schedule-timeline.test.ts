@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest"
-import { getDeltaDays, getScheduleStatus, getScheduleBadge, getTimelinePositions } from "./schedule-timeline"
+import {
+  getDeltaDays,
+  getScheduleStatus,
+  getScheduleBadge,
+  getDeltaChip,
+  getForecastPercent,
+  getTimelinePositions,
+} from "./schedule-timeline"
 
 function date(y: number, m: number, d: number): Date {
   return new Date(y, m - 1, d)
@@ -56,6 +63,53 @@ describe("schedule-timeline", () => {
       expect(getScheduleBadge(5).text).toBe("🔴 5d late")
       expect(getScheduleBadge(1).text).toBe("🔴 1d late")
       expect(getScheduleBadge(5).ariaLabel).toBe("5 days late")
+    })
+  })
+
+  describe("getDeltaChip", () => {
+    it("returns success chip for early", () => {
+      expect(getDeltaChip(-3).text).toBe("3 days early")
+      expect(getDeltaChip(-3).variant).toBe("success")
+      expect(getDeltaChip(-1).text).toBe("1 day early")
+    })
+    it("returns neutral chip for on target", () => {
+      expect(getDeltaChip(0).text).toBe("On target")
+      expect(getDeltaChip(0).variant).toBe("neutral")
+    })
+    it("returns danger chip for late", () => {
+      expect(getDeltaChip(5).text).toBe("5 days late")
+      expect(getDeltaChip(5).variant).toBe("danger")
+    })
+  })
+
+  describe("getForecastPercent", () => {
+    it("returns 0 when forecast equals start", () => {
+      const start = date(2026, 5, 1)
+      const target = date(2026, 7, 1)
+      expect(getForecastPercent(start, target, start)).toBe(0)
+    })
+    it("returns 100 when forecast equals target", () => {
+      const start = date(2026, 5, 1)
+      const target = date(2026, 7, 1)
+      expect(getForecastPercent(start, target, target)).toBe(100)
+    })
+    it("returns 50 when forecast is midway", () => {
+      const start = date(2026, 5, 1)
+      const target = date(2026, 5, 31)
+      const forecast = date(2026, 5, 16)
+      expect(getForecastPercent(start, target, forecast)).toBe(50)
+    })
+    it("clamps to 0 when forecast is before start", () => {
+      const start = date(2026, 5, 1)
+      const target = date(2026, 7, 1)
+      const forecast = date(2026, 4, 15)
+      expect(getForecastPercent(start, target, forecast)).toBe(0)
+    })
+    it("clamps to 100 when forecast is after target", () => {
+      const start = date(2026, 5, 1)
+      const target = date(2026, 7, 1)
+      const forecast = date(2026, 8, 1)
+      expect(getForecastPercent(start, target, forecast)).toBe(100)
     })
   })
 

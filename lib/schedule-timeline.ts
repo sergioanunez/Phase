@@ -1,13 +1,31 @@
-import { differenceInDays, startOfDay } from "date-fns"
+import { differenceInDays, differenceInCalendarDays, startOfDay } from "date-fns"
 
 /**
- * Delta in days: forecast − target.
+ * Delta in calendar days: forecast − target.
  * Negative = ahead, zero = on time, positive = behind.
  */
 export function getDeltaDays(forecastDate: Date, targetDate: Date): number {
   const forecast = startOfDay(forecastDate)
   const target = startOfDay(targetDate)
-  return differenceInDays(forecast, target)
+  return differenceInCalendarDays(forecast, target)
+}
+
+/**
+ * Forecast position as percent of Start→Target (0–100).
+ * total = target - start, elapsed = forecast - start, percent = clamp(100 * elapsed / total, 0, 100).
+ */
+export function getForecastPercent(
+  startDate: Date,
+  targetDate: Date,
+  forecastDate: Date
+): number {
+  const start = startOfDay(startDate)
+  const target = startOfDay(targetDate)
+  const forecast = startOfDay(forecastDate)
+  const total = Math.max(1, differenceInCalendarDays(target, start))
+  const elapsed = differenceInCalendarDays(forecast, start)
+  const percent = (elapsed / total) * 100
+  return Math.min(100, Math.max(0, percent))
 }
 
 export type ScheduleStatus = "ahead" | "on-time" | "behind"
@@ -30,6 +48,22 @@ export function getScheduleBadge(deltaDays: number): ScheduleBadge {
     return { text: "🟡 on time", ariaLabel: "On time" }
   }
   return { text: `🔴 ${deltaDays}d late`, ariaLabel: `${deltaDays} days late` }
+}
+
+/** Chip for delta under forecast: text only (no date), variant for styling. */
+export type DeltaChip = { text: string; ariaLabel: string; variant: "success" | "danger" | "neutral" }
+
+export function getDeltaChip(diffDays: number): DeltaChip {
+  if (diffDays < 0) {
+    const absDiff = Math.abs(diffDays)
+    const day = absDiff === 1 ? "day" : "days"
+    return { text: `${absDiff} ${day} early`, ariaLabel: `${absDiff} ${day} early`, variant: "success" }
+  }
+  if (diffDays > 0) {
+    const day = diffDays === 1 ? "day" : "days"
+    return { text: `${diffDays} ${day} late`, ariaLabel: `${diffDays} ${day} late`, variant: "danger" }
+  }
+  return { text: "On target", ariaLabel: "On target", variant: "neutral" }
 }
 
 export type TimelinePoint = { type: "start" | "target" | "forecast"; date: Date; position: number }
