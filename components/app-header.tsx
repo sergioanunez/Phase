@@ -91,7 +91,7 @@ export function AppHeader() {
             />
           )}
         </Link>
-        <div className="flex items-center gap-4 pr-3 sm:gap-3 sm:pr-6">
+        <div className="flex items-center gap-3 pr-2 sm:pr-3 md:pr-6">
           <Link
             href="/notifications"
             className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"

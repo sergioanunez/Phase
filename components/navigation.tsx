@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Home, Calendar, BarChart3, Clock, Settings, Bell, Building2, ListChecks } from "lucide-react"
+import { Home, Calendar, BarChart3, Clock, Bell, Building2, ListChecks } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function Navigation() {
@@ -37,7 +37,6 @@ export function Navigation() {
             { href: "/flow", icon: ListChecks, label: "Flow", roles: ["Admin", "Superintendent", "Manager"] },
             { href: "/calendar", icon: Calendar, label: "Calendar", roles: ["Admin", "Superintendent", "Manager"] },
             { href: "/dashboard", icon: BarChart3, label: "Dashboard", roles: ["Admin", "Manager"] },
-            { href: "/admin", icon: Settings, label: "Settings", roles: ["Admin"] },
           ].filter((item) => item.roles.includes(role))
 
   return (
@@ -48,8 +47,7 @@ export function Navigation() {
           const isActive =
             pathname === item.href ||
             (item.href === "/homes" && pathname?.startsWith("/homes/")) ||
-            (item.href === "/flow" && pathname?.startsWith("/flow")) ||
-            (item.href === "/admin" && pathname?.startsWith("/admin"))
+            (item.href === "/flow" && pathname?.startsWith("/flow"))
           return (
             <Link
               key={item.href}
