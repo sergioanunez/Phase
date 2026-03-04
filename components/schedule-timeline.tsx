@@ -52,7 +52,7 @@ export function ScheduleTimeline({
   const forecastLeft = `calc(${trackLeft} + (100% - 4rem - 10px) * ${forecastPercent} / 100)`
 
   return (
-    <div className="relative w-full overflow-hidden px-8 py-2">
+    <div className="relative w-full overflow-hidden px-8 py-1 pb-2">
       {/* Single track: Start (0%) → Target (100%) */}
       <div
         className="absolute rounded-full bg-muted"
@@ -167,37 +167,31 @@ export function ScheduleTimeline({
               ? "Today"
               : format(forecast, "MMM d")}
           </span>
+          {/* Day count close below forecast date */}
+          {hasAll && (
+            <span
+              className={cn(
+                "mt-1.5 block text-center text-sm font-medium tabular-nums",
+                diffDays < 0 && "text-green-600 dark:text-green-400",
+                diffDays === 0 && "text-muted-foreground",
+                diffDays > 0 && diffDays < 7 && "text-amber-600 dark:text-amber-400",
+                diffDays >= 7 && "text-destructive"
+              )}
+              aria-label={
+                diffDays < 0
+                  ? `${Math.abs(diffDays)} days ahead of target`
+                  : diffDays === 0
+                    ? "On target"
+                    : `${diffDays} days behind target`
+              }
+            >
+              {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
+              {diffDays === 0 && "On target"}
+              {diffDays > 0 && `${diffDays} days behind target`}
+            </span>
+          )}
         </div>
       )}
-
-      {/* Day count under the bar: ahead (green), behind <7 (yellow), behind ≥7 (red) */}
-      {hasAll && (
-        <div className="mt-28 flex justify-center min-h-[2rem]">
-          <span
-            className={cn(
-              "text-sm font-medium tabular-nums",
-              diffDays < 0 && "text-green-600 dark:text-green-400",
-              diffDays === 0 && "text-muted-foreground",
-              diffDays > 0 && diffDays < 7 && "text-amber-600 dark:text-amber-400",
-              diffDays >= 7 && "text-destructive"
-            )}
-            aria-label={
-              diffDays < 0
-                ? `${Math.abs(diffDays)} days ahead of target`
-                : diffDays === 0
-                  ? "On target"
-                  : `${diffDays} days behind target`
-            }
-          >
-            {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
-            {diffDays === 0 && "On target"}
-            {diffDays > 0 && `${diffDays} days behind target`}
-          </span>
-        </div>
-      )}
-
-      {/* Spacer so content doesn't overlap below */}
-      <div className="h-4" aria-hidden />
     </div>
   )
 }

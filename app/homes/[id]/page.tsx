@@ -570,8 +570,8 @@ export default function HomeDetailPage() {
         {/* Timeline: Start / Forecast / Target in chronological order */}
         {home.startDate && (home.forecastCompletionDate || home.targetCompletionDate) && (
           <Card className="mb-4 overflow-hidden">
-            <CardContent className="relative p-5 overflow-hidden">
-              <div className="min-h-[100px] overflow-hidden">
+            <CardContent className="relative p-4 overflow-hidden">
+              <div className="overflow-hidden">
                 <ScheduleTimeline
                   startDate={home.startDate}
                   targetDate={home.targetCompletionDate ?? null}
