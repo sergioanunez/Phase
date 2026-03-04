@@ -13,6 +13,8 @@ import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
+import { ProgressBar } from "@/components/homes/progress-bar"
+import { getScheduleStatus as getBarScheduleStatus } from "@/lib/schedule-status"
 import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
@@ -542,10 +544,17 @@ export default function HomeDetailPage() {
                 {(() => {
                   const totalTasks = tasksList.filter((t) => t.status !== "Canceled").length
                   const completedTasks = tasksList.filter((t) => t.status === "Completed").length
+                  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+                  const barStatus = getBarScheduleStatus(home.forecastCompletionDate ?? null, home.targetCompletionDate ?? null)
                   return (
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {completedTasks} / {totalTasks} tasks completed
-                    </p>
+                    <>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        {completedTasks} / {totalTasks} tasks completed
+                      </p>
+                      <div className="mt-2">
+                        <ProgressBar value={progress} status={barStatus} showChevron={false} />
+                      </div>
+                    </>
                   )
                 })()}
               </div>
