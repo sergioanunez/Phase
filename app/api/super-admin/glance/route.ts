@@ -27,6 +27,7 @@ export async function GET() {
       id: true,
       name: true,
       pricingTier: true,
+      planKey: true,
       status: true,
       maxActiveHomes: true,
       updatedAt: true,
@@ -70,6 +71,16 @@ export async function GET() {
   )
 
   const rows = companies.map((c) => {
+    const planLabel =
+      c.planKey && typeof c.planKey === "string"
+        ? ({
+            starter: "Starter",
+            growth: "Growth",
+            scale: "Scale",
+          } as Record<string, string>)[c.planKey.toLowerCase()] ?? c.planKey
+        : "No subscription"
+    const whiteLabelEnabled = c.pricingTier === "WHITE_LABEL"
+
     const activeHomes = activeHomeCountByCompany[c.id] ?? 0
     const max = c.maxActiveHomes
     const sent = sentByCompany[c.id] ?? 0
@@ -79,7 +90,7 @@ export async function GET() {
     return {
       id: c.id,
       name: c.name,
-      tier: c.pricingTier,
+      tier: whiteLabelEnabled ? `${planLabel} · White Label` : planLabel,
       status: c.status,
       activeHomes,
       maxActiveHomes: max,
