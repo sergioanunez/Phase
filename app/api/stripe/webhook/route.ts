@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
-import { stripe, STRIPE_WEBHOOK_SECRET, getPlanByPriceId, entitlementsFromPlan } from "@/lib/stripe"
+import {
+  stripe,
+  STRIPE_WEBHOOK_SECRET,
+  getPlanByPriceId,
+  entitlementsFromPlan,
+  WHITE_LABEL_PRICE_ID,
+} from "@/lib/stripe"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -193,11 +199,30 @@ async function applySubscriptionToCompany(
   companyId: string
 ) {
   // Stripe sends price as string (id) in webhook events; only expanded when we retrieve()
-  const item = sub.items?.data?.[0]
-  const price = item?.price
-  const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
-  const plan = priceId ? getPlanByPriceId(priceId) : null
-  const entitlements = plan ? entitlementsFromPlan(plan) : null
+  const items = sub.items?.data ?? []
+  const firstItemPrice = items[0]?.price
+  const firstPriceId =
+    typeof firstItemPrice === "string" ? firstItemPrice : (firstItemPrice as Stripe.Price | undefined)?.id
+  const plan = firstPriceId ? getPlanByPriceId(firstPriceId) : null
+
+  // White Label add-on is represented as a separate price on the subscription.
+  const hasWhiteLabelAddOn =
+    !!WHITE_LABEL_PRICE_ID &&
+    items.some((item) => {
+      const price = item.price
+      const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
+      return priceId === WHITE_LABEL_PRICE_ID
+    })
+
+  const baseEntitlements = plan ? entitlementsFromPlan(plan) : null
+  const entitlements =
+    baseEntitlements || hasWhiteLabelAddOn
+      ? {
+          ...(baseEntitlements ?? {}),
+          whiteLabelEnabled: (baseEntitlements?.whiteLabelEnabled ?? false) || hasWhiteLabelAddOn,
+        }
+      : null
+
   const status = mapStripeStatusToCompanyStatus(sub.status)
   await prisma.company.update({
     where: { id: companyId },
@@ -207,6 +232,8 @@ async function applySubscriptionToCompany(
       planKey: plan?.planKey ?? null,
       currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
       entitlementsJson: entitlements ?? undefined,
+      // Pricing tier WHITE_LABEL is required to access branding endpoints.
+      pricingTier: hasWhiteLabelAddOn ? "WHITE_LABEL" : undefined,
       status,
       billingStatus: status === "PAST_DUE" ? "PAST_DUE" : "OK",
     },

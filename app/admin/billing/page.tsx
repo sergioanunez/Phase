@@ -73,6 +73,7 @@ export default function AdminBillingPage() {
   const [checkoutPlanKey, setCheckoutPlanKey] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [whiteLabelLoading, setWhiteLabelLoading] = useState(false)
   const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
 
   useEffect(() => {
@@ -159,6 +160,28 @@ export default function AdminBillingPage() {
       setError(e instanceof Error ? e.message : "Portal failed")
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  const handleEnableWhiteLabel = async () => {
+    setError(null)
+    setWhiteLabelLoading(true)
+    try {
+      const res = await fetch("/api/billing/white-label/enable", {
+        method: "POST",
+        credentials: "same-origin",
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(json.error || "Unable to enable White Label")
+        return
+      }
+      // After enabling, send the user straight to White Label settings.
+      window.location.href = "/admin?tab=white-label"
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to enable White Label")
+    } finally {
+      setWhiteLabelLoading(false)
     }
   }
 
@@ -499,10 +522,19 @@ export default function AdminBillingPage() {
                       <Link href="/admin?tab=white-label">
                         <Button variant="outline" size="sm">Manage in White Label settings</Button>
                       </Link>
+                    ) : subscriptionActive ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleEnableWhiteLabel}
+                        disabled={whiteLabelLoading}
+                      >
+                        {whiteLabelLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable White Label"}
+                      </Button>
                     ) : (
-                      <Link href="/admin?tab=white-label">
-                        <Button variant="outline" size="sm">Enable White Label</Button>
-                      </Link>
+                      <Button variant="outline" size="sm" disabled>
+                        Enable White Label (subscribe to a plan first)
+                      </Button>
                     )}
                   </div>
                 </CardContent>

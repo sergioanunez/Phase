@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { stripe, getPlanByPriceId, entitlementsFromPlan } from "@/lib/stripe"
+import { stripe, getPlanByPriceId, entitlementsFromPlan, WHITE_LABEL_PRICE_ID } from "@/lib/stripe"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -81,11 +81,30 @@ async function applySub(
     sub.items?.data?.[0]?.price && typeof sub.items.data[0].price === "object"
       ? sub
       : await stripe!.subscriptions.retrieve(sub.id, { expand: ["items.data.price"] })
-  const item = expanded.items?.data?.[0]
-  const price = item?.price
-  const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
-  const plan = priceId ? getPlanByPriceId(priceId) : null
-  const entitlements = plan ? entitlementsFromPlan(plan) : null
+
+  const items = expanded.items?.data ?? []
+  const firstItemPrice = items[0]?.price
+  const firstPriceId =
+    typeof firstItemPrice === "string" ? firstItemPrice : (firstItemPrice as Stripe.Price | undefined)?.id
+  const plan = firstPriceId ? getPlanByPriceId(firstPriceId) : null
+
+  const hasWhiteLabelAddOn =
+    !!WHITE_LABEL_PRICE_ID &&
+    items.some((item) => {
+      const price = item.price
+      const priceId = typeof price === "string" ? price : (price as Stripe.Price | undefined)?.id
+      return priceId === WHITE_LABEL_PRICE_ID
+    })
+
+  const baseEntitlements = plan ? entitlementsFromPlan(plan) : null
+  const entitlements =
+    baseEntitlements || hasWhiteLabelAddOn
+      ? {
+          ...(baseEntitlements ?? {}),
+          whiteLabelEnabled: (baseEntitlements?.whiteLabelEnabled ?? false) || hasWhiteLabelAddOn,
+        }
+      : null
+
   const status = mapStripeStatus(expanded.status)
   await prisma.company.update({
     where: { id: companyId },
@@ -97,6 +116,7 @@ async function applySub(
         ? new Date(expanded.current_period_end * 1000)
         : null,
       entitlementsJson: entitlements ?? undefined,
+      pricingTier: hasWhiteLabelAddOn ? "WHITE_LABEL" : undefined,
       status,
       billingStatus: status === "PAST_DUE" ? "PAST_DUE" : "OK",
     },

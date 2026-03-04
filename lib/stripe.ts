@@ -5,6 +5,10 @@ export const stripe = secretKey ? new Stripe(secretKey) : null
 
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? ""
 
+// Optional add-on price for White Label. When present, subscription items
+// containing this price are treated as enabling White Label for the tenant.
+export const WHITE_LABEL_PRICE_ID = process.env.STRIPE_WHITE_LABEL_PRICE_ID ?? ""
+
 export type PlanKey = "starter" | "growth" | "scale"
 
 export interface PlanConfig {
