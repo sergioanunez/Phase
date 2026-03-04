@@ -193,7 +193,7 @@ export function ScheduleTimeline({
 
       {/* Day count under the bar: ahead (green), behind <7 (yellow), behind ≥7 (red) */}
       {hasAll && (
-        <div className="mt-6 flex justify-center">
+        <div className="mt-28 flex justify-center min-h-[2rem]">
           <span
             className={cn(
               "text-sm font-medium tabular-nums",
