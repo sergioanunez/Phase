@@ -179,11 +179,129 @@ export default function DashboardPage() {
         </header>
 
         <div className="space-y-6">
-          {/* 1) Portfolio Overview */}
-          <PortfolioOverviewCard
-            activeHomesCount={data.activeHomesCount}
-            statusCounts={data.statusCounts}
-          />
+          {/* Top summary row: Portfolio + Phase Distribution + Field Pulse */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <PortfolioOverviewCard
+                activeHomesCount={data.activeHomesCount}
+                statusCounts={data.statusCounts}
+              />
+            </div>
+
+            {phaseDistribution && (
+              <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Phase Distribution</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Where active homes are stacked right now.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {phaseDistribution.totalActiveHomes} active homes
+                  </span>
+                </div>
+                {phaseDistribution.phases.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {phaseDistribution.hasTemplate
+                      ? "No active homes to display."
+                      : "No work template yet. Create a Work Items Template to see phase distribution."}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(() => {
+                      const maxCount = Math.max(
+                        1,
+                        ...phaseDistribution.phases.map((p) => p.count)
+                      )
+                      return phaseDistribution.phases.map((phase) => {
+                        const widthPct = (phase.count / maxCount) * 100
+                        const barWidth = Math.max(8, widthPct)
+                        return (
+                          <button
+                            key={phase.key}
+                            type="button"
+                            onClick={() => {
+                              const url = new URL(window.location.origin + "/homes")
+                              url.searchParams.set("phase", phase.key)
+                              window.location.href = url.pathname + url.search
+                            }}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-foreground">{phase.name}</span>
+                              <span className="text-muted-foreground">{phase.count}</span>
+                            </div>
+                            <div className="mt-1 h-2 rounded-full bg-muted">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </button>
+                        )
+                      })
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pulseGroups.length > 0 && (
+              <div className="rounded-xl border border-border bg-white p-4 shadow-sm lg:col-span-1">
+                <h2 className="text-sm font-semibold text-foreground">Field Pulse</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Last critical milestone completed per home.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {pulseGroups.map((group) => (
+                    <details
+                      key={group.subdivisionId}
+                      className="rounded-lg border border-muted bg-muted/40 p-3"
+                      open
+                    >
+                      <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
+                        <span>{group.subdivisionName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {group.homes.length} homes
+                        </span>
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {group.homes.map((home) => (
+                          <button
+                            key={home.homeId}
+                            type="button"
+                            onClick={() => {
+                              window.location.href = `/homes/${home.homeId}`
+                            }}
+                            className="w-full rounded-md bg-white px-3 py-2 text-left text-xs hover:bg-muted"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-foreground">
+                                {home.address}
+                              </span>
+                              {home.notStarted && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                                  Not started
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {home.lastCriticalTaskName && home.lastCriticalCompletedAt
+                                ? `Last critical: ${home.lastCriticalTaskName} • ${new Date(
+                                    home.lastCriticalCompletedAt
+                                  ).toLocaleDateString()}`
+                                : "Last critical: —"}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* 2) Bottlenecks */}
           <BottleneckListCard bottlenecks={data.bottlenecks} />
@@ -196,122 +314,6 @@ export default function DashboardPage() {
 
           {/* 5) Live Activity Feed */}
           <ActivityFeed activities={activities} loading={activitiesLoading} />
-
-          {/* 6) Phase Distribution */}
-          {phaseDistribution && (
-            <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-baseline justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">Phase Distribution</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Where active homes are stacked right now.
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {phaseDistribution.totalActiveHomes} active homes
-                </span>
-              </div>
-              {phaseDistribution.phases.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {phaseDistribution.hasTemplate
-                    ? "No active homes to display."
-                    : "No work template yet. Create a Work Items Template to see phase distribution."}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {(() => {
-                    const maxCount = Math.max(
-                      1,
-                      ...phaseDistribution.phases.map((p) => p.count)
-                    )
-                    return phaseDistribution.phases.map((phase) => {
-                      const widthPct = (phase.count / maxCount) * 100
-                      const barWidth = Math.max(8, widthPct)
-                      return (
-                        <button
-                          key={phase.key}
-                          type="button"
-                          onClick={() => {
-                            const url = new URL(window.location.origin + "/homes")
-                            url.searchParams.set("phase", phase.key)
-                            window.location.href = url.pathname + url.search
-                          }}
-                          className="w-full text-left"
-                        >
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-foreground">{phase.name}</span>
-                            <span className="text-muted-foreground">{phase.count}</span>
-                          </div>
-                          <div className="mt-1 h-2 rounded-full bg-muted">
-                            <div
-                              className="h-2 rounded-full bg-primary"
-                              style={{ width: `${barWidth}%` }}
-                            />
-                          </div>
-                        </button>
-                      )
-                    })
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 7) Pulse */}
-          {pulseGroups.length > 0 && (
-            <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-foreground">Pulse</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Last critical milestone completed per home.
-              </p>
-              <div className="mt-3 space-y-3">
-                {pulseGroups.map((group) => (
-                  <details
-                    key={group.subdivisionId}
-                    className="rounded-lg border border-muted bg-muted/40 p-3"
-                    open
-                  >
-                    <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
-                      <span>{group.subdivisionName}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {group.homes.length} homes
-                      </span>
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      {group.homes.map((home) => (
-                        <button
-                          key={home.homeId}
-                          type="button"
-                          onClick={() => {
-                            window.location.href = `/homes/${home.homeId}`
-                          }}
-                          className="w-full rounded-md bg-white px-3 py-2 text-left text-xs hover:bg-muted"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-foreground">
-                              {home.address}
-                            </span>
-                            {home.notStarted && (
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
-                                Not started
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {home.lastCriticalTaskName && home.lastCriticalCompletedAt
-                              ? `Last critical: ${home.lastCriticalTaskName} • ${new Date(
-                                  home.lastCriticalCompletedAt
-                                ).toLocaleDateString()}`
-                              : "Last critical: —"}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
       <Navigation />
