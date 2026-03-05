@@ -6,7 +6,7 @@ import Link from "next/link"
 
 export interface PortfolioOverviewCardProps {
   activeHomesCount: number
-  statusCounts: { onTrack: number; atRisk: number; behind: number }
+  statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
 }
 
 export function PortfolioOverviewCard({

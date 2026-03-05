@@ -3,11 +3,19 @@
 import Link from "next/link"
 
 export interface StatusSegmentChipsProps {
-  statusCounts: { onTrack: number; atRisk: number; behind: number }
+  statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
 }
 
 export function StatusSegmentChips({ statusCounts }: StatusSegmentChipsProps) {
   const segments = [
+    {
+      label: "Not Started",
+      count: statusCounts.notStarted,
+      href: "/homes?status=not_started",
+      dotClass: "bg-slate-400",
+      chipClass:
+        "border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 min-h-[44px] flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition-colors",
+    },
     {
       label: "On Track",
       count: statusCounts.onTrack,
