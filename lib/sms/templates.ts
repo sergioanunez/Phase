@@ -1,15 +1,21 @@
 import { format } from "date-fns"
+import {
+  isWhiteLabelExperienceEnabled,
+  type WhiteLabelSubscriptionLike,
+} from "@/lib/branding/whiteLabel"
 
 export type SmsBrandTenant = {
-  whiteLabelEnabled?: boolean
   brandAppName?: string | null
   name?: string | null
 } | null | undefined
 
-export function getBrand(tenant: SmsBrandTenant): string {
-  if (tenant?.whiteLabelEnabled) {
-    const name = (tenant.brandAppName || tenant.name || "").trim()
-    if (name) return name
+export function getBrand(
+  tenant: SmsBrandTenant,
+  subscription?: WhiteLabelSubscriptionLike | null
+): string {
+  const displayName = (tenant?.name || tenant?.brandAppName || "").trim()
+  if (subscription && isWhiteLabelExperienceEnabled(subscription) && displayName) {
+    return displayName
   }
   return "Phase"
 }
@@ -20,12 +26,13 @@ export function formatDate(date: Date): string {
 
 export function buildScheduledSms(params: {
   tenant: SmsBrandTenant
+  subscription?: WhiteLabelSubscriptionLike | null
   taskName: string
   address: string
   date: Date
   ref: string
 }): string {
-  const brand = getBrand(params.tenant)
+  const brand = getBrand(params.tenant, params.subscription)
   const dateStr = formatDate(params.date)
   return `${brand} scheduled:
 ${params.taskName}
@@ -41,12 +48,13 @@ STOP to opt out. HELP for help.`
 
 export function buildCancelledSms(params: {
   tenant: SmsBrandTenant
+  subscription?: WhiteLabelSubscriptionLike | null
   taskName: string
   address: string
   date: Date
   ref: string
 }): string {
-  const brand = getBrand(params.tenant)
+  const brand = getBrand(params.tenant, params.subscription)
   const dateStr = formatDate(params.date)
   return `${brand} cancelled:
 ${params.taskName}
@@ -61,12 +69,13 @@ STOP to opt out. HELP for help.`
 
 export function buildPunchlistSms(params: {
   tenant: SmsBrandTenant
+  subscription?: WhiteLabelSubscriptionLike | null
   address: string
   date: Date
   dueDate?: Date | null
   items: string[]
 }): string {
-  const brand = getBrand(params.tenant)
+  const brand = getBrand(params.tenant, params.subscription)
   const dateStr = formatDate(params.date)
   const dueStr = params.dueDate ? formatDate(params.dueDate) : "—"
 

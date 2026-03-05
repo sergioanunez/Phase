@@ -17,6 +17,7 @@ type Branding = {
   brandingUpdatedAt?: string
   brandPrimaryColor?: string | null
   whiteLabelEnabled?: boolean
+  whiteLabelExperienceEnabled?: boolean
 } | null
 
 export function AppHeader() {
@@ -38,6 +39,8 @@ export function AppHeader() {
             brandingUpdatedAt: data.brandingUpdatedAt,
             brandPrimaryColor: data.brandPrimaryColor ?? null,
             whiteLabelEnabled: data.whiteLabelEnabled ?? false,
+            whiteLabelExperienceEnabled:
+              data.whiteLabelExperienceEnabled ?? data.whiteLabelEnabled ?? false,
           })
       )
       .catch(() => setBranding(null))
@@ -60,7 +63,7 @@ export function AppHeader() {
   const logoHref = pathname === "/start-trial" ? "/" : "/homes"
 
   const beltColor = getTenantBrandColor({
-    whiteLabelEnabled: branding?.whiteLabelEnabled,
+    whiteLabelEnabled: branding?.whiteLabelExperienceEnabled,
     brandPrimaryColor: branding?.brandPrimaryColor,
   })
 

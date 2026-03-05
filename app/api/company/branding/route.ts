@@ -40,12 +40,16 @@ export async function GET() {
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantContext } = await import("@/lib/tenant")
     const { getTenantEntitlements } = await import("@/lib/entitlements")
+    const { isWhiteLabelExperienceEnabled } = await import("@/lib/branding/whiteLabel")
     const ctx = await requireTenantContext()
     const company = await prisma.company.findUnique({
       where: { id: ctx.companyId },
       select: {
         pricingTier: true,
         name: true,
+        status: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
         brandAppName: true,
         brandLogoUrl: true,
         brandLogoPath: true,
@@ -62,12 +66,19 @@ export async function GET() {
       (await getPublicUrlForPath(company.brandLogoPath)) || (company.brandLogoUrl || null)
     const faviconUrl = await getPublicUrlForPath(company.brandFaviconPath)
     const entitlements = await getTenantEntitlements(prisma, ctx.companyId)
+    const whiteLabelExperienceEnabled = isWhiteLabelExperienceEnabled({
+      companyStatus: company.status,
+      subscriptionStatus: company.subscriptionStatus,
+      trialEndsAt: company.trialEndsAt,
+      whiteLabelAddOn: entitlements.whiteLabelEnabled,
+    })
     return NextResponse.json({
       ...company,
       logoUrl: logoUrl || null,
       faviconUrl: faviconUrl || null,
       brandingUpdatedAt: company.updatedAt,
       whiteLabelEnabled: entitlements.whiteLabelEnabled,
+      whiteLabelExperienceEnabled,
     })
   } catch (error) {
     return handleApiError(error)

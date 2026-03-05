@@ -6,17 +6,36 @@ import {
   buildCancelledSms,
   buildPunchlistSms,
 } from "./templates"
+import type { WhiteLabelSubscriptionLike } from "@/lib/branding/whiteLabel"
+
+const makeSub = (overrides: Partial<WhiteLabelSubscriptionLike> = {}): WhiteLabelSubscriptionLike => ({
+  companyStatus: "ACTIVE",
+  subscriptionStatus: null,
+  trialEndsAt: null,
+  whiteLabelAddOn: false,
+  ...overrides,
+})
 
 describe("SMS templates - brand and date", () => {
-  it("getBrand uses tenant name when white label enabled", () => {
+  it("getBrand uses tenant name when white label experience is enabled", () => {
+    const sub = makeSub({
+      companyStatus: "TRIAL",
+      trialEndsAt: new Date("2026-03-10"),
+      whiteLabelAddOn: false,
+    })
     expect(
-      getBrand({ whiteLabelEnabled: true, name: "Cullers Homes", brandAppName: null })
+      getBrand({ name: "Cullers Homes", brandAppName: null }, sub)
     ).toBe("Cullers Homes")
   })
 
   it("getBrand falls back to Phase when not white label", () => {
-    expect(getBrand({ whiteLabelEnabled: false, name: "Cullers Homes" })).toBe("Phase")
-    expect(getBrand(null)).toBe("Phase")
+    const inactiveSub = makeSub({
+      companyStatus: "ACTIVE",
+      trialEndsAt: new Date("2026-03-01"),
+      whiteLabelAddOn: false,
+    })
+    expect(getBrand({ name: "Cullers Homes" }, inactiveSub)).toBe("Phase")
+    expect(getBrand(null, inactiveSub)).toBe("Phase")
   })
 
   it("formatDate uses MMM d, yyyy", () => {
@@ -30,8 +49,14 @@ describe("SMS templates - brand and date", () => {
 describe("buildScheduledSms", () => {
   it("contains fields in correct order and no subdivision", () => {
     const date = new Date("2026-03-06T00:00:00Z")
+    const sub = makeSub({
+      companyStatus: "TRIAL",
+      trialEndsAt: new Date("2026-03-10"),
+      whiteLabelAddOn: false,
+    })
     const sms = buildScheduledSms({
-      tenant: { whiteLabelEnabled: true, name: "Cullers Homes" },
+      tenant: { name: "Cullers Homes" },
+      subscription: sub,
       taskName: "Plumbing Rough",
       address: "123 Main St",
       date,
@@ -74,8 +99,14 @@ describe("buildCancelledSms", () => {
 
 describe("buildPunchlistSms", () => {
   it("numbers items and includes Due line", () => {
+    const sub = makeSub({
+      companyStatus: "TRIAL",
+      trialEndsAt: new Date("2026-03-10"),
+      whiteLabelAddOn: false,
+    })
     const sms = buildPunchlistSms({
-      tenant: { whiteLabelEnabled: true, name: "Cullers Homes" },
+      tenant: { name: "Cullers Homes" },
+      subscription: sub,
       address: "789 Elm St",
       date: new Date("2026-03-06"),
       dueDate: new Date("2026-03-10"),

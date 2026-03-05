@@ -2698,7 +2698,9 @@ export default function AdminPage() {
                     White Label Branding
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Customize how your company name, logo, and colors appear in the app.
+                    Customize how your company name, logo, and colors appear in the app. White label
+                    is available as a $99/mo add-on. During trial, you can preview the branded belt
+                    and branded messages.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">

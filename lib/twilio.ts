@@ -8,6 +8,8 @@ import {
   buildPunchlistSms,
   type SmsBrandTenant,
 } from "./sms/templates"
+import { getTenantEntitlements } from "./entitlements"
+import type { WhiteLabelSubscriptionLike } from "./branding/whiteLabel"
 
 let _client: ReturnType<typeof twilio> | null = null
 
@@ -40,6 +42,36 @@ async function getSmsSenderName(companyId: string | null): Promise<string> {
     return company.brandAppName?.trim() || company.name
   }
   return "Phase"
+}
+
+async function getSmsBrandContext(
+  companyId: string | null
+): Promise<{ tenant: SmsBrandTenant; subscription: WhiteLabelSubscriptionLike | null }> {
+  if (!companyId) return { tenant: null, subscription: null }
+
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      subscriptionStatus: true,
+      trialEndsAt: true,
+    },
+  })
+  if (!company) return { tenant: null, subscription: null }
+
+  const entitlements = await getTenantEntitlements(prisma, company.id)
+  const subscription: WhiteLabelSubscriptionLike = {
+    companyStatus: company.status,
+    subscriptionStatus: company.subscriptionStatus,
+    trialEndsAt: company.trialEndsAt,
+    whiteLabelAddOn: entitlements.whiteLabelEnabled,
+  }
+  const tenant: SmsBrandTenant = {
+    name: company.name,
+  }
+  return { tenant, subscription }
 }
 
 export type BuildConfirmationSmsParams = {
@@ -108,19 +140,13 @@ export async function sendConfirmationSMS(
     where: { id: homeTaskId },
     select: {
       companyId: true,
-      company: { select: { pricingTier: true, brandAppName: true, name: true } },
     },
   })
-  const tenant: SmsBrandTenant = taskRow?.company
-    ? {
-        whiteLabelEnabled: taskRow.company.pricingTier === PricingTier.WHITE_LABEL,
-        brandAppName: taskRow.company.brandAppName,
-        name: taskRow.company.name,
-      }
-    : null
+  const { tenant, subscription } = await getSmsBrandContext(taskRow?.companyId ?? null)
 
   const message = buildScheduledSms({
     tenant,
+    subscription,
     taskName: task,
     address: home,
     date: scheduledDate,
@@ -213,22 +239,11 @@ export async function sendCancellationSMS(
     where: { id: homeTaskId },
     select: { companyId: true },
   })
-  const company = taskForSender?.companyId
-    ? await prisma.company.findUnique({
-        where: { id: taskForSender.companyId },
-        select: { pricingTier: true, brandAppName: true, name: true },
-      })
-    : null
-  const tenant: SmsBrandTenant = company
-    ? {
-        whiteLabelEnabled: company.pricingTier === PricingTier.WHITE_LABEL,
-        brandAppName: company.brandAppName,
-        name: company.name,
-      }
-    : null
+  const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
 
   const message = buildCancelledSms({
     tenant,
+    subscription,
     taskName: task,
     address: home,
     date: scheduledDate,
@@ -534,19 +549,7 @@ export async function sendPunchListSMS(
     where: { id: taskId },
     select: { companyId: true },
   })
-  const company = taskForSender?.companyId
-    ? await prisma.company.findUnique({
-        where: { id: taskForSender.companyId },
-        select: { pricingTier: true, brandAppName: true, name: true },
-      })
-    : null
-  const tenant: SmsBrandTenant = company
-    ? {
-        whiteLabelEnabled: company.pricingTier === PricingTier.WHITE_LABEL,
-        brandAppName: company.brandAppName,
-        name: company.name,
-      }
-    : null
+  const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
 
   const now = new Date()
   const dueDates = punchItems
@@ -556,6 +559,7 @@ export async function sendPunchListSMS(
 
   const message = buildPunchlistSms({
     tenant,
+    subscription,
     address: home,
     date: now,
     dueDate: earliestDue,
