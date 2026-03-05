@@ -90,14 +90,12 @@ export async function POST(
       if (recipient.allowed) {
         try {
           const { sendCancellationSMS } = await import("@/lib/twilio")
-          const dateStr = format(new Date(task.scheduledDate), "MM/dd/yyyy")
           await sendCancellationSMS(
             task.id,
             recipient.phoneE164,
-            task.home.subdivision.name,
             task.home.addressOrLot,
             task.nameSnapshot,
-            dateStr
+            new Date(task.scheduledDate)
           )
         } catch (smsError: unknown) {
           console.error("Failed to send cancellation SMS:", smsError)

@@ -237,16 +237,13 @@ export async function POST(
       return NextResponse.json({ error: message }, { status: 400 })
     }
 
-    const dateMmDd = format(new Date(task.scheduledDate), "MM/dd")
-
     const { sendConfirmationSMS } = await import("@/lib/twilio")
     await sendConfirmationSMS(
       task.id,
       recipient.phoneE164,
-      task.home.subdivision.name,
       task.home.addressOrLot,
       task.nameSnapshot,
-      dateMmDd
+      new Date(task.scheduledDate)
     )
 
     return NextResponse.json({ success: true })

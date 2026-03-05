@@ -2,6 +2,12 @@ import twilio from "twilio"
 import { prisma } from "./prisma"
 import { generateConfirmationCode } from "./utils"
 import { TaskStatus, PricingTier } from "@prisma/client"
+import {
+  buildScheduledSms,
+  buildCancelledSms,
+  buildPunchlistSms,
+  type SmsBrandTenant,
+} from "./sms/templates"
 
 let _client: ReturnType<typeof twilio> | null = null
 
@@ -71,10 +77,9 @@ STOP to opt out. HELP for help.`
 export async function sendConfirmationSMS(
   homeTaskId: string,
   to: string,
-  subdivision: string,
   home: string,
   task: string,
-  dateMmDd: string
+  scheduledDate: Date
 ): Promise<string> {
   // Validate Twilio client is configured
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -101,17 +106,25 @@ export async function sendConfirmationSMS(
   const confirmationCode = generateConfirmationCode()
   const taskRow = await prisma.homeTask.findUnique({
     where: { id: homeTaskId },
-    select: { companyId: true },
+    select: {
+      companyId: true,
+      company: { select: { pricingTier: true, brandAppName: true, name: true } },
+    },
   })
-  const tenantName = await getSmsSenderName(taskRow?.companyId ?? null)
+  const tenant: SmsBrandTenant = taskRow?.company
+    ? {
+        whiteLabelEnabled: taskRow.company.pricingTier === PricingTier.WHITE_LABEL,
+        brandAppName: taskRow.company.brandAppName,
+        name: taskRow.company.name,
+      }
+    : null
 
-  const message = buildConfirmationSms({
-    tenantName,
+  const message = buildScheduledSms({
+    tenant,
     taskName: task,
     address: home,
-    community: subdivision?.trim() || null,
-    scheduledDateMmDd: dateMmDd,
-    refCode: confirmationCode,
+    date: scheduledDate,
+    ref: confirmationCode,
   })
 
   try {
@@ -170,10 +183,9 @@ export async function sendConfirmationSMS(
 export async function sendCancellationSMS(
   homeTaskId: string,
   to: string,
-  subdivision: string,
   home: string,
   task: string,
-  date: string
+  scheduledDate: Date
 ): Promise<void> {
   // Validate Twilio client is configured
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -201,11 +213,27 @@ export async function sendCancellationSMS(
     where: { id: homeTaskId },
     select: { companyId: true },
   })
-  const senderName = await getSmsSenderName(taskForSender?.companyId ?? null)
+  const company = taskForSender?.companyId
+    ? await prisma.company.findUnique({
+        where: { id: taskForSender.companyId },
+        select: { pricingTier: true, brandAppName: true, name: true },
+      })
+    : null
+  const tenant: SmsBrandTenant = company
+    ? {
+        whiteLabelEnabled: company.pricingTier === PricingTier.WHITE_LABEL,
+        brandAppName: company.brandAppName,
+        name: company.name,
+      }
+    : null
 
-  const message = `${senderName}:
-CANCELLED: ${subdivision} ${home} – ${task} scheduled for ${date} has been cancelled.
-We apologize for any inconvenience.`
+  const message = buildCancelledSms({
+    tenant,
+    taskName: task,
+    address: home,
+    date: scheduledDate,
+    ref: generateConfirmationCode(),
+  })
 
   try {
     const twilioMessage = await getClient().messages.create({
@@ -476,7 +504,6 @@ export async function handleInboundSMS(
 export async function sendPunchListSMS(
   taskId: string,
   to: string,
-  subdivision: string,
   home: string,
   task: string,
   punchItems: Array<{ title: string; dueDate: string | null; photoUrls?: string[] }>
@@ -507,25 +534,33 @@ export async function sendPunchListSMS(
     where: { id: taskId },
     select: { companyId: true },
   })
-  const senderName = await getSmsSenderName(taskForSender?.companyId ?? null)
+  const company = taskForSender?.companyId
+    ? await prisma.company.findUnique({
+        where: { id: taskForSender.companyId },
+        select: { pricingTier: true, brandAppName: true, name: true },
+      })
+    : null
+  const tenant: SmsBrandTenant = company
+    ? {
+        whiteLabelEnabled: company.pricingTier === PricingTier.WHITE_LABEL,
+        brandAppName: company.brandAppName,
+        name: company.name,
+      }
+    : null
 
-  // Format punch items list
-  const itemsList = punchItems
-    .map((item, index) => {
-      const dueDateText = item.dueDate
-        ? ` (Due: ${new Date(item.dueDate).toLocaleDateString()})`
-        : ""
-      return `${index + 1}. ${item.title}${dueDateText}`
-    })
-    .join("\n")
+  const now = new Date()
+  const dueDates = punchItems
+    .map((i) => (i.dueDate ? new Date(i.dueDate) : null))
+    .filter((d): d is Date => !!d)
+  const earliestDue = dueDates.length > 0 ? dueDates.reduce((a, b) => (a < b ? a : b)) : null
 
-  const message = `${senderName} - Punch List:
-${subdivision} ${home} – ${task}
-
-Punch Items:
-${itemsList}
-
-Please address these items.`
+  const message = buildPunchlistSms({
+    tenant,
+    address: home,
+    date: now,
+    dueDate: earliestDue,
+    items: punchItems.map((item) => item.title),
+  })
 
   try {
     const twilioMessage = await getClient().messages.create({

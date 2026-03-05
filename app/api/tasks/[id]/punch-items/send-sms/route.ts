@@ -114,7 +114,6 @@ export async function POST(
         await sendPunchListSMS(
           params.id,
           recipient.phoneE164,
-          task.home.subdivision.name,
           task.home.addressOrLot,
           task.nameSnapshot,
           data.items
