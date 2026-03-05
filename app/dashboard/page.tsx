@@ -187,11 +187,11 @@ export default function DashboardPage() {
 
           {/* 2) Phase Distribution */}
           {phaseDistribution && (
-            <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+            <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
               <div className="mb-3 flex items-baseline justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold text-foreground">Phase Distribution</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <h2 className="text-base font-semibold text-foreground">Phase Distribution</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Where active homes are stacked right now.
                   </p>
                 </div>
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               {phaseDistribution.phases.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {phaseDistribution.hasTemplate
                     ? "No active homes to display."
                     : "No work template yet. Create a Work Items Template to see phase distribution."}
@@ -226,13 +226,13 @@ export default function DashboardPage() {
                           }}
                           className="w-full text-left"
                         >
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center justify-between text-sm">
                             <span className="font-medium text-foreground">{phase.name}</span>
-                            <span className="text-muted-foreground">{phase.count}</span>
+                            <span className="text-xs text-muted-foreground">{phase.count}</span>
                           </div>
-                          <div className="mt-1 h-2 rounded-full bg-muted">
+                          <div className="mt-2 h-1.5 rounded-full bg-muted">
                             <div
-                              className="h-2 rounded-full bg-primary"
+                              className="h-1.5 rounded-full bg-primary"
                               style={{ width: `${barWidth}%` }}
                             />
                           </div>
@@ -247,9 +247,9 @@ export default function DashboardPage() {
 
           {/* 3) Field Pulse */}
           {pulseGroups.length > 0 && (
-            <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-foreground">Field Pulse</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
+              <h2 className="text-base font-semibold text-foreground">Field Pulse</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Last critical milestone completed per home.
               </p>
               <div className="mt-3 space-y-3">
@@ -259,7 +259,7 @@ export default function DashboardPage() {
                     className="rounded-lg border border-muted bg-muted/40 p-3"
                     open
                   >
-                    <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
+                    <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-foreground">
                       <span>{group.subdivisionName}</span>
                       <span className="text-xs text-muted-foreground">
                         {group.homes.length} homes
@@ -273,10 +273,10 @@ export default function DashboardPage() {
                           onClick={() => {
                             window.location.href = `/homes/${home.homeId}`
                           }}
-                          className="w-full rounded-md bg-white px-3 py-2 text-left text-xs hover:bg-muted"
+                          className="w-full rounded-md bg-white px-3 py-2 text-left text-sm hover:bg-muted"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-foreground">
+                            <span className="font-semibold text-foreground">
                               {home.address}
                             </span>
                             {home.notStarted && (
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {home.lastCriticalTaskName && home.lastCriticalCompletedAt
                               ? `Last critical: ${home.lastCriticalTaskName} • ${new Date(
                                   home.lastCriticalCompletedAt
