@@ -1959,7 +1959,7 @@ export default function AdminPage() {
                                       onChange={(e) => setEditingTemplateRequiresOrdering(e.target.checked)}
                                       className="rounded border-border"
                                     />
-                                    Requires ordering
+                                    Requires materials
                                   </label>
                                 </div>
                                 {editingTemplateRequiresOrdering && (
