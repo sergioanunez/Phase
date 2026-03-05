@@ -70,7 +70,11 @@ export async function POST(
           { status: 400 }
         )
       }
-      const base = newTrialEndsAt ?? now
+      // When trial already expired, extend from "now" so "extend 7 days" = trial ends 7 days from today
+      const base =
+        newTrialEndsAt && newTrialEndsAt.getTime() > now.getTime()
+          ? newTrialEndsAt
+          : now
       newTrialEndsAt = new Date(base.getTime() + days * MS_PER_DAY)
     }
 
