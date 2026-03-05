@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
         tasks: h.tasks.map((t) => ({
           id: t.id,
           status: t.status,
+          scheduledDate: t.scheduledDate,
           completedAt: t.completedAt,
           updatedAt: t.updatedAt,
           isCriticalPath: t.isCriticalPath,

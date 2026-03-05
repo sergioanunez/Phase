@@ -1,6 +1,7 @@
 export type DashboardTaskForPulse = {
   id: string
   status: string
+  scheduledDate: Date | null
   completedAt: Date | null
   updatedAt: Date
   isCriticalPath: boolean

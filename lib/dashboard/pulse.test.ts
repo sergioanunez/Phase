@@ -5,6 +5,7 @@ function makeTask(overrides: Partial<DashboardTaskForPulse>): DashboardTaskForPu
   return {
     id: "task-1",
     status: "Unscheduled",
+    scheduledDate: null,
     completedAt: null,
     updatedAt: new Date("2026-03-01T00:00:00Z"),
     isCriticalPath: false,
