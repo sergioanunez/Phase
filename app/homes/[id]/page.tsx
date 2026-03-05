@@ -457,8 +457,16 @@ export default function HomeDetailPage() {
     }
   }
 
-  // Schedule status: ahead / on / behind based on forecast vs target
+  const scheduledTaskCount = tasksList.filter((t) => t.scheduledDate != null).length
+  const barStatus = getBarScheduleStatus(
+    home.forecastCompletionDate ?? null,
+    home.targetCompletionDate ?? null,
+    { startDate: home.startDate, scheduledTaskCount }
+  )
+
+  // Schedule status: Not started first, then ahead / on / behind based on forecast vs target
   const getScheduleStatus = () => {
+    if (barStatus === "not_started") return { label: "Not started", variant: "secondary" as const }
     if (!home.forecastCompletionDate || !home.targetCompletionDate) return null
     const forecast = startOfDay(new Date(home.forecastCompletionDate))
     const target = startOfDay(new Date(home.targetCompletionDate))
@@ -557,7 +565,6 @@ export default function HomeDetailPage() {
                   const totalTasks = tasksList.filter((t) => t.status !== "Canceled").length
                   const completedTasks = tasksList.filter((t) => t.status === "Completed").length
                   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-                  const barStatus = getBarScheduleStatus(home.forecastCompletionDate ?? null, home.targetCompletionDate ?? null)
                   return (
                     <>
                       <p className="mt-3 text-sm text-muted-foreground">

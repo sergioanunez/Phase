@@ -74,7 +74,7 @@ function toCommunityHome(home: Home): CommunityHome {
   }
 }
 
-type StatusFilter = "on_track" | "at_risk" | "behind"
+type StatusFilter = "not_started" | "on_track" | "at_risk" | "behind"
 
 export default function HomesPage() {
   const { data: session } = useSession()
@@ -138,21 +138,29 @@ export default function HomesPage() {
   )
 
   const communities = useMemo(() => {
-    const validStatus = statusFilter && ["on_track", "at_risk", "behind"].includes(statusFilter)
+    const validStatus = statusFilter && ["not_started", "on_track", "at_risk", "behind"].includes(statusFilter)
     const q = searchQuery.trim().toLowerCase()
+    const scheduledCount = (home: Home) =>
+      (home.tasks ?? []).filter((t) => t.scheduledDate != null).length
     return subdivisions.map((sub) => {
       const subHomes = groupedBySubdivision[sub.id] || []
       const withStatus = subHomes.map((home) => ({
         home: toCommunityHome(home),
         status: getScheduleStatus(
           home.forecastCompletionDate,
-          home.targetCompletionDate
+          home.targetCompletionDate,
+          { startDate: home.startDate, scheduledTaskCount: scheduledCount(home) }
         ) as ScheduleStatus,
         progress: calculateProgress(home),
       }))
+      const sorted = [...withStatus].sort((a, b) => {
+        if (a.status === "not_started" && b.status !== "not_started") return -1
+        if (a.status !== "not_started" && b.status === "not_started") return 1
+        return 0
+      })
       const filtered = validStatus
-        ? withStatus.filter((item) => item.status === statusFilter)
-        : withStatus
+        ? sorted.filter((item) => item.status === statusFilter)
+        : sorted
       const searchFiltered =
         q === ""
           ? filtered
@@ -166,13 +174,15 @@ export default function HomesPage() {
   }, [subdivisions, groupedBySubdivision, statusFilter, searchQuery])
 
   const filterLabel =
-    statusFilter === "on_track"
-      ? "On Track"
-      : statusFilter === "at_risk"
-        ? "At Risk"
-        : statusFilter === "behind"
-          ? "Behind"
-          : null
+    statusFilter === "not_started"
+      ? "Not started"
+      : statusFilter === "on_track"
+        ? "On Track"
+        : statusFilter === "at_risk"
+          ? "At Risk"
+          : statusFilter === "behind"
+            ? "Behind"
+            : null
 
   if (loading) {
     return (

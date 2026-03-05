@@ -122,6 +122,12 @@ export default function FlowPage() {
               Here&apos;s what needs attention to keep homes moving.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
+              {briefing.notStartedHomes > 0 && (
+                <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                  <span className="mr-1">Not started</span>
+                  <span>{briefing.notStartedHomes}</span>
+                </div>
+              )}
               <div className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
                 <span className="mr-1">Overdue</span>
                 <span>{briefing.overdueCount}</span>

@@ -12,6 +12,7 @@ export interface ProgressBarProps {
 }
 
 const fillByStatus: Record<ScheduleStatus, string> = {
+  not_started: "bg-gray-300",
   on_track: "bg-green-500",
   at_risk: "bg-amber-500",
   behind: "bg-red-500",
@@ -25,6 +26,18 @@ export function ProgressBar({
 }: ProgressBarProps) {
   const fillClass = fillByStatus[status]
   const clamped = Math.min(100, Math.max(0, value))
+  const isNotStarted = status === "not_started"
+
+  if (isNotStarted) {
+    return (
+      <div className={cn("flex w-full min-w-0 items-center gap-2", className)}>
+        <p className="text-sm text-muted-foreground">Construction has not started yet.</p>
+        {showChevron && (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={cn("flex w-full min-w-0 items-center gap-2", className)}>

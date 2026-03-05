@@ -38,6 +38,8 @@ export type FlowAction = {
   actionLabel?: string
   /** CTA to open the correct task context (modal or home deep-link) */
   actionCta?: FlowActionCta
+  /** True when home has no start date or no scheduled tasks (construction not started) */
+  notStarted?: boolean
 }
 
 export type FlowScope = "today" | "next7" | "overdue"
@@ -65,4 +67,6 @@ export type FlowHomeGroup = {
   actions: FlowAction[]
   nextActionDate?: string
   counts: { prep: number; execute: number; overdue: number }
+  /** True when home has no start date or no scheduled tasks */
+  notStarted?: boolean
 }

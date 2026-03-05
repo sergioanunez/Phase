@@ -230,6 +230,8 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
 
     const address = home.addressOrLot
     const subdivisionName = home.subdivision?.name ?? ""
+    const scheduledCount = tasks.filter((t) => t.scheduledDate != null).length
+    const notStarted = !home.startDate || scheduledCount === 0
 
     const selectionTasks: FlowTaskForSelection[] = tasks.map((t) => ({
       id: t.id,
@@ -304,6 +306,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           state: "IN_PROGRESS",
           actionLabel: `In progress: ${task.nameSnapshot}`,
           actionCta: { type: "OPEN_TASK", taskId: task.id, homeId: home.id },
+          notStarted,
         })
         continue
       }
@@ -340,6 +343,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           state: "READY",
           actionLabel: `Get ready: ${task.nameSnapshot}`,
           actionCta: { type: "OPEN_TASK", taskId: task.id, homeId: home.id },
+          notStarted,
         })
       } else {
         const actionDate = forecastStartStr
@@ -367,6 +371,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           state: "READY",
           actionLabel: `Start work: ${task.nameSnapshot}`,
           actionCta: { type: "OPEN_TASK", taskId: task.id, homeId: home.id },
+          notStarted,
         })
       }
       continue
@@ -441,6 +446,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           ? `In progress: ${task.nameSnapshot}`
           : `Waiting on: ${task.nameSnapshot}`,
         actionCta: { type: "OPEN_HOME_TASKS", taskId: task.id, homeId: home.id },
+        notStarted,
       })
     }
   }

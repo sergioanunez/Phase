@@ -1,6 +1,6 @@
 import type { FlowAction, FlowHomeGroup } from "./types"
 
-export type HomeRisk = "ON_TRACK" | "AT_RISK" | "SLIPPING"
+export type HomeRisk = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "SLIPPING"
 
 export type FlowBriefing = {
   overdueCount: number
@@ -9,6 +9,7 @@ export type FlowBriefing = {
   slippingHomes: number
   atRiskHomes: number
   attentionHomes: number
+  notStartedHomes: number
 }
 
 function getTodayDateOnly(): string {
@@ -18,6 +19,10 @@ function getTodayDateOnly(): string {
 }
 
 export function getHomeRisk(group: FlowHomeGroup, today: string = getTodayDateOnly()): HomeRisk {
+  if (group.notStarted) {
+    return "NOT_STARTED"
+  }
+
   let hasOverdueExecute = false
   let hasOverduePrep = false
   let hasExecuteToday = false
@@ -51,6 +56,7 @@ export function computeFlowBriefing(groups: FlowHomeGroup[]): FlowBriefing {
   let startWorkCount = 0
   let slippingHomes = 0
   let atRiskHomes = 0
+  let notStartedHomes = 0
 
   for (const group of groups) {
     const risk = getHomeRisk(group, today)
@@ -67,7 +73,9 @@ export function computeFlowBriefing(groups: FlowHomeGroup[]): FlowBriefing {
       }
     }
 
-    if (risk === "SLIPPING") {
+    if (risk === "NOT_STARTED") {
+      notStartedHomes += 1
+    } else if (risk === "SLIPPING") {
       slippingHomes += 1
     } else if (risk === "AT_RISK") {
       atRiskHomes += 1
@@ -83,6 +91,7 @@ export function computeFlowBriefing(groups: FlowHomeGroup[]): FlowBriefing {
     slippingHomes,
     atRiskHomes,
     attentionHomes,
+    notStartedHomes,
   }
 }
 

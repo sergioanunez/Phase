@@ -38,6 +38,7 @@ export function CommunityAccordion({ communities }: CommunityAccordionProps) {
       {communities.map((community) => {
         const { homes } = community
         const total = homes.length
+        const notStarted = homes.filter((h) => h.status === "not_started").length
         const atRisk = homes.filter((h) => h.status === "at_risk").length
         const behind = homes.filter((h) => h.status === "behind").length
 
@@ -60,6 +61,12 @@ export function CommunityAccordion({ communities }: CommunityAccordionProps) {
                 <span className="font-medium text-foreground">{community.name}</span>
                 {" · "}
                 <span>{total} homes</span>
+                {notStarted > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-gray-600">{notStarted} not started</span>
+                  </>
+                )}
                 {atRisk > 0 && (
                   <>
                     {" · "}

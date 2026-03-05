@@ -32,10 +32,13 @@ export function groupFlowByHome(actions: FlowAction[]): FlowHomeGroup[] {
       actions: sorted,
       nextActionDate: first.actionDate,
       counts: { prep, execute, overdue },
+      notStarted: first.notStarted ?? false,
     })
   }
 
   groups.sort((a, b) => {
+    if (a.notStarted && !b.notStarted) return -1
+    if (!a.notStarted && b.notStarted) return 1
     const aOverdue = a.counts.overdue
     const bOverdue = b.counts.overdue
     if (aOverdue !== bOverdue) return bOverdue - aOverdue

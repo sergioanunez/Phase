@@ -13,7 +13,7 @@ const isBuild = () =>
 
 export interface PortfolioResponse {
   activeHomesCount: number
-  statusCounts: { onTrack: number; atRisk: number; behind: number }
+  statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
   bottlenecks: Array<{ key: string; label: string; count: number }>
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
@@ -58,19 +58,23 @@ export async function GET(request: NextRequest) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Schedule status counts (forecast vs target)
+    // Schedule status counts (not started first, then forecast vs target)
+    let notStarted = 0
     let onTrack = 0
     let atRisk = 0
     let behind = 0
     const statusByHome: Array<ScheduleStatus> = []
 
     for (const home of homes) {
+      const scheduledTaskCount = home.tasks.filter((t) => t.scheduledDate != null).length
       const status = getScheduleStatus(
         home.forecastCompletionDate?.toISOString() ?? null,
-        home.targetCompletionDate?.toISOString() ?? null
+        home.targetCompletionDate?.toISOString() ?? null,
+        { startDate: home.startDate, scheduledTaskCount }
       )
       statusByHome.push(status)
-      if (status === "on_track") onTrack++
+      if (status === "not_started") notStarted++
+      else if (status === "on_track") onTrack++
       else if (status === "at_risk") atRisk++
       else behind++
     }
@@ -175,7 +179,7 @@ export async function GET(request: NextRequest) {
 
     const body: PortfolioResponse = {
       activeHomesCount,
-      statusCounts: { onTrack, atRisk, behind },
+      statusCounts: { notStarted, onTrack, atRisk, behind },
       bottlenecks,
       inspectionsUpcoming,
       kpis,

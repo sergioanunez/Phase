@@ -3,7 +3,7 @@ import { appendFileSync } from "fs"
 import { join } from "path"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { computeHomeForecast } from "@/lib/forecast"
+import { computeHomeForecastAndPersist } from "@/lib/forecast"
 
 function debugLog(payload: Record<string, unknown>) {
   try {
@@ -68,7 +68,7 @@ export async function GET(
     }
 
     const previousForecast = homeForAccess.forecastCompletionDate
-    await computeHomeForecast(homeId)
+    await computeHomeForecastAndPersist(homeId)
     // #region agent log
     debugLog({ location: "forecast/route.ts:GET", message: "forecast after compute", data: { step: "afterCompute", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" })
     fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "forecast/route.ts:GET", message: "forecast after compute", data: { step: "afterCompute", homeId, sinceStart: Date.now() - forecastStart }, timestamp: Date.now(), hypothesisId: "H2" }) }).catch(() => {})

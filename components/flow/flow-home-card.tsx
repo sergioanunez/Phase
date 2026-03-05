@@ -33,6 +33,11 @@ function formatDateBadge(action: FlowAction): string {
 
 function riskPill(risk: HomeRisk): { label: string; className: string } {
   switch (risk) {
+    case "NOT_STARTED":
+      return {
+        label: "Not started",
+        className: "bg-gray-100 text-gray-600 border border-gray-200",
+      }
     case "SLIPPING":
       return {
         label: "Slipping",

@@ -77,10 +77,12 @@ export async function GET(request: NextRequest) {
         tasks: {
           select: {
             id: true,
+            templateItemId: true,
             status: true,
             scheduledDate: true,
             completedAt: true,
             nameSnapshot: true,
+            durationDaysSnapshot: true,
             contractor: {
               select: {
                 id: true,
@@ -95,12 +97,63 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Expose plan/thumbnail metadata for UI; do not send storage paths to client.
-    // Forecast fields use existing DB values; recompute on home detail or via background job if needed.
+    const companyId = homes[0]?.companyId ?? ctx.companyId
+    const templateDeps =
+      companyId != null
+        ? await prisma.templateDependency.findMany({
+            where: { OR: [{ companyId }, { companyId: null }] },
+            select: { templateItemId: true, dependsOnItemId: true },
+          })
+        : []
+
+    const {
+      computeHomeForecast,
+      buildTaskNodesFromPrismaTasks,
+      getHomeStart,
+      workingDaysBetween,
+    } = await import("@/lib/forecast")
+
     const serialized = homes.map((h) => {
       const { planStoragePath: _p, thumbnailStoragePath: _t, ...rest } = h
+      let forecastCompletionDate = rest.forecastCompletionDate
+      let forecastTotalWorkingDays = rest.forecastTotalWorkingDays
+      if (h.tasks.length > 0) {
+        try {
+          const taskNodes = buildTaskNodesFromPrismaTasks(
+            h.tasks.map((t) => ({
+              id: t.id,
+              templateItemId: t.templateItemId,
+              nameSnapshot: t.nameSnapshot,
+              durationDaysSnapshot: t.durationDaysSnapshot,
+              status: t.status,
+              scheduledDate: t.scheduledDate,
+              completedAt: t.completedAt,
+            })),
+            templateDeps
+          )
+          const homeStart = getHomeStart(
+            { startDate: h.startDate, createdAt: h.createdAt },
+            h.tasks
+          )
+          const result = computeHomeForecast(taskNodes, homeStart)
+          forecastCompletionDate = result.forecastDate
+          forecastTotalWorkingDays =
+            result.forecastDate > homeStart
+              ? workingDaysBetween(homeStart, result.forecastDate)
+              : 0
+        } catch {
+          // keep existing DB values on error (e.g. cycle)
+        }
+      }
       return {
         ...rest,
+        forecastCompletionDate:
+          forecastCompletionDate != null
+            ? (typeof forecastCompletionDate === "string"
+                ? forecastCompletionDate
+                : new Date(forecastCompletionDate).toISOString())
+            : null,
+        forecastTotalWorkingDays: forecastTotalWorkingDays ?? rest.forecastTotalWorkingDays,
         hasPlan: !!h.planStoragePath,
         hasThumbnail: !!h.thumbnailStoragePath,
       }
