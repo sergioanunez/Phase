@@ -101,7 +101,7 @@ export default function FlowPage() {
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-28 pt-16">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <h1 className="mb-4 text-xl font-semibold text-foreground">Flow</h1>
+        <h1 className="mb-4 text-2xl font-bold text-foreground">Flow</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Flow shows what to do today to keep homes moving.
         </p>
