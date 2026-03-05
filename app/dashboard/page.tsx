@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Settings } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
 import { Navigation } from "@/components/navigation"
 import { PortfolioOverviewCard } from "@/components/dashboard/portfolio-overview-card"
 import { BottleneckListCard } from "@/components/dashboard/bottleneck-list-card"
@@ -13,7 +14,7 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed"
 
 interface PortfolioData {
   activeHomesCount: number
-  statusCounts: { onTrack: number; atRisk: number; behind: number }
+  statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
   bottlenecks: Array<{ key: string; label: string; count: number }>
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
@@ -67,6 +68,8 @@ export default function DashboardPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(true)
   const [phaseDistribution, setPhaseDistribution] = useState<PhaseDistribution | null>(null)
   const [pulseGroups, setPulseGroups] = useState<PulseSubdivisionGroup[]>([])
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [, setTick] = useState(0)
 
   useEffect(() => {
     if (session?.user === undefined) return
@@ -122,6 +125,7 @@ export default function DashboardPage() {
             setPhaseDistribution(null)
             setPulseGroups([])
           }
+          setLastUpdated(new Date())
         })
         .finally(() => {
           setPortfolioLoading(false)
@@ -131,12 +135,16 @@ export default function DashboardPage() {
 
     loadDashboard()
     const interval = setInterval(fetchActivities, 5000)
-    return () => clearInterval(interval)
+    const minuteTicker = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => {
+      clearInterval(interval)
+      clearInterval(minuteTicker)
+    }
   }, [session?.user])
 
   const portfolioFallback: PortfolioData = {
     activeHomesCount: 0,
-    statusCounts: { onTrack: 0, atRisk: 0, behind: 0 },
+    statusCounts: { notStarted: 0, onTrack: 0, atRisk: 0, behind: 0 },
     bottlenecks: [],
     inspectionsUpcoming: [],
     kpis: [
@@ -174,7 +182,12 @@ export default function DashboardPage() {
             )}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Portfolio-level view of schedule health, bottlenecks, and live activity. Drill down to Homes or Calendar as needed.
+            Portfolio-level view of schedule health, bottlenecks, and live activity.
+            {lastUpdated && (
+              <span className="ml-1.5">
+                Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}.
+              </span>
+            )}
           </p>
         </header>
 
@@ -250,7 +263,7 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
               <h2 className="text-base font-semibold text-foreground">Field Pulse</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Last critical milestone completed per home.
+                Last milestone completed
               </p>
               <div className="mt-3 space-y-3">
                 {pulseGroups.map((group) => (
@@ -286,11 +299,7 @@ export default function DashboardPage() {
                             )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {home.lastCriticalTaskName && home.lastCriticalCompletedAt
-                              ? `Last critical: ${home.lastCriticalTaskName} • ${new Date(
-                                  home.lastCriticalCompletedAt
-                                ).toLocaleDateString()}`
-                              : "Last critical: —"}
+                            {home.lastCriticalTaskName ?? "—"}
                           </p>
                         </button>
                       ))}
