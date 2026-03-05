@@ -1,3 +1,13 @@
+export type FlowCardState = "READY" | "WAITING" | "IN_PROGRESS"
+
+export type FlowActionCtaType = "OPEN_TASK" | "OPEN_SCHEDULE_MODAL" | "OPEN_HOME_TASKS"
+
+export type FlowActionCta = {
+  type: FlowActionCtaType
+  taskId: string
+  homeId: string
+}
+
 export type FlowAction = {
   homeId: string
   homeAddress: string
@@ -22,6 +32,12 @@ export type FlowAction = {
   sortOrderSnapshot: number
   /** For Details: dependency task names and completion status */
   dependencyStatus?: Array<{ name: string; complete: boolean }>
+  /** Card state: READY = actionable, WAITING = blocked on prior task, IN_PROGRESS = task in progress */
+  state?: FlowCardState
+  /** Natural language label for the card (e.g. "Start work: Pour Slab", "Waiting on: Forms") */
+  actionLabel?: string
+  /** CTA to open the correct task context (modal or home deep-link) */
+  actionCta?: FlowActionCta
 }
 
 export type FlowScope = "today" | "next7" | "overdue"

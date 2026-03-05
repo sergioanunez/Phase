@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -76,6 +76,7 @@ interface Home {
 export default function HomeDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session } = useSession()
   const [home, setHome] = useState<Home | null>(null)
   const [loading, setLoading] = useState(true)
@@ -140,6 +141,17 @@ export default function HomeDetailPage() {
       })
       .catch(() => setThumbnailUrl(null))
   }, [params.id, home?.id])
+
+  // Deep-link: open task modal when ?task=<taskId> is in the URL (e.g. from Flow "Open task")
+  useEffect(() => {
+    const taskId = searchParams.get("task")
+    if (!taskId || !home?.tasks) return
+    const task = home.tasks.find((t) => t.id === taskId)
+    if (task) {
+      setSelectedTask(task)
+      setModalOpen(true)
+    }
+  }, [home?.tasks, searchParams])
 
   const getStatusColor = (status: TaskStatus) => {
     switch (status) {

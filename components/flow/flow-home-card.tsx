@@ -11,6 +11,7 @@ import { getHomeRisk, type HomeRisk } from "@/lib/flow/briefing"
 const DEFAULT_VISIBLE = 2
 
 function actionLabel(action: FlowAction): string {
+  if (action.actionLabel) return action.actionLabel
   if (action.type === "EXECUTE") return `Start work: ${action.taskName}`
   if (action.requiresOrdering) return `Order materials: ${action.taskName}`
   if (action.contractorName) return `Confirm schedule: ${action.taskName}`
@@ -155,11 +156,15 @@ export function FlowHomeCard({
         )}
         <div className="pt-3 mt-1 border-t border-border">
           <Link
-            href={`/homes/${group.homeId}`}
+            href={
+              group.actions[0]?.actionCta?.taskId
+                ? `/homes/${group.homeId}?task=${group.actions[0].actionCta.taskId}`
+                : `/homes/${group.homeId}`
+            }
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            View home
+            {group.actions[0]?.actionCta ? "Open task" : "View home"}
           </Link>
         </div>
       </CardContent>
