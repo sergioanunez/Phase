@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const subdivisionId = searchParams.get("subdivisionId")
+    const phaseFilter = searchParams.get("phase")
 
     const where: { companyId: string; subdivisionId?: string; id?: { in: string[] } } = {
       companyId: ctx.companyId,
@@ -89,6 +90,12 @@ export async function GET(request: NextRequest) {
                 companyName: true,
               },
             },
+            templateItem: {
+              select: {
+                optionalCategory: true,
+                sortOrder: true,
+              },
+            },
           },
         },
       },
@@ -113,7 +120,43 @@ export async function GET(request: NextRequest) {
       workingDaysBetween,
     } = await import("@/lib/forecast")
 
-    const serialized = homes.map((h) => {
+    let homesForSerialization = homes
+
+    if (phaseFilter) {
+      const { deriveOrderedCategories, computeCurrentPhaseForHome } = await import(
+        "@/lib/dashboard/phaseDistribution"
+      )
+
+      const phaseHomes = homes.map((h) => ({
+        id: h.id,
+        addressOrLot: h.addressOrLot,
+        startDate: h.startDate,
+        createdAt: h.createdAt,
+        isComplete: h.isComplete,
+        tasks: h.tasks.map((t) => ({
+          id: t.id,
+          status: t.status,
+          scheduledDate: t.scheduledDate,
+          templateItem: {
+            name: t.nameSnapshot,
+            optionalCategory: t.templateItem?.optionalCategory ?? null,
+            sortOrder: t.templateItem?.sortOrder ?? 0,
+          },
+        })),
+      }))
+
+      const orderedCategories = deriveOrderedCategories(phaseHomes)
+      const phaseHomesById = new Map(phaseHomes.map((h) => [h.id, h]))
+
+      homesForSerialization = homes.filter((h) => {
+        const phaseHome = phaseHomesById.get(h.id)
+        if (!phaseHome) return false
+        const homePhase = computeCurrentPhaseForHome(phaseHome, orderedCategories)
+        return homePhase.key === phaseFilter
+      })
+    }
+
+    const serialized = homesForSerialization.map((h) => {
       const { planStoragePath: _p, thumbnailStoragePath: _t, ...rest } = h
       let forecastCompletionDate = rest.forecastCompletionDate
       let forecastTotalWorkingDays = rest.forecastTotalWorkingDays
