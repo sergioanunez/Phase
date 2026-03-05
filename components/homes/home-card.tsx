@@ -12,8 +12,10 @@ export interface HomeCardHome {
   forecastCompletionDate: string | null
   targetCompletionDate: string | null
   subdivision: { id: string; name: string }
+  criticalPathTaskIds?: string[]
   tasks: Array<{
     id: string
+    status?: string
     scheduledDate: string | null
     nameSnapshot: string
     contractor: { id: string; companyName: string } | null
@@ -27,8 +29,14 @@ export interface HomeCardProps {
 }
 
 export function HomeCard({ home, status, progress }: HomeCardProps) {
-  const lastScheduledTask = home.tasks
-    .filter((t) => t.scheduledDate)
+  const criticalIds = home.criticalPathTaskIds ?? []
+  const lastCriticalScheduledTask = home.tasks
+    .filter(
+      (t) =>
+        criticalIds.includes(t.id) &&
+        t.scheduledDate &&
+        t.status !== "Completed"
+    )
     .sort((a, b) => new Date(b.scheduledDate!).getTime() - new Date(a.scheduledDate!).getTime())[0]
 
   const forecastStr = home.forecastCompletionDate
@@ -67,17 +75,17 @@ export function HomeCard({ home, status, progress }: HomeCardProps) {
         <ProgressBar value={progress} status={status} showChevron />
       </div>
 
-      {/* Last scheduled */}
+      {/* Last critical task scheduled */}
       <div>
-        <p className="text-xs text-muted-foreground">Last scheduled:</p>
-        {lastScheduledTask ? (
+        <p className="text-xs text-muted-foreground">Last critical task scheduled:</p>
+        {lastCriticalScheduledTask ? (
           <p className="text-sm text-foreground">
-            {lastScheduledTask.nameSnapshot} ·{" "}
-            {format(new Date(lastScheduledTask.scheduledDate!), "MMM d")} ·{" "}
-            {lastScheduledTask.contractor?.companyName ?? "—"}
+            {lastCriticalScheduledTask.nameSnapshot} ·{" "}
+            {format(new Date(lastCriticalScheduledTask.scheduledDate!), "MMM d")} ·{" "}
+            {lastCriticalScheduledTask.contractor?.companyName ?? "—"}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">No work scheduled</p>
+          <p className="text-sm text-muted-foreground">No critical work scheduled</p>
         )}
       </div>
     </Link>

@@ -16,8 +16,10 @@ export interface CommunityHome {
   forecastCompletionDate: string | null
   targetCompletionDate: string | null
   subdivision: { id: string; name: string }
+  criticalPathTaskIds?: string[]
   tasks: Array<{
     id: string
+    status?: string
     scheduledDate: string | null
     nameSnapshot: string
     contractor: { id: string; companyName: string } | null

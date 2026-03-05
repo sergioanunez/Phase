@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
       const { planStoragePath: _p, thumbnailStoragePath: _t, ...rest } = h
       let forecastCompletionDate = rest.forecastCompletionDate
       let forecastTotalWorkingDays = rest.forecastTotalWorkingDays
+      let criticalPathTaskIds: string[] = []
       if (h.tasks.length > 0) {
         try {
           const taskNodes = buildTaskNodesFromPrismaTasks(
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest) {
             result.forecastDate > homeStart
               ? workingDaysBetween(homeStart, result.forecastDate)
               : 0
+          criticalPathTaskIds = result.criticalPathTaskIds ?? []
         } catch {
           // keep existing DB values on error (e.g. cycle)
         }
@@ -154,6 +156,7 @@ export async function GET(request: NextRequest) {
                 : new Date(forecastCompletionDate).toISOString())
             : null,
         forecastTotalWorkingDays: forecastTotalWorkingDays ?? rest.forecastTotalWorkingDays,
+        criticalPathTaskIds,
         hasPlan: !!h.planStoragePath,
         hasThumbnail: !!h.thumbnailStoragePath,
       }

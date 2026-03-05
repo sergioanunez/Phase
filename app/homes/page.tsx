@@ -20,6 +20,7 @@ interface Home {
   targetCompletionDate: string | null
   forecastCompletionDate: string | null
   forecastTotalWorkingDays: number | null
+  criticalPathTaskIds?: string[]
   hasPlan?: boolean
   planName?: string | null
   planVariant?: string | null
@@ -65,8 +66,10 @@ function toCommunityHome(home: Home): CommunityHome {
     forecastCompletionDate: home.forecastCompletionDate,
     targetCompletionDate: home.targetCompletionDate,
     subdivision: home.subdivision ?? { id: "", name: "" },
+    criticalPathTaskIds: home.criticalPathTaskIds ?? [],
     tasks: tasks.map((t) => ({
       id: t.id,
+      status: t.status,
       scheduledDate: t.scheduledDate,
       nameSnapshot: t.nameSnapshot,
       contractor: t.contractor,
