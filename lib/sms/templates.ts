@@ -98,7 +98,6 @@ ${params.address}
 Date: ${dateStr}
 Due: ${dueStr}
 
-Please address these items:
 ${itemsText}
 ${linkBlock}STOP to opt out. HELP for help.`
 
@@ -110,7 +109,6 @@ ${params.address}
 Date: ${dateStr}
 Due: ${dueStr}
 
-Please address these items:
 ${itemsText}
 
 ...
