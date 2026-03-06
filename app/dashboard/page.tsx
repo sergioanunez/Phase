@@ -270,7 +270,6 @@ export default function DashboardPage() {
                   <details
                     key={group.subdivisionId}
                     className="rounded-lg border border-muted bg-muted/40 p-3"
-                    open
                   >
                     <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-foreground">
                       <span>{group.subdivisionName}</span>
