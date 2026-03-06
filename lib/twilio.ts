@@ -140,6 +140,7 @@ export async function sendConfirmationSMS(
     where: { id: homeTaskId },
     select: {
       companyId: true,
+      homeId: true,
     },
   })
   const { tenant, subscription } = await getSmsBrandContext(taskRow?.companyId ?? null)
@@ -168,6 +169,8 @@ export async function sendConfirmationSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
+        messageType: "scheduled",
+        homeId: taskRow?.homeId ?? undefined,
         homeTaskId: homeTaskId,
         confirmationCode: confirmationCode,
       },
@@ -194,6 +197,8 @@ export async function sendConfirmationSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
+        messageType: "scheduled",
+        homeId: taskRow?.homeId ?? undefined,
         homeTaskId: homeTaskId,
         confirmationCode: confirmationCode,
       },
@@ -237,7 +242,7 @@ export async function sendCancellationSMS(
 
   const taskForSender = await prisma.homeTask.findUnique({
     where: { id: homeTaskId },
-    select: { companyId: true },
+    select: { companyId: true, homeId: true },
   })
   const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
 
@@ -265,6 +270,8 @@ export async function sendCancellationSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
+        messageType: "cancelled",
+        homeId: taskForSender?.homeId ?? undefined,
         homeTaskId: homeTaskId,
       },
     })
@@ -279,6 +286,8 @@ export async function sendCancellationSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
+        messageType: "cancelled",
+        homeId: taskForSender?.homeId ?? undefined,
         homeTaskId: homeTaskId,
       },
     })
@@ -548,7 +557,7 @@ export async function sendPunchListSMS(
 
   const taskForSender = await prisma.homeTask.findUnique({
     where: { id: taskId },
-    select: { companyId: true },
+    select: { companyId: true, homeId: true },
   })
   const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
 
@@ -583,12 +592,14 @@ export async function sendPunchListSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
+        messageType: "punchlist",
+        homeId: taskForSender?.homeId ?? undefined,
         homeTaskId: taskId,
       },
     })
   } catch (error) {
     console.error("Failed to send punch list SMS:", error)
-    
+
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
@@ -597,6 +608,8 @@ export async function sendPunchListSMS(
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
+        messageType: "punchlist",
+        homeId: taskForSender?.homeId ?? undefined,
         homeTaskId: taskId,
       },
     })

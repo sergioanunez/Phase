@@ -20,6 +20,7 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
 import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
+import { HomeActivityTimeline } from "@/components/home-activity-timeline"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -609,6 +610,13 @@ export default function HomeDetailPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Activity Timeline */}
+        {session?.user && (session.user as any).role !== "Subcontractor" && (
+          <div className="mb-4">
+            <HomeActivityTimeline homeId={home.id} initialLimit={5} />
+          </div>
         )}
 
         {/* Phase cards — same width as timeline card above */}

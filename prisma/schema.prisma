@@ -57,6 +57,31 @@ enum SmsStatus {
   Received
 }
 
+enum SmsMessageType {
+  scheduled
+  cancelled
+  punchlist
+  confirmation
+  general
+}
+
+enum ActivityEventType {
+  task_scheduled
+  task_rescheduled
+  task_cancelled
+  task_completed
+  task_reported_complete
+  sms_sent
+  sms_confirmed
+  sms_declined
+  punchlist_sent
+  punchlist_completed
+  inspection_passed
+  inspection_failed
+  home_started
+  home_completed
+}
+
 enum GateScope {
   DownstreamOnly
   AllScheduling
@@ -206,6 +231,7 @@ model Company {
   smsMessageLogs SmsMessageLog[]
   notifications Notification[]
   subscriptionEventLogs SubscriptionEventLog[]
+  activityEvents ActivityEvent[]
 
   @@index([pricingTier])
   @@index([status])
@@ -408,6 +434,8 @@ model Home {
   assignments      HomeAssignment[]
   punchItems       PunchItem[]
   punchlistShares  PunchlistShare[]
+  smsMessages      SmsMessage[]
+  activityEvents   ActivityEvent[]
   contractorAssignments ContractorAssignment[]
 
   @@index([companyId])
@@ -575,25 +603,56 @@ model ContractorAssignment {
 }
 
 model SmsMessage {
-  id               String       @id @default(cuid())
+  id               String          @id @default(cuid())
   companyId        String?
-  company          Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company          Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   direction        SmsDirection
   to               String
   from             String
   body             String
   status           SmsStatus
+  messageType      SmsMessageType?
+  homeId           String?
+  home             Home?           @relation(fields: [homeId], references: [id], onDelete: SetNull)
   homeTaskId       String?
-  homeTask         HomeTask?   @relation(fields: [homeTaskId], references: [id])
+  homeTask         HomeTask?       @relation(fields: [homeTaskId], references: [id])
+  recipientName    String?
   confirmationCode String?
-  createdAt        DateTime    @default(now())
+  createdAt        DateTime        @default(now())
 
   @@index([companyId])
   @@index([to])
   @@index([from])
+  @@index([homeId])
   @@index([homeTaskId])
+  @@index([messageType])
   @@index([confirmationCode])
   @@index([createdAt])
+}
+
+/// Activity events for home-level timeline (communication + milestone tracking)
+model ActivityEvent {
+  id            String             @id @default(cuid())
+  companyId     String
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  homeId        String
+  home          Home               @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  taskId        String?
+  punchItemId   String?
+  eventType     ActivityEventType
+  title         String
+  description   String?
+  actorName     String?
+  recipientName String?
+  metadataJson  Json?
+  createdAt     DateTime           @default(now())
+
+  @@index([companyId])
+  @@index([homeId])
+  @@index([taskId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([homeId, createdAt])
 }
 
 model AuditLog {

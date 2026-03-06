@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, MoreVertical, Settings } from "lucide-react"
+import { LogOut, MessageSquare, MoreVertical, Settings } from "lucide-react"
 
 export function UserMenu() {
   const router = useRouter()
@@ -28,6 +28,7 @@ export function UserMenu() {
 
   const role = impersonationRole ?? (session?.user as { role?: string })?.role ?? ""
   const canAccessSettings = role === "Admin"
+  const canAccessMessages = role === "Admin" || role === "Manager" || role === "Superintendent"
 
   if (!session?.user) return null
 
@@ -56,6 +57,15 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {canAccessMessages && (
+          <DropdownMenuItem
+            onClick={() => router.push("/messages")}
+            className="cursor-pointer"
+          >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            <span>Messages</span>
+          </DropdownMenuItem>
+        )}
         {canAccessSettings && (
           <DropdownMenuItem
             onClick={() => router.push("/admin")}
