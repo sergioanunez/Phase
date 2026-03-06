@@ -52,7 +52,7 @@ export function ScheduleTimeline({
   const forecastLeft = `calc(${trackLeft} + (100% - 4rem - 10px) * ${forecastPercent} / 100)`
 
   return (
-    <div className="relative w-full min-h-[108px] overflow-hidden px-8 pt-0 pb-2">
+    <div className="relative w-full min-h-[108px] overflow-hidden px-8">
       {/* Day count title above the timeline */}
       {hasAll && (
         <div className="flex justify-center pb-2">
