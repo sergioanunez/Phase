@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { PunchItemModal } from "@/components/punch-item-modal"
 import { PunchStatus } from "@prisma/client"
 import { format } from "date-fns"
-import { Plus, Edit2, Filter, MessageSquare, Check, Trash2, Mail } from "lucide-react"
+import { Plus, Edit2, MessageSquare, Check, Trash2, Mail, Copy, ExternalLink } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import {
   buildPunchlistWhatsAppText,
@@ -80,10 +80,21 @@ export function PunchItemsList({
   const [filter, setFilter] = useState<"all" | "open" | "closed">("all")
   const [editingPunchItem, setEditingPunchItem] = useState<PunchItem | null>(null)
   const [punchModalOpen, setPunchModalOpen] = useState(false)
+  const [publicLink, setPublicLink] = useState<string | null>(null)
+  const [publicLinkSentAt, setPublicLinkSentAt] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
       fetchPunchItems()
+      fetch(`/api/tasks/${taskId}/punch-items/public-link`, { credentials: "same-origin" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.publicLink) {
+            setPublicLink(data.publicLink)
+            setPublicLinkSentAt(data.sentAt ?? null)
+          }
+        })
+        .catch(() => {})
     }
   }, [open, taskId])
 
@@ -213,6 +224,10 @@ export function PunchItemsList({
       const data = await res.json()
 
       if (res.ok) {
+        if (data.publicLink) {
+          setPublicLink(data.publicLink)
+          setPublicLinkSentAt(new Date().toISOString())
+        }
         if (data.errors && data.errors.length > 0) {
           const errorMessages = data.errors
             .map((e: any) => `${e.contractor}: ${e.error}`)
@@ -378,6 +393,43 @@ export function PunchItemsList({
                 </Button>
               </div>
             </div>
+
+            {publicLink && (
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
+                <p className="font-medium text-muted-foreground">Public link</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground" title={publicLink}>
+                  {publicLink}
+                </p>
+                {publicLinkSentAt && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Sent {format(new Date(publicLinkSentAt), "MMM d, yyyy 'at' h:mm a")}
+                  </p>
+                )}
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(publicLink)
+                      alert("Link copied to clipboard")
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(publicLink, "_blank", "noopener")}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open public view
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="text-center py-8">Loading...</div>

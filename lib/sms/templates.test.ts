@@ -136,5 +136,23 @@ describe("buildPunchlistSms", () => {
     expect(sms).toContain("More items in Phase.")
     expect(sms).toMatch(/STOP to opt out\. HELP for help\.\s*$/)
   })
+
+  it("includes public link before STOP/HELP when provided", () => {
+    const sms = buildPunchlistSms({
+      tenant: { name: "Cullers Homes" },
+      subscription: null,
+      address: "123 Main",
+      date: new Date("2026-03-06"),
+      dueDate: null,
+      items: ["Item one"],
+      publicLink: "https://usephase.app/punchlist/AbC123",
+    })
+    expect(sms).toContain("View photos & details:")
+    expect(sms).toContain("https://usephase.app/punchlist/AbC123")
+    const idxLink = sms.indexOf("https://usephase.app/punchlist/AbC123")
+    const idxStop = sms.indexOf("STOP to opt out")
+    expect(idxLink).toBeLessThan(idxStop)
+    expect(sms).toMatch(/STOP to opt out\. HELP for help\.\s*$/)
+  })
 })
 

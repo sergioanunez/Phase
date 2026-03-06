@@ -26,7 +26,7 @@ export function AppHeader() {
   const [notificationCount, setNotificationCount] = useState<number>(0)
 
   useEffect(() => {
-    if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin")) return
+    if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin") || pathname?.startsWith("/punchlist")) return
     fetch("/api/company/branding")
       .then((res) => (res.ok ? res.json() : null))
       .then(
@@ -47,14 +47,14 @@ export function AppHeader() {
   }, [pathname])
 
   useEffect(() => {
-    if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin")) return
+    if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin") || pathname?.startsWith("/punchlist")) return
     fetch("/api/notifications")
       .then((res) => (res.ok ? res.json() : { count: 0 }))
       .then((data) => setNotificationCount(data.count ?? 0))
       .catch(() => setNotificationCount(0))
   }, [pathname])
 
-  if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin")) {
+  if (pathname?.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname?.startsWith("/super-admin") || pathname?.startsWith("/punchlist")) {
     return null
   }
 

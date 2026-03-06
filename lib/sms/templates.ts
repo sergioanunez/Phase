@@ -74,6 +74,8 @@ export function buildPunchlistSms(params: {
   date: Date
   dueDate?: Date | null
   items: string[]
+  /** Secure public link for photos & full list; included before STOP/HELP when provided */
+  publicLink?: string | null
 }): string {
   const brand = getBrand(params.tenant, params.subscription)
   const dateStr = formatDate(params.date)
@@ -86,6 +88,10 @@ export function buildPunchlistSms(params: {
       .map((item, idx) => `${idx + 1}) ${item}`)
       .join("\n")
 
+  const linkBlock = params.publicLink
+    ? `\nView photos & details:\n${params.publicLink}\n\n`
+    : "\n"
+
   let itemsText = formatItems(allItems)
   let body = `${brand} punchlist:
 ${params.address}
@@ -94,8 +100,7 @@ Due: ${dueStr}
 
 Please address these items:
 ${itemsText}
-
-STOP to opt out. HELP for help.`
+${linkBlock}STOP to opt out. HELP for help.`
 
   if (body.length > 1400) {
     const truncatedItems = allItems.slice(0, 8)
@@ -110,8 +115,7 @@ ${itemsText}
 
 ...
 More items in Phase.
-
-STOP to opt out. HELP for help.`
+${linkBlock}STOP to opt out. HELP for help.`
   }
 
   return body

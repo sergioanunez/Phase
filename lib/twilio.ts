@@ -521,7 +521,8 @@ export async function sendPunchListSMS(
   to: string,
   home: string,
   task: string,
-  punchItems: Array<{ title: string; dueDate: string | null; photoUrls?: string[] }>
+  punchItems: Array<{ title: string; dueDate: string | null; photoUrls?: string[] }>,
+  options?: { publicLink?: string | null }
 ): Promise<void> {
   // Validate Twilio client is configured
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -564,6 +565,7 @@ export async function sendPunchListSMS(
     date: now,
     dueDate: earliestDue,
     items: punchItems.map((item) => item.title),
+    publicLink: options?.publicLink ?? null,
   })
 
   try {

@@ -56,12 +56,37 @@ export async function POST(
       )
     }
 
-    // Base URL for photo links (no media sent, just links)
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (request.headers.get("x-forwarded-proto") && request.headers.get("host")
-        ? `${request.headers.get("x-forwarded-proto")}://${request.headers.get("host")}`
-        : new URL(request.url).origin)
+    const dueDates = punchItems
+      .map((p) => p.dueDate)
+      .filter((d): d is Date => !!d)
+    const earliestDue = dueDates.length > 0 ? dueDates.reduce((a, b) => (a < b ? a : b)) : null
+
+    const { generatePublicPunchlistToken, buildPublicPunchlistUrl } = await import("@/lib/punchlists/publicLink")
+
+    let share = await prisma.punchlistShare.findFirst({
+      where: { homeTaskId: params.id, enabled: true },
+      orderBy: { createdAt: "desc" },
+    })
+    if (!share) {
+      const token = generatePublicPunchlistToken()
+      share = await prisma.punchlistShare.create({
+        data: {
+          companyId: task.home.companyId ?? undefined,
+          homeId: task.homeId,
+          homeTaskId: params.id,
+          token,
+          enabled: true,
+          dueDate: earliestDue ?? undefined,
+          sentAt: new Date(),
+        },
+      })
+    } else {
+      await prisma.punchlistShare.update({
+        where: { id: share.id },
+        data: { dueDate: earliestDue ?? undefined, sentAt: new Date() },
+      })
+    }
+    const publicLink = buildPublicPunchlistUrl(share.token)
 
     // Group punch items by contractor
     const itemsByContractor = punchItems.reduce((acc, item) => {
@@ -75,7 +100,7 @@ export async function POST(
       acc[contractorId].items.push({
         title: item.title,
         dueDate: item.dueDate ? item.dueDate.toISOString() : null,
-        photoUrls: (item.photos || []).map((p) => `${baseUrl}${p.imageUrl}`),
+        photoUrls: (item.photos || []).map((p) => p.imageUrl),
       })
       return acc
     }, {} as Record<string, { contractor: typeof punchItems[0]["assignedContractor"]; items: Array<{ title: string; dueDate: string | null; photoUrls: string[] }> }>)
@@ -116,8 +141,15 @@ export async function POST(
           recipient.phoneE164,
           task.home.addressOrLot,
           task.nameSnapshot,
-          data.items
+          data.items,
+          { publicLink }
         )
+        if (!share!.recipientPhone) {
+          await prisma.punchlistShare.update({
+            where: { id: share!.id },
+            data: { recipientPhone: recipient.phoneE164 },
+          })
+        }
         results.push({
           contractor: data.contractor.companyName,
           itemsCount: data.items.length,
@@ -135,6 +167,7 @@ export async function POST(
       success: results.length > 0,
       results,
       errors,
+      publicLink: results.length > 0 ? publicLink : undefined,
     })
   } catch (error: any) {
     console.error("Error sending punch list SMS:", error)

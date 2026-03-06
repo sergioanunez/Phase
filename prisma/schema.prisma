@@ -193,9 +193,10 @@ model Company {
   contractors   Contractor[]
   templateItems WorkTemplateItem[]
   templateDeps  TemplateDependency[]
-  homeTasks     HomeTask[]
-  punchItems    PunchItem[]
-  auditLogs     AuditLog[]
+  homeTasks        HomeTask[]
+  punchItems       PunchItem[]
+  punchlistShares  PunchlistShare[]
+  auditLogs        AuditLog[]
   contractorAssignments ContractorAssignment[]
   homeAssignments HomeAssignment[]
   userInvites   UserInvite[]
@@ -403,9 +404,10 @@ model Home {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  tasks       HomeTask[]
-  assignments HomeAssignment[]
-  punchItems  PunchItem[]
+  tasks            HomeTask[]
+  assignments      HomeAssignment[]
+  punchItems       PunchItem[]
+  punchlistShares  PunchlistShare[]
   contractorAssignments ContractorAssignment[]
 
   @@index([companyId])
@@ -674,6 +676,28 @@ model PunchPhoto {
   createdAt   DateTime  @default(now())
 
   @@index([punchItemId])
+}
+
+/// Secure public view for subcontractors: one share per task send (tokenized link in SMS).
+model PunchlistShare {
+  id                String    @id @default(cuid())
+  companyId         String?
+  company           Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  homeId            String
+  home              Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  homeTaskId        String    // task whose punch items are included
+  token             String    @unique
+  enabled           Boolean   @default(true)
+  dueDate           DateTime?
+  recipientPhone    String?   // optional; first recipient or null
+  sentAt            DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([homeId])
+  @@index([homeTaskId])
+  @@index([token])
 }
 
 model CategoryGate {
