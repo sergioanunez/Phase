@@ -243,15 +243,15 @@ export default function MessagesPage() {
         ) : (
           <div className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date/Time</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[120px]">Date/Time</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[90px]">Type</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Home</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Recipient</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Preview</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[140px]">Recipient</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[100px]">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[220px]">Preview</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -285,8 +285,10 @@ export default function MessagesPage() {
                         <div className="text-xs text-muted-foreground">{msg.to}</div>
                       </td>
                       <td className="px-4 py-3">{getStatusBadge(msg.status)}</td>
-                      <td className="px-4 py-3 max-w-xs">
-                        <p className="text-muted-foreground truncate">{truncateBody(msg.body)}</p>
+                      <td className="px-4 py-3 overflow-hidden">
+                        <p className="text-muted-foreground truncate" title={msg.body}>
+                          {truncateBody(msg.body)}
+                        </p>
                       </td>
                     </tr>
                   ))}
