@@ -54,7 +54,7 @@ export function ScheduleTimeline({
       ? "bg-green-500"
       : status === "on-time"
         ? "bg-muted-foreground"
-        : diffDays < 7
+        : diffDays <= 7
           ? "bg-amber-500"
           : "bg-destructive"
 
@@ -73,8 +73,8 @@ export function ScheduleTimeline({
               "text-sm font-medium tabular-nums text-center break-words max-w-full",
               diffDays < 0 && "text-green-600 dark:text-green-400",
               diffDays === 0 && "text-muted-foreground",
-              diffDays > 0 && diffDays < 7 && "text-amber-600 dark:text-amber-400",
-              diffDays >= 7 && "text-destructive"
+              diffDays > 0 && diffDays <= 7 && "text-amber-600 dark:text-amber-400",
+              diffDays > 7 && "text-destructive"
             )}
             aria-label={
               diffDays < 0
@@ -103,10 +103,13 @@ export function ScheduleTimeline({
         aria-hidden
       />
 
-      {/* Red overrun segment when behind: from clamped forecast position to target */}
+      {/* Overrun segment when behind: amber (1–7 days) or red (8+); from clamped forecast to target */}
       {hasAll && isBehind && (
         <div
-          className="absolute rounded-r-full bg-destructive/25 pointer-events-none"
+          className={cn(
+            "absolute rounded-r-full pointer-events-none",
+            diffDays <= 7 ? "bg-amber-500/25" : "bg-destructive/25"
+          )}
           style={{
             top: TRACK_TOP_PX,
             left: forecastLeft,
