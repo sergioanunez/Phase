@@ -251,7 +251,7 @@ export default function MessagesPage() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Home</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[140px]">Recipient</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[100px]">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[220px]">Preview</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground w-[150px]">Preview</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
