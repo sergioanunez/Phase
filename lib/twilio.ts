@@ -574,7 +574,7 @@ export async function sendPunchListSMS(
     date: now,
     dueDate: earliestDue,
     items: punchItems.map((item) => item.title),
-    publicLink: options?.publicLink ?? null,
+    // publicLink omitted temporarily to reduce filtering (A2P 10DLC pending)
   })
 
   try {

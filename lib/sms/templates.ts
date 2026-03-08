@@ -74,7 +74,7 @@ export function buildPunchlistSms(params: {
   date: Date
   dueDate?: Date | null
   items: string[]
-  /** Secure public link for photos & full list; included before STOP/HELP when provided */
+  /** Secure public link for photos & full list. Temporarily not included in SMS (A2P 10DLC). */
   publicLink?: string | null
 }): string {
   const brand = getBrand(params.tenant, params.subscription)
@@ -88,9 +88,8 @@ export function buildPunchlistSms(params: {
       .map((item, idx) => `${idx + 1}) ${item}`)
       .join("\n")
 
-  const linkBlock = params.publicLink
-    ? `\nView photos & details:\n${params.publicLink}\n\n`
-    : "\n"
+  // Temporary: do not include link in SMS to reduce filtering while A2P 10DLC is pending.
+  const linkBlock = "\n"
 
   let itemsText = formatItems(allItems)
   let body = `${brand} punchlist:

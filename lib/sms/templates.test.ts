@@ -137,7 +137,7 @@ describe("buildPunchlistSms", () => {
     expect(sms).toMatch(/STOP to opt out\. HELP for help\.\s*$/)
   })
 
-  it("includes public link before STOP/HELP when provided", () => {
+  it("does not include public link in SMS (temporary for A2P 10DLC)", () => {
     const sms = buildPunchlistSms({
       tenant: { name: "Cullers Homes" },
       subscription: null,
@@ -147,11 +147,8 @@ describe("buildPunchlistSms", () => {
       items: ["Item one"],
       publicLink: "https://usephase.app/punchlist/AbC123",
     })
-    expect(sms).toContain("View photos & details:")
-    expect(sms).toContain("https://usephase.app/punchlist/AbC123")
-    const idxLink = sms.indexOf("https://usephase.app/punchlist/AbC123")
-    const idxStop = sms.indexOf("STOP to opt out")
-    expect(idxLink).toBeLessThan(idxStop)
+    expect(sms).not.toContain("View photos & details:")
+    expect(sms).not.toContain("https://usephase.app/punchlist/AbC123")
     expect(sms).toMatch(/STOP to opt out\. HELP for help\.\s*$/)
   })
 })

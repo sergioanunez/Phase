@@ -141,8 +141,8 @@ export async function POST(
           recipient.phoneE164,
           task.home.addressOrLot,
           task.nameSnapshot,
-          data.items,
-          { publicLink }
+          data.items
+          // publicLink not passed to SMS body (temporary for A2P 10DLC)
         )
         if (!share!.recipientPhone) {
           await prisma.punchlistShare.update({
