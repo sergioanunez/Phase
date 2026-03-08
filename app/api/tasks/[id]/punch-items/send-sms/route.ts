@@ -150,6 +150,17 @@ export async function POST(
             data: { recipientPhone: recipient.phoneE164 },
           })
         }
+        const companyId = task.home.companyId ?? undefined
+        if (companyId) {
+          const { createPunchlistSentEvent } = await import("@/lib/activity")
+          createPunchlistSentEvent({
+            companyId,
+            homeId: task.homeId,
+            taskId: params.id,
+            recipientName: data.contractor.companyName,
+            itemCount: data.items.length,
+          }).catch(() => {})
+        }
         results.push({
           contractor: data.contractor.companyName,
           itemsCount: data.items.length,

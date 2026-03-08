@@ -510,6 +510,15 @@ export async function PATCH(
           homeLabel,
           scheduledDate: after.scheduledDate,
         }).catch((err) => console.error("notifyTaskScheduled:", err))
+        const { createTaskScheduledEvent } = await import("@/lib/activity")
+        createTaskScheduledEvent({
+          companyId,
+          homeId: after.homeId,
+          taskId: params.id,
+          taskName: after.nameSnapshot,
+          scheduledDate: after.scheduledDate,
+          recipientName: (after as { contractor?: { companyName?: string } }).contractor?.companyName ?? undefined,
+        }).catch(() => {})
       }
       if (before.status !== "Completed" && after.status === "Completed") {
         await notifyTaskCompleted({

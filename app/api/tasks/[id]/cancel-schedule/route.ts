@@ -97,6 +97,18 @@ export async function POST(
             task.nameSnapshot,
             new Date(task.scheduledDate)
           )
+          const companyId = task.companyId ?? task.home.companyId
+          if (companyId) {
+            const { createSmsSentEvent } = await import("@/lib/activity")
+            createSmsSentEvent({
+              companyId,
+              homeId: task.homeId,
+              taskId: task.id,
+              messageType: "cancelled",
+              taskName: task.nameSnapshot,
+              recipientName: contractor.companyName,
+            }).catch(() => {})
+          }
         } catch (smsError: unknown) {
           console.error("Failed to send cancellation SMS:", smsError)
           // Continue with cancellation even if SMS fails

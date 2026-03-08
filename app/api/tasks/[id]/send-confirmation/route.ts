@@ -246,6 +246,28 @@ export async function POST(
       new Date(task.scheduledDate)
     )
 
+    const companyId = task.companyId ?? task.home.companyId
+    if (companyId) {
+      const { createTaskScheduledEvent, createSmsSentEvent } = await import("@/lib/activity")
+      createTaskScheduledEvent({
+        companyId,
+        homeId: task.homeId,
+        taskId: task.id,
+        taskName: task.nameSnapshot,
+        scheduledDate: new Date(task.scheduledDate!),
+        recipientName: task.contractor?.companyName ?? undefined,
+        actorName: user.name,
+      }).catch(() => {})
+      createSmsSentEvent({
+        companyId,
+        homeId: task.homeId,
+        taskId: task.id,
+        messageType: "scheduled",
+        taskName: task.nameSnapshot,
+        recipientName: task.contractor?.companyName ?? undefined,
+      }).catch(() => {})
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error("Failed to send confirmation:", error)

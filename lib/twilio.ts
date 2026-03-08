@@ -164,6 +164,7 @@ export async function sendConfirmationSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskRow?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
@@ -192,6 +193,7 @@ export async function sendConfirmationSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskRow?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
@@ -265,6 +267,7 @@ export async function sendCancellationSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskForSender?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
@@ -281,6 +284,7 @@ export async function sendCancellationSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskForSender?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
@@ -587,6 +591,7 @@ export async function sendPunchListSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskForSender?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
@@ -603,6 +608,7 @@ export async function sendPunchListSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
+        companyId: taskForSender?.companyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
