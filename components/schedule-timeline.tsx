@@ -64,7 +64,7 @@ export function ScheduleTimeline({
   const forecastLeft = `calc(${trackLeft} + ${trackWidthExpr} * ${renderForecastPercent} / 100)`
 
   return (
-    <div className="relative w-full min-h-[120px] overflow-hidden px-8 min-w-0">
+    <div className="relative w-full min-h-[120px] overflow-hidden px-8 pb-5 min-w-0">
       {/* Status row: dedicated line above track — never overlaps markers */}
       {hasAll && (
         <div className="flex flex-col items-center gap-0.5 pb-2">
