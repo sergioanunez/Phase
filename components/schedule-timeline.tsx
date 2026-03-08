@@ -88,11 +88,6 @@ export function ScheduleTimeline({
             {diffDays === 0 && "On target"}
             {diffDays > 0 && `${diffDays} days behind target`}
           </span>
-          {isBehind && (
-            <span className="text-xs text-muted-foreground">
-              Forecast: {format(forecast!, "MMM d")}
-            </span>
-          )}
         </div>
       )}
 
@@ -209,8 +204,8 @@ export function ScheduleTimeline({
         </div>
       )}
 
-      {/* When near target (not behind): forecast date below track to avoid collision with target label */}
-      {hasAll && isNearTarget && !isBehind && (
+      {/* When stacked (behind or near target): forecast date always below track for consistent placement */}
+      {hasAll && stackForecastLabel && (
         <div className="absolute left-0 right-0 flex justify-center" style={{ top: TRACK_TOP_PX + TRACK_H + 10 }}>
           <span className="text-xs text-muted-foreground">
             Forecast: {format(forecast!, "MMM d")}
