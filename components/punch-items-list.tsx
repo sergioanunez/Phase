@@ -394,7 +394,7 @@ export function PunchItemsList({
               </div>
             </div>
 
-            {publicLink && (
+            {publicLink && punchItems.length > 0 && (
               <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
                 <p className="font-medium text-muted-foreground">Public link</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground" title={publicLink}>
