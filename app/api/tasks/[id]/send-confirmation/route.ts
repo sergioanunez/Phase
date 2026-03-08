@@ -246,11 +246,11 @@ export async function POST(
       new Date(task.scheduledDate)
     )
 
-    const companyId = task.companyId ?? task.home.companyId
-    if (companyId) {
+    const activityCompanyId = task.companyId ?? task.home.companyId
+    if (activityCompanyId) {
       const { createTaskScheduledEvent, createSmsSentEvent } = await import("@/lib/activity")
       createTaskScheduledEvent({
-        companyId,
+        companyId: activityCompanyId,
         homeId: task.homeId,
         taskId: task.id,
         taskName: task.nameSnapshot,
@@ -259,7 +259,7 @@ export async function POST(
         actorName: user.name,
       }).catch(() => {})
       createSmsSentEvent({
-        companyId,
+        companyId: activityCompanyId,
         homeId: task.homeId,
         taskId: task.id,
         messageType: "scheduled",
