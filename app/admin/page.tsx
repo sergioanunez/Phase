@@ -13,12 +13,13 @@ import { CreateHomeDialog } from "@/components/create-home-dialog"
 import { CreateSubdivisionDialog } from "@/components/create-subdivision-dialog"
 import { CreateTemplateDialog } from "@/components/create-template-dialog"
 import { ImportTemplatesDialog } from "@/components/import-templates-dialog"
+import { ImportContractorsDialog } from "@/components/import-contractors-dialog"
 import { CreateContractorDialog } from "@/components/create-contractor-dialog"
 import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet } from "lucide-react"
 import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
@@ -148,6 +149,7 @@ export default function AdminPage() {
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false)
   const [importTemplatesOpen, setImportTemplatesOpen] = useState(false)
   const [createContractorOpen, setCreateContractorOpen] = useState(false)
+  const [importContractorsOpen, setImportContractorsOpen] = useState(false)
   const [createUserOpen, setCreateUserOpen] = useState(false)
   const [editUserOpen, setEditUserOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
@@ -2262,6 +2264,16 @@ export default function AdminPage() {
 
           <TabsContent value="contractors" className="space-y-8">
             <div className="flex gap-2 flex-wrap mb-6">
+              {(session?.user?.role === "Admin" || session?.user?.role === "Manager") && (
+                <Button
+                  onClick={() => setImportContractorsOpen(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Import from Excel
+                </Button>
+              )}
               <Button
                 onClick={() => setCreateContractorOpen(true)}
                 variant="outline"
@@ -2912,6 +2924,11 @@ export default function AdminPage() {
             <CreateContractorDialog
               open={createContractorOpen}
               onOpenChange={setCreateContractorOpen}
+              onSuccess={handleRefresh}
+            />
+            <ImportContractorsDialog
+              open={importContractorsOpen}
+              onOpenChange={setImportContractorsOpen}
               onSuccess={handleRefresh}
             />
             <CreateUserDialog

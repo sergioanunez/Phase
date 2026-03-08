@@ -221,6 +221,7 @@ model Company {
   homeTasks        HomeTask[]
   punchItems       PunchItem[]
   punchlistShares  PunchlistShare[]
+  importBatches   ImportBatch[]
   auditLogs        AuditLog[]
   contractorAssignments ContractorAssignment[]
   homeAssignments HomeAssignment[]
@@ -312,6 +313,7 @@ model User {
   invitesCreated      UserInvite[]     @relation("InvitesCreatedBy")
   invites             UserInvite[]     @relation("UserInvites")
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
+  importBatchesCreated ImportBatch[]  @relation("ImportBatchesCreatedBy")
 
   @@index([companyId])
   @@index([email])
@@ -567,6 +569,9 @@ model Contractor {
   /// Default lead time in working days for Flow prep/Get Ready (source of truth for tasks assigned to this contractor).
   leadDays            Int      @default(0)
   defaultContactId    String?  // User (contact) to use for SMS when task assigned to this vendor
+  /// Set when created via bulk import; enables undo last import.
+  importBatchId       String?
+  importBatch         ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -583,6 +588,22 @@ model Contractor {
   @@index([phone])
   @@index([active])
   @@index([defaultContactId])
+  @@index([importBatchId])
+}
+
+model ImportBatch {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUserId String
+  createdBy    User     @relation("ImportBatchesCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  contractors  Contractor[]
+
+  @@index([companyId])
+  @@index([createdByUserId])
+  @@index([createdAt])
 }
 
 model ContractorAssignment {
