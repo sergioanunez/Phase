@@ -465,14 +465,15 @@ export default function HomeDetailPage() {
     { startDate: home.startDate, scheduledTaskCount }
   )
 
-  // Schedule status: Not started first, then ahead / on / behind based on forecast vs target
+  // Schedule status: use same logic as homes list (at_risk = 1–7 days late, behind = >7 days)
   const getScheduleStatus = () => {
     if (barStatus === "not_started") return { label: "Not started", variant: "secondary" as const }
     if (!home.forecastCompletionDate || !home.targetCompletionDate) return null
     const forecast = startOfDay(new Date(home.forecastCompletionDate))
     const target = startOfDay(new Date(home.targetCompletionDate))
+    if (barStatus === "at_risk") return { label: "At Risk", variant: "warning" as const }
+    if (barStatus === "behind") return { label: "Behind schedule", variant: "destructive" as const }
     if (isBefore(forecast, target)) return { label: "Ahead of schedule", variant: "success" as const }
-    if (isAfter(forecast, target)) return { label: "Behind schedule", variant: "destructive" as const }
     return { label: "On schedule", variant: "default" as const }
   }
   const scheduleStatus = getScheduleStatus()
