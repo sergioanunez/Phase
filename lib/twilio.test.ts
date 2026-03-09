@@ -4,7 +4,8 @@ import { buildScheduledSms } from "./sms/templates"
 describe("buildScheduledSms", () => {
   it("starts with brand and scheduled:", () => {
     const out = buildScheduledSms({
-      tenant: { whiteLabelEnabled: true, name: "Cullers Homes" },
+      tenant: { name: "Cullers Homes" },
+      subscription: { whiteLabelAddOn: true },
       taskName: "Plumbing Rough",
       address: "13941 Paseo Honor",
       date: new Date("2026-03-03"),

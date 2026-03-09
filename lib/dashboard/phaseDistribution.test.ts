@@ -84,5 +84,5 @@ describe("phaseDistribution - computeCurrentPhaseForHome", () => {
     expect(phase.key).toBe(COMPLETE_PHASE_KEY)
     expect(phase.name).toBe("Complete")
   })
-}
+})
 

@@ -79,5 +79,5 @@ describe("pulse - selectLastCriticalCompletedTask", () => {
     expect(result.taskName).toBeNull()
     expect(result.completedAt).toBeNull()
   })
-}
+})
 

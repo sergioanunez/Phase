@@ -19,7 +19,7 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart } from "lucide-react"
 import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
@@ -1732,6 +1732,14 @@ export default function AdminPage() {
                 >
                   <Upload className="h-4 w-4 mr-1" />
                   Import from Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin/templates/gantt")}
+                >
+                  <GanttChart className="h-4 w-4 mr-1" />
+                  View Gantt
                 </Button>
               </div>
 

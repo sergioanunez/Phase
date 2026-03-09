@@ -76,9 +76,13 @@ describe("schedule-timeline", () => {
       expect(getDeltaChip(0).text).toBe("On target")
       expect(getDeltaChip(0).variant).toBe("neutral")
     })
-    it("returns danger chip for late", () => {
+    it("returns warning chip for late within 7 days (At Risk)", () => {
       expect(getDeltaChip(5).text).toBe("5 days late")
-      expect(getDeltaChip(5).variant).toBe("danger")
+      expect(getDeltaChip(5).variant).toBe("warning")
+    })
+    it("returns danger chip for late 7+ days (Behind)", () => {
+      expect(getDeltaChip(8).text).toBe("8 days late")
+      expect(getDeltaChip(8).variant).toBe("danger")
     })
   })
 
