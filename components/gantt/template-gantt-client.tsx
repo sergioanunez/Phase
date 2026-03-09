@@ -81,7 +81,9 @@ export function TemplateGanttClient({
         .gantt-from-to-columns table th:nth-child(3),
         .gantt-from-to-columns table td:nth-child(2),
         .gantt-from-to-columns table td:nth-child(3) {
-          min-width: 145px;
+          min-width: 0;
+          width: max-content;
+          white-space: nowrap;
         }
       `}</style>
       <Gantt

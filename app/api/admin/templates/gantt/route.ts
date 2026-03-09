@@ -53,10 +53,11 @@ export async function GET(request: NextRequest) {
 
     const result = computeTemplateSchedule(tasks, projectStartDate)
 
-    // Sort tasks to match Work Items Template list order (category + sortOrder), not dependency order
+    // Sort tasks by start date so list order matches timeline (earliest first); then sequenceOrder for same-day
     const sortedTasks = [...result.tasks].sort((a, b) => {
-      const catCmp = (a.category ?? "").localeCompare(b.category ?? "")
-      if (catCmp !== 0) return catCmp
+      const tA = a.startDate.getTime()
+      const tB = b.startDate.getTime()
+      if (tA !== tB) return tA - tB
       return (a.sequenceOrder ?? 0) - (b.sequenceOrder ?? 0)
     })
 
