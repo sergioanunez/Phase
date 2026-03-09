@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bell } from "lucide-react"
+import { Bell, ArrowLeft } from "lucide-react"
 import logoImage from "../public/logo.png"
 import { UserMenu } from "@/components/user-menu"
 import { TrialBanner } from "@/components/billing/trial-banner"
@@ -67,11 +67,23 @@ export function AppHeader() {
     brandPrimaryColor: branding?.brandPrimaryColor,
   })
 
+  const isGanttPage = pathname === "/admin/templates/gantt"
+
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm">
       <TrialBanner />
       <div className="app-header-nav-width mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 md:px-8">
-        <Link href={logoHref} className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
+        <div className="flex flex-shrink-0 items-center gap-3">
+          {isGanttPage && (
+            <Link
+              href="/admin?tab=work-templates"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Exit to Work Templates
+            </Link>
+          )}
+          <Link href={logoHref} className="hover:opacity-80 transition-opacity flex flex-shrink-0 items-center">
           {useCustomLogo ? (
             <img
               src={
@@ -94,6 +106,7 @@ export function AppHeader() {
             />
           )}
         </Link>
+        </div>
         <div className="flex items-center gap-3 pr-2 sm:pr-3 md:pr-6">
           <Link
             href="/notifications"

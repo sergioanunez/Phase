@@ -27,8 +27,25 @@ const inter = Inter({ subsets: ["latin"], display: "swap" })
 export const metadata: Metadata = {
   title: "Phase",
   description: "Construction scheduling and management system",
-  icons: {
-    icon: "/favicon.png",
+  themeColor: "#111827",
+  manifest: "/manifest.json",
+  icons: [
+    {
+      rel: "icon",
+      url: "/favicon.png",
+      type: "image/png",
+    },
+    {
+      rel: "apple-touch-icon",
+      url: "/icon-192.png",
+      sizes: "192x192",
+      type: "image/png",
+    },
+  ],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Phase",
   },
 }
 
