@@ -81,8 +81,8 @@ export function TemplateGanttClient({
         .gantt-from-to-columns table th:nth-child(3),
         .gantt-from-to-columns table td:nth-child(2),
         .gantt-from-to-columns table td:nth-child(3) {
-          min-width: 0;
-          width: max-content;
+          width: 1%;
+          max-width: 125px;
           white-space: nowrap;
         }
       `}</style>
@@ -91,7 +91,7 @@ export function TemplateGanttClient({
         viewMode={view}
         viewDate={new Date(projectStartDate)}
         listCellWidth="320px"
-        columnWidth={viewMode === "Day" ? 32 : viewMode === "Week" ? 56 : 60}
+        columnWidth={viewMode === "Day" ? 56 : viewMode === "Week" ? 56 : 60}
         rowHeight={36}
         barFill={100}
         barCornerRadius={4}
