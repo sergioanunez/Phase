@@ -53,9 +53,16 @@ export async function GET(request: NextRequest) {
 
     const result = computeTemplateSchedule(tasks, projectStartDate)
 
+    // Sort tasks to match Work Items Template list order (category + sortOrder), not dependency order
+    const sortedTasks = [...result.tasks].sort((a, b) => {
+      const catCmp = (a.category ?? "").localeCompare(b.category ?? "")
+      if (catCmp !== 0) return catCmp
+      return (a.sequenceOrder ?? 0) - (b.sequenceOrder ?? 0)
+    })
+
     return NextResponse.json({
       projectStartDate: result.projectStartDate.toISOString(),
-      tasks: result.tasks.map((t) => ({
+      tasks: sortedTasks.map((t) => ({
         id: t.id,
         name: t.name,
         category: t.category,

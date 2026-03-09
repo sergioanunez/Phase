@@ -70,7 +70,15 @@ export function TemplateGanttClient({
   )
 
   return (
-    <div className="gantt-wrapper min-h-[400px] [&_.calendar]:!border-border [&_.calendar-header]:!border-border [&_.listCell]:!border-border [&_.grid]:!border-border">
+    <div className="gantt-wrapper gantt-from-to-columns min-h-[400px] [&_.calendar]:!border-border [&_.calendar-header]:!border-border [&_.listCell]:!border-border [&_.grid]:!border-border">
+      <style>{`
+        .gantt-from-to-columns table th:nth-child(2),
+        .gantt-from-to-columns table th:nth-child(3),
+        .gantt-from-to-columns table td:nth-child(2),
+        .gantt-from-to-columns table td:nth-child(3) {
+          min-width: 145px;
+        }
+      `}</style>
       <Gantt
         tasks={ganttTasks}
         viewMode={view}
