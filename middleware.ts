@@ -2,8 +2,10 @@ import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
 export default withAuth(
-  function middleware() {
-    return NextResponse.next()
+  function middleware(req) {
+    const res = NextResponse.next()
+    res.headers.set("x-pathname", req.nextUrl.pathname)
+    return res
   },
   {
     callbacks: {
@@ -14,5 +16,5 @@ export default withAuth(
 )
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/calendar", "/flow"],
+  matcher: ["/dashboard/:path*", "/calendar", "/flow", "/admin/:path*"],
 }

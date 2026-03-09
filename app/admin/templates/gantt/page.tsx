@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Calendar, ZoomIn, ZoomOut, FileDown, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Navigation } from "@/components/navigation"
 import { format, startOfDay } from "date-fns"
 import { addWorkingDays } from "@/lib/working-days"
 import dynamic from "next/dynamic"
@@ -119,7 +118,6 @@ export default function TemplateGanttPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
       <main className="container max-w-[1600px] mx-auto px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
@@ -129,6 +127,11 @@ export default function TemplateGanttPage() {
               </Button>
             </Link>
             <h1 className="text-2xl font-semibold">Work Items Template – Gantt</h1>
+            <Link href="/admin?tab=work-templates">
+              <Button variant="outline" size="sm">
+                Exit
+              </Button>
+            </Link>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">

@@ -45,6 +45,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { headers } = await import("next/headers")
+  const pathname = (await headers()).get("x-pathname") ?? ""
+  const hideAIAssistant = pathname.startsWith("/admin/templates/gantt")
+
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return (
       <html lang="en">
@@ -54,16 +58,14 @@ export default async function RootLayout({
             <AppHeader />
             <TrialExpiredOverlay />
             {children}
-            <AIAssistant />
+            {!hideAIAssistant && <AIAssistant />}
           </Providers>
         </body>
       </html>
     )
   }
-  const { headers } = await import("next/headers")
   const { getServerSession } = await import("next-auth")
   const { authOptions } = await import("@/lib/auth")
-  const pathname = (await headers()).get("x-pathname") ?? ""
   const isPublic = pathname === "" || PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/auth") || pathname.startsWith("/punchlist")
   if (!isPublic) {
     const session = await getServerSession(authOptions)
@@ -80,7 +82,7 @@ export default async function RootLayout({
           <AppHeader />
           <TrialExpiredOverlay />
           {children}
-          <AIAssistant />
+          {!hideAIAssistant && <AIAssistant />}
         </Providers>
       </body>
     </html>
