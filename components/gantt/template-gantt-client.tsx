@@ -82,7 +82,7 @@ export function TemplateGanttClient({
         .gantt-from-to-columns table td:nth-child(2),
         .gantt-from-to-columns table td:nth-child(3) {
           width: 1%;
-          max-width: 125px;
+          max-width: 160px;
           white-space: nowrap;
         }
       `}</style>
