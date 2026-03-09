@@ -20,7 +20,7 @@ type TemplateGanttClientProps = {
   tasks: GanttTask[]
   links: Array<{ from: string; to: string }>
   projectStartDate: string
-  viewMode: "Week" | "Month"
+  viewMode: "Day" | "Week" | "Month"
   onTaskSelect: (task: GanttTask | null) => void
 }
 
@@ -59,7 +59,12 @@ export function TemplateGanttClient({
   onTaskSelect,
 }: TemplateGanttClientProps) {
   const ganttTasks = useMemo(() => tasks.map(toGanttTask), [tasks])
-  const view = viewMode === "Week" ? ViewMode.Week : ViewMode.Month
+  const view =
+    viewMode === "Day"
+      ? ViewMode.Day
+      : viewMode === "Week"
+        ? ViewMode.Week
+        : ViewMode.Month
 
   const handleClick = useCallback(
     (task: Task) => {
@@ -84,7 +89,7 @@ export function TemplateGanttClient({
         viewMode={view}
         viewDate={new Date(projectStartDate)}
         listCellWidth="320px"
-        columnWidth={viewMode === "Week" ? 80 : 60}
+        columnWidth={viewMode === "Day" ? 32 : viewMode === "Week" ? 56 : 60}
         rowHeight={36}
         barFill={100}
         barCornerRadius={4}

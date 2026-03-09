@@ -52,7 +52,7 @@ export default function TemplateGanttPage() {
   const [projectStart, setProjectStart] = useState<string>(() =>
     format(nextWorkingDay(), "yyyy-MM-dd")
   )
-  const [viewMode, setViewMode] = useState<"Week" | "Month">("Month")
+  const [viewMode, setViewMode] = useState<"Day" | "Week" | "Month">("Day")
   const [data, setData] = useState<GanttApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<GanttTask | null>(null)
@@ -147,11 +147,18 @@ export default function TemplateGanttPage() {
             <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">Zoom:</span>
               <Button
+                variant={viewMode === "Day" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("Day")}
+              >
+                <ZoomIn className="h-4 w-4 mr-1" />
+                Day
+              </Button>
+              <Button
                 variant={viewMode === "Week" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setViewMode("Week")}
               >
-                <ZoomIn className="h-4 w-4 mr-1" />
                 Week
               </Button>
               <Button
