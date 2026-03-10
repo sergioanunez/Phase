@@ -54,6 +54,13 @@ const ASSISTANT_PROMPTS = [
   "What needs attention today?",
 ]
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia === "undefined") return false
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+type LoadingPhase = "pipeline" | "schedule" | "insights" | "complete"
+
 export default function AssistantPage() {
   const { data: session } = useSession()
   const [snapshot, setSnapshot] = useState<AssistantSnapshot>({
@@ -64,11 +71,28 @@ export default function AssistantPage() {
   const [loading, setLoading] = useState(true)
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null)
   const [sparkle, setSparkle] = useState(true)
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("pipeline")
 
   useEffect(() => {
     setSparkle(true)
     const t = setTimeout(() => setSparkle(false), 800)
     return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setLoadingPhase("complete")
+      return
+    }
+    const timers: number[] = []
+    timers.push(
+      window.setTimeout(() => setLoadingPhase("schedule"), 1200),
+      window.setTimeout(() => setLoadingPhase("insights"), 2400),
+      window.setTimeout(() => setLoadingPhase("complete"), 3600)
+    )
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+    }
   }, [])
 
   useEffect(() => {
@@ -159,6 +183,37 @@ export default function AssistantPage() {
     .filter((a) => !a.isOverdue)
     .slice(0, 5)
 
+  const renderLoadingSequence = () => {
+    let message = "Analyzing your construction pipeline..."
+    if (loadingPhase === "schedule") {
+      message = "Checking schedule health..."
+    } else if (loadingPhase === "insights") {
+      message = "Preparing insights..."
+    }
+    return (
+      <div className="flex min-h-[220px] items-center justify-center">
+        <Card className="w-full max-w-md text-center shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-center gap-2 text-base">
+              <Sparkles className="h-5 w-5 text-sky-600" />
+              Assistant
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm font-medium text-foreground transition-opacity duration-200">
+              {message}
+            </p>
+            <div className="mt-3 flex items-center justify-center gap-1">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300 [animation-delay:150ms]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-200 [animation-delay:300ms]" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
       <div className="app-container px-4">
@@ -177,6 +232,8 @@ export default function AssistantPage() {
         </header>
 
         <div className="space-y-4">
+          {loadingPhase !== "complete" && renderLoadingSequence()}
+          {loadingPhase === "complete" && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -327,6 +384,7 @@ export default function AssistantPage() {
               )}
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
 
