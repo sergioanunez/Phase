@@ -69,8 +69,7 @@ export function ScheduleTimeline({
           <span
             className={cn(
               "text-sm font-medium tabular-nums text-center break-words max-w-full",
-              diffDays < 0 && "text-green-600 dark:text-green-400",
-              diffDays === 0 && "text-muted-foreground",
+              (diffDays < 0 || diffDays === 0) && "text-green-600 dark:text-green-400",
               diffDays > 0 && diffDays <= 7 && "text-amber-600 dark:text-amber-400",
               diffDays > 7 && "text-destructive"
             )}
