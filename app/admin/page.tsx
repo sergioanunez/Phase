@@ -2029,12 +2029,17 @@ export default function AdminPage() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <CardTitle 
+                              <CardTitle
                                 className="text-lg cursor-pointer hover:text-primary transition-colors"
                                 onClick={() => handleStartEditTemplate(template)}
                               >
                                 {template.name}
                               </CardTitle>
+                              {template.isCriticalGate && (
+                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+                                  Critical gate
+                                </span>
+                              )}
                             </div>
                           )}
                           {editingTemplateId !== template.id && (
