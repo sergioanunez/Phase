@@ -128,6 +128,10 @@ function PhaseDistributionCard({
               phase.avgRemainingDays != null
                 ? `~${phase.avgRemainingDays} wd`
                 : "~—"
+            const metricTooltip =
+              phase.avgRemainingDays != null
+                ? `Template-based estimate: ~${phase.avgRemainingDays} working days to completion`
+                : "Template-based estimate not available"
             return (
               <button
                 key={phase.key}
@@ -158,7 +162,10 @@ function PhaseDistributionCard({
                       }}
                     />
                   </div>
-                  <span className="w-14 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                  <span
+                    className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground"
+                    title={metricTooltip}
+                  >
                     {metricStr}
                   </span>
                 </div>
