@@ -95,7 +95,7 @@ export function AIAssistant() {
   }
 
   // Leave extra space above the bottom navigation on mobile/tablet so the FAB doesn't overlap it.
-  const fabBottom = "bottom-[112px] md:bottom-6"
+  const fabBottom = "bottom-[136px] md:bottom-6"
   const fabZ = "z-40"
 
   return (
