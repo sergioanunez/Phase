@@ -14,10 +14,13 @@ export async function GET(request: NextRequest) {
     const { requireTenantPermission } = await import("@/lib/rbac")
     const {
       computePhaseDistribution,
-      computePhaseAverageRemainingDays,
-      deriveOrderedCategories,
+      NOT_STARTED_PHASE_KEY,
+      COMPLETE_PHASE_KEY,
     } = await import("@/lib/dashboard/phaseDistribution")
     const { computePulseBySubdivision } = await import("@/lib/dashboard/pulse")
+    const { computeCategoryCriticalPathDuration } = await import(
+      "@/lib/scheduling/categoryDuration"
+    )
 
     const ctx = await requireTenantPermission("dashboard:view")
 
@@ -106,14 +109,77 @@ export async function GET(request: NextRequest) {
       })),
     }))
 
-    const orderedCategories = deriveOrderedCategories(homesForPhase)
     const phaseDistribution = computePhaseDistribution(homesForPhase)
-    const avgRemainingByPhase = computePhaseAverageRemainingDays(
-      homesForPhase,
-      orderedCategories
-    )
+
+    // Compute template-based critical path duration by category, then derive
+    // remaining working days to completion per phase (template-based, not per-home).
+    const templates = await prisma.workTemplateItem.findMany({
+      where: { companyId: ctx.companyId },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        dependencies: {
+          select: { dependsOnItemId: true },
+        },
+      },
+    })
+
+    let projectTotalDays = 0
+    const remainingByCategory = new Map<string, number>()
+
+    if (templates.length > 0) {
+      const byCat: Record<
+        string,
+        Array<{
+          id: string
+          defaultDurationDays?: number
+          dependencies?: Array<{ dependsOnItemId: string }>
+        }>
+      > = {}
+      const categoryMeta = new Map<string, { name: string; firstSortOrder: number }>()
+
+      for (const t of templates) {
+        const categoryName = (t.optionalCategory || "Uncategorized").trim()
+        if (!byCat[categoryName]) byCat[categoryName] = []
+        byCat[categoryName].push({
+          id: t.id,
+          defaultDurationDays: t.defaultDurationDays ?? undefined,
+          dependencies: t.dependencies.map((d) => ({ dependsOnItemId: d.dependsOnItemId })),
+        })
+        const existing = categoryMeta.get(categoryName)
+        if (!existing || t.sortOrder < existing.firstSortOrder) {
+          categoryMeta.set(categoryName, { name: categoryName, firstSortOrder: t.sortOrder })
+        }
+      }
+
+      const orderedTemplateCategories = Array.from(categoryMeta.values())
+        .sort((a, b) => a.firstSortOrder - b.firstSortOrder)
+        .map((c) => c.name)
+
+      const categoryDurations = new Map<string, number>()
+      for (const [name, templatesInCat] of Object.entries(byCat)) {
+        const d = computeCategoryCriticalPathDuration(templatesInCat)
+        categoryDurations.set(name, d ?? 0)
+      }
+
+      projectTotalDays = orderedTemplateCategories.reduce((sum, name) => {
+        return sum + (categoryDurations.get(name) ?? 0)
+      }, 0)
+
+      let remaining = projectTotalDays
+      for (const name of orderedTemplateCategories) {
+        remainingByCategory.set(name, remaining)
+        remaining -= categoryDurations.get(name) ?? 0
+      }
+    }
+
     phaseDistribution.phases.forEach((p) => {
-      p.avgRemainingDays = avgRemainingByPhase.get(p.key) ?? null
+      if (p.key === NOT_STARTED_PHASE_KEY) {
+        p.avgRemainingDays = projectTotalDays > 0 ? projectTotalDays : null
+      } else if (p.key === COMPLETE_PHASE_KEY) {
+        p.avgRemainingDays = 0
+      } else {
+        p.avgRemainingDays = remainingByCategory.get(p.name) ?? null
+      }
     })
 
     const pulse = computePulseBySubdivision(

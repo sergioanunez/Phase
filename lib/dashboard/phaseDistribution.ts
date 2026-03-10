@@ -202,6 +202,10 @@ export function computePhaseDistribution(homes: DashboardHomeForPhase[]): PhaseD
  * Compute average remaining working days to full completion per phase.
  * Uses existing forecast completion dates; excludes homes with no forecast.
  * Returns a map from phase key to rounded average, or null if no homes in that phase have forecast.
+ *
+ * "Not started" is always null: for those homes the forecast is based on an assumed start
+ * (e.g. createdAt), so "remaining" would be calendar distance to that date, not actual
+ * work remaining (which is the full template duration once they start).
  */
 export function computePhaseAverageRemainingDays(
   homes: DashboardHomeForPhase[],
@@ -214,6 +218,7 @@ export function computePhaseAverageRemainingDays(
 
   for (const home of homes) {
     const phase = computeCurrentPhaseForHome(home, orderedCategories)
+    if (phase.key === NOT_STARTED_PHASE_KEY) continue
     const raw = home.forecastCompletionDate
     const forecast =
       raw instanceof Date ? raw : raw != null ? new Date(raw) : null
@@ -230,6 +235,7 @@ export function computePhaseAverageRemainingDays(
   }
 
   const result = new Map<string, number | null>()
+  result.set(NOT_STARTED_PHASE_KEY, null)
   byPhase.forEach(({ sum, count }, key) => {
     result.set(key, count > 0 ? Math.round(sum / count) : null)
   })
