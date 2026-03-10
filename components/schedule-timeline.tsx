@@ -50,13 +50,11 @@ export function ScheduleTimeline({
   const stackForecastLabel = isBehind || isNearTarget
 
   const forecastMarkerColor =
-    status === "ahead"
+    status === "ahead" || status === "on-time"
       ? "bg-green-500"
-      : status === "on-time"
-        ? "bg-muted-foreground"
-        : diffDays <= 7
-          ? "bg-amber-500"
-          : "bg-destructive"
+      : diffDays <= 7
+        ? "bg-amber-500"
+        : "bg-destructive"
 
   const trackLeft = "calc(2rem + 5px)"
   const trackRight = "calc(2rem + 5px)"
