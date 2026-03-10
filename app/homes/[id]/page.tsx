@@ -474,7 +474,8 @@ export default function HomeDetailPage() {
     if (barStatus === "at_risk") return { label: "At Risk", variant: "warning" as const }
     if (barStatus === "behind") return { label: "Behind schedule", variant: "destructive" as const }
     if (isBefore(forecast, target)) return { label: "Ahead of schedule", variant: "success" as const }
-    return { label: "On schedule", variant: "default" as const }
+    // Match homes list: "On Track" and green when schedule is healthy
+    return { label: "On Track", variant: "success" as const }
   }
   const scheduleStatus = getScheduleStatus()
   const today = startOfDay(new Date())
