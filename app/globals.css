@@ -84,3 +84,25 @@ html {
 .animate-forecast-pulse {
   animation: forecast-pulse 2s ease-in-out 2 both;
 }
+
+@keyframes assistant-sparkle {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(80, 118, 219, 0));
+    opacity: 0.9;
+  }
+  40% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px rgba(80, 118, 219, 0.6));
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(80, 118, 219, 0));
+    opacity: 1;
+  }
+}
+
+.animate-assistant-sparkle {
+  animation: assistant-sparkle 0.7s ease-out 1;
+}

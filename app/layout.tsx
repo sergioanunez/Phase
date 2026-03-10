@@ -8,19 +8,10 @@ const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
   variable: "--font-cormorant-garamond",
 })
-import dynamic from "next/dynamic"
 import { Providers } from "./providers"
 import { AppHeader } from "@/components/app-header"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
-
-const AIAssistant = dynamic(
-  () =>
-    import("@/components/ai-assistant")
-      .then((m) => ({ default: m.AIAssistant }))
-      .catch(() => ({ default: () => null })),
-  { ssr: false }
-)
 
 const inter = Inter({ subsets: ["latin"], display: "swap" })
 
@@ -64,7 +55,6 @@ export default async function RootLayout({
 }) {
   const { headers } = await import("next/headers")
   const pathname = (await headers()).get("x-pathname") ?? ""
-  const hideAIAssistant = pathname.startsWith("/admin/templates/gantt")
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return (
@@ -75,7 +65,6 @@ export default async function RootLayout({
             <AppHeader />
             <TrialExpiredOverlay />
             {children}
-            {!hideAIAssistant && <AIAssistant />}
           </Providers>
         </body>
       </html>
@@ -99,7 +88,6 @@ export default async function RootLayout({
           <AppHeader />
           <TrialExpiredOverlay />
           {children}
-          {!hideAIAssistant && <AIAssistant />}
         </Providers>
       </body>
     </html>
