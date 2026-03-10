@@ -42,15 +42,29 @@ export function StatusSegmentChips({ statusCounts }: StatusSegmentChipsProps) {
     },
   ]
 
+  const forecastSegmentIndex =
+    statusCounts.onTrack > 0
+      ? 1
+      : statusCounts.atRisk > 0
+        ? 2
+        : statusCounts.behind > 0
+          ? 3
+          : statusCounts.notStarted > 0
+            ? 0
+            : -1
+
   return (
     <div className="flex flex-wrap gap-3">
-      {segments.map((seg) => (
+      {segments.map((seg, i) => (
         <Link
           key={seg.label}
           href={seg.href}
           className={`flex shrink-0 items-center gap-2 rounded-xl border ${seg.chipClass}`}
         >
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${seg.dotClass}`} aria-hidden />
+          <span
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ${seg.dotClass} ${i === forecastSegmentIndex ? "animate-forecast-pulse opacity-90" : ""}`}
+            aria-hidden
+          />
           <span>
             {seg.label}: {seg.count}
           </span>

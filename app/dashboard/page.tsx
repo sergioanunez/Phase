@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Settings } from "lucide-react"
@@ -37,6 +37,7 @@ type PhaseRow = {
   key: string
   name: string
   count: number
+  avgRemainingDays: number | null
 }
 
 type PhaseDistribution = {
@@ -57,6 +58,117 @@ type PulseSubdivisionGroup = {
   subdivisionId: string
   subdivisionName: string
   homes: PulseHome[]
+}
+
+const PHASE_GRADIENT_COLORS = [
+  "#E6EEF8",
+  "#D3E2F3",
+  "#B6D0E9",
+  "#8FB5DB",
+  "#5E95C9",
+  "#2F6FAF",
+]
+
+function getPhaseColorByIndex(index: number): string {
+  return PHASE_GRADIENT_COLORS[Math.min(index, PHASE_GRADIENT_COLORS.length - 1)]
+}
+
+function PhaseDistributionCard({
+  phaseDistribution,
+}: {
+  phaseDistribution: PhaseDistribution
+}) {
+  const [animate, setAnimate] = useState(false)
+  const hasAnimated = useRef(false)
+  useEffect(() => {
+    if (hasAnimated.current) return
+    hasAnimated.current = true
+    const t = setTimeout(() => setAnimate(true), 50)
+    return () => clearTimeout(t)
+  }, [])
+
+  const { phases, totalActiveHomes, hasTemplate } = phaseDistribution
+  const maxCount = Math.max(1, ...phases.map((p) => p.count))
+
+  const emptyMessage =
+    totalActiveHomes === 0
+      ? "No active homes yet."
+      : !hasTemplate
+        ? "No work template yet. Create a Work Items Template to see phase distribution."
+        : "No active homes to display."
+
+  return (
+    <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            Phase Distribution
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground sm:block hidden">
+            Where active homes are in the build pipeline
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground sm:hidden">
+            Build pipeline by phase
+          </p>
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {phaseDistribution.totalActiveHomes} active homes
+        </span>
+      </div>
+      {phases.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      ) : (
+        <div className="space-y-3">
+          {phases.map((phase, rowIndex) => {
+            const barWidthPercent = (phase.count / maxCount) * 100
+            const fillColor = getPhaseColorByIndex(rowIndex)
+            const countLabel =
+              phase.count === 1 ? "1 home" : `${phase.count} homes`
+            const metricStr =
+              phase.avgRemainingDays != null
+                ? `~${phase.avgRemainingDays} wd`
+                : "~—"
+            return (
+              <button
+                key={phase.key}
+                type="button"
+                onClick={() => {
+                  const url = new URL(window.location.origin + "/homes")
+                  url.searchParams.set("phase", phase.key)
+                  window.location.href = url.pathname + url.search
+                }}
+                className="w-full text-left"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="min-w-0 shrink-0 sm:w-40">
+                    <div className="font-medium text-foreground">
+                      {phase.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {countLabel}
+                    </div>
+                  </div>
+                  <div className="phase-rail h-2 min-w-0 flex-1 rounded-full bg-gray-100">
+                    <div
+                      className="phase-fill h-2 rounded-full transition-[width] duration-[600ms] ease-out"
+                      style={{
+                        width: animate ? `${Math.max(8, barWidthPercent)}%` : "0%",
+                        backgroundColor: fillColor,
+                        transitionDelay: `${rowIndex * 80}ms`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-14 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                    {metricStr}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -200,62 +312,7 @@ export default function DashboardPage() {
 
           {/* 2) Phase Distribution */}
           {phaseDistribution && (
-            <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
-              <div className="mb-3 flex items-baseline justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-foreground">Phase Distribution</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Where active homes are stacked right now.
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {phaseDistribution.totalActiveHomes} active homes
-                </span>
-              </div>
-              {phaseDistribution.phases.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {phaseDistribution.hasTemplate
-                    ? "No active homes to display."
-                    : "No work template yet. Create a Work Items Template to see phase distribution."}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {(() => {
-                    const maxCount = Math.max(
-                      1,
-                      ...phaseDistribution.phases.map((p) => p.count)
-                    )
-                    return phaseDistribution.phases.map((phase) => {
-                      const widthPct = (phase.count / maxCount) * 100
-                      const barWidth = Math.max(8, widthPct)
-                      return (
-                        <button
-                          key={phase.key}
-                          type="button"
-                          onClick={() => {
-                            const url = new URL(window.location.origin + "/homes")
-                            url.searchParams.set("phase", phase.key)
-                            window.location.href = url.pathname + url.search
-                          }}
-                          className="w-full text-left"
-                        >
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-foreground">{phase.name}</span>
-                            <span className="text-xs text-muted-foreground">{phase.count}</span>
-                          </div>
-                          <div className="mt-2 h-1.5 rounded-full bg-muted">
-                            <div
-                              className="h-1.5 rounded-full bg-primary"
-                              style={{ width: `${barWidth}%` }}
-                            />
-                          </div>
-                        </button>
-                      )
-                    })
-                  })()}
-                </div>
-              )}
-            </div>
+            <PhaseDistributionCard phaseDistribution={phaseDistribution} />
           )}
 
           {/* 3) Field Pulse */}

@@ -19,6 +19,8 @@ export type DashboardHomeForPhase = {
   createdAt: Date
   isComplete: boolean
   tasks: DashboardTaskForPhase[]
+  /** If present, used for phase average remaining working days to completion. */
+  forecastCompletionDate?: Date | null
 }
 
 export type PhaseCategory = {
@@ -30,6 +32,8 @@ export type PhaseRow = {
   key: string
   name: string
   count: number
+  /** Average remaining working days to full completion; null if no forecast data in phase. */
+  avgRemainingDays: number | null
 }
 
 export type PhaseDistributionResult = {
@@ -41,6 +45,8 @@ export type PhaseDistributionResult = {
 export function makeCategoryPhaseKey(name: string): string {
   return `category:${name}`
 }
+
+import { workingDaysBetween } from "@/lib/forecast"
 
 /**
  * Derive ordered phase categories from template items used by the tenant.
@@ -153,21 +159,36 @@ export function computePhaseDistribution(homes: DashboardHomeForPhase[]): PhaseD
   // Not started at top
   const notStarted = counts.get(NOT_STARTED_PHASE_KEY)
   if (notStarted && notStarted.count > 0) {
-    phases.push({ key: NOT_STARTED_PHASE_KEY, name: notStarted.name, count: notStarted.count })
+    phases.push({
+      key: NOT_STARTED_PHASE_KEY,
+      name: notStarted.name,
+      count: notStarted.count,
+      avgRemainingDays: null,
+    })
   }
 
   // Template categories in order
   for (const category of orderedCategories) {
     const row = counts.get(category.key)
     if (row && row.count > 0) {
-      phases.push({ key: category.key, name: row.name, count: row.count })
+      phases.push({
+        key: category.key,
+        name: row.name,
+        count: row.count,
+        avgRemainingDays: null,
+      })
     }
   }
 
   // Complete at bottom
   const complete = counts.get(COMPLETE_PHASE_KEY)
   if (complete && complete.count > 0) {
-    phases.push({ key: COMPLETE_PHASE_KEY, name: complete.name, count: complete.count })
+    phases.push({
+      key: COMPLETE_PHASE_KEY,
+      name: complete.name,
+      count: complete.count,
+      avgRemainingDays: null,
+    })
   }
 
   return {
@@ -175,5 +196,43 @@ export function computePhaseDistribution(homes: DashboardHomeForPhase[]): PhaseD
     totalActiveHomes,
     hasTemplate,
   }
+}
+
+/**
+ * Compute average remaining working days to full completion per phase.
+ * Uses existing forecast completion dates; excludes homes with no forecast.
+ * Returns a map from phase key to rounded average, or null if no homes in that phase have forecast.
+ */
+export function computePhaseAverageRemainingDays(
+  homes: DashboardHomeForPhase[],
+  orderedCategories: PhaseCategory[]
+): Map<string, number | null> {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const byPhase = new Map<string, { sum: number; count: number }>()
+
+  for (const home of homes) {
+    const phase = computeCurrentPhaseForHome(home, orderedCategories)
+    const raw = home.forecastCompletionDate
+    const forecast =
+      raw instanceof Date ? raw : raw != null ? new Date(raw) : null
+    if (!forecast) continue
+    const remaining =
+      forecast <= today ? 0 : Math.round(workingDaysBetween(today, forecast))
+    const cur = byPhase.get(phase.key)
+    if (cur) {
+      cur.sum += remaining
+      cur.count += 1
+    } else {
+      byPhase.set(phase.key, { sum: remaining, count: 1 })
+    }
+  }
+
+  const result = new Map<string, number | null>()
+  byPhase.forEach(({ sum, count }, key) => {
+    result.set(key, count > 0 ? Math.round(sum / count) : null)
+  })
+  return result
 }
 

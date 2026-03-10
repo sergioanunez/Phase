@@ -12,7 +12,11 @@ export async function GET(request: NextRequest) {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
-    const { computePhaseDistribution } = await import("@/lib/dashboard/phaseDistribution")
+    const {
+      computePhaseDistribution,
+      computePhaseAverageRemainingDays,
+      deriveOrderedCategories,
+    } = await import("@/lib/dashboard/phaseDistribution")
     const { computePulseBySubdivision } = await import("@/lib/dashboard/pulse")
 
     const ctx = await requireTenantPermission("dashboard:view")
@@ -47,6 +51,7 @@ export async function GET(request: NextRequest) {
         startDate: true,
         createdAt: true,
         isComplete: true,
+        forecastCompletionDate: true,
         subdivision: {
           select: {
             id: true,
@@ -82,25 +87,34 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const phaseDistribution = computePhaseDistribution(
-      homes.map((h) => ({
-        id: h.id,
-        addressOrLot: h.addressOrLot,
-        startDate: h.startDate,
-        createdAt: h.createdAt,
-        isComplete: h.isComplete,
-        tasks: h.tasks.map((t) => ({
-          id: t.id,
-          status: t.status,
-          scheduledDate: t.scheduledDate,
-          templateItem: {
-            name: t.templateItem.name,
-            optionalCategory: t.templateItem.optionalCategory,
-            sortOrder: t.templateItem.sortOrder,
-          },
-        })),
-      }))
+    const homesForPhase = homes.map((h) => ({
+      id: h.id,
+      addressOrLot: h.addressOrLot,
+      startDate: h.startDate,
+      createdAt: h.createdAt,
+      isComplete: h.isComplete,
+      forecastCompletionDate: h.forecastCompletionDate,
+      tasks: h.tasks.map((t) => ({
+        id: t.id,
+        status: t.status,
+        scheduledDate: t.scheduledDate,
+        templateItem: {
+          name: t.templateItem.name,
+          optionalCategory: t.templateItem.optionalCategory,
+          sortOrder: t.templateItem.sortOrder,
+        },
+      })),
+    }))
+
+    const orderedCategories = deriveOrderedCategories(homesForPhase)
+    const phaseDistribution = computePhaseDistribution(homesForPhase)
+    const avgRemainingByPhase = computePhaseAverageRemainingDays(
+      homesForPhase,
+      orderedCategories
     )
+    phaseDistribution.phases.forEach((p) => {
+      p.avgRemainingDays = avgRemainingByPhase.get(p.key) ?? null
+    })
 
     const pulse = computePulseBySubdivision(
       homes.map((h) => ({

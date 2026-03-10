@@ -67,3 +67,20 @@ html {
 .animate-pricing-panel-in {
   animation: pricing-panel-in 0.2s ease-out;
 }
+
+/* Subtle forecast pulse: scale + soft glow, 2–3 times on load */
+@keyframes forecast-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 6px 2px currentColor;
+  }
+}
+
+.animate-forecast-pulse {
+  animation: forecast-pulse 2s ease-in-out 2 both;
+}
