@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, TrendingDown } from "lucide-react"
+import { CountUpNumber } from "./count-up-number"
 
 export interface KPIItem {
   label: string
@@ -28,7 +29,14 @@ export function KPIGrid({ kpis }: KPIGridProps) {
             >
               <span className="text-xs font-medium text-muted-foreground">{kpi.label}</span>
               <div className="mt-0.5 flex items-center gap-1">
+              {/^\d+(\.\d+)?%?$/.test(kpi.value) ? (
+                <CountUpNumber
+                  value={Number(kpi.value.replace("%", ""))}
+                  className="text-sm font-semibold tabular-nums"
+                />
+              ) : (
                 <span className="text-sm font-semibold">{kpi.value}</span>
+              )}
                 {kpi.delta === "up" && (
                   <TrendingUp className="h-3.5 w-3.5 text-green-600" aria-hidden />
                 )}

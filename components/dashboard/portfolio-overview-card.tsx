@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusSegmentChips } from "./status-segment-chips"
 import Link from "next/link"
+import { CountUpNumber } from "./count-up-number"
 
 export interface PortfolioOverviewCardProps {
   activeHomesCount: number
@@ -20,7 +21,11 @@ export function PortfolioOverviewCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Active Homes: <span className="font-semibold text-foreground">{activeHomesCount}</span>
+          Active Homes:{" "}
+          <CountUpNumber
+            value={activeHomesCount}
+            className="font-semibold text-foreground tabular-nums"
+          />
         </p>
         <StatusSegmentChips statusCounts={statusCounts} />
         <Link

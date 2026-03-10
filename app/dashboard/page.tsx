@@ -83,6 +83,14 @@ function PhaseDistributionCard({
   useEffect(() => {
     if (hasAnimated.current) return
     hasAnimated.current = true
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (reduceMotion) {
+      setAnimate(true)
+      return
+    }
     const t = setTimeout(() => setAnimate(true), 50)
     return () => clearTimeout(t)
   }, [])
@@ -158,7 +166,7 @@ function PhaseDistributionCard({
                       style={{
                         width: animate ? `${Math.max(8, barWidthPercent)}%` : "0%",
                         backgroundColor: fillColor,
-                        transitionDelay: `${rowIndex * 80}ms`,
+                        transitionDelay: animate ? `${rowIndex * 80}ms` : "0ms",
                       }}
                     />
                   </div>
@@ -189,6 +197,7 @@ export default function DashboardPage() {
   const [pulseGroups, setPulseGroups] = useState<PulseSubdivisionGroup[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [, setTick] = useState(0)
+  const [freshnessLabel, setFreshnessLabel] = useState<"just_now" | "lt_min" | null>(null)
 
   useEffect(() => {
     if (session?.user === undefined) return
@@ -244,7 +253,9 @@ export default function DashboardPage() {
             setPhaseDistribution(null)
             setPulseGroups([])
           }
-          setLastUpdated(new Date())
+          const now = new Date()
+          setLastUpdated(now)
+          setFreshnessLabel("just_now")
         })
         .finally(() => {
           setPortfolioLoading(false)
@@ -260,6 +271,23 @@ export default function DashboardPage() {
       clearInterval(minuteTicker)
     }
   }, [session?.user])
+
+  useEffect(() => {
+    if (!lastUpdated || !freshnessLabel) return
+
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    const delay = freshnessLabel === "just_now" ? (reduceMotion ? 5000 : 12000) : 0
+    if (!delay) return
+
+    const t = setTimeout(() => {
+      setFreshnessLabel("lt_min")
+    }, delay)
+    return () => clearTimeout(t)
+  }, [lastUpdated, freshnessLabel])
 
   const portfolioFallback: PortfolioData = {
     activeHomesCount: 0,
@@ -302,12 +330,16 @@ export default function DashboardPage() {
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Portfolio-level view of schedule health, bottlenecks, and live activity.
-            {lastUpdated && (
-              <span className="ml-1.5">
-                Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}.
-              </span>
-            )}
           </p>
+          {lastUpdated && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+              {freshnessLabel === "just_now" && "Updated just now"}
+              {freshnessLabel === "lt_min" && "Updated less than a minute ago"}
+              {!freshnessLabel &&
+                `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`}
+            </p>
+          )}
         </header>
 
         <div className="space-y-6">
