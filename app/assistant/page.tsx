@@ -234,6 +234,7 @@ export default function AssistantPage() {
         <div className="space-y-4">
           {loadingPhase !== "complete" && renderLoadingSequence()}
           {loadingPhase === "complete" && (
+            <>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -384,6 +385,7 @@ export default function AssistantPage() {
               )}
             </CardContent>
           </Card>
+            </>
           )}
         </div>
       </div>
