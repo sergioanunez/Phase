@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Navigation } from "@/components/navigation"
@@ -22,6 +21,7 @@ import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
 import { HomeActivityTimeline } from "@/components/home-activity-timeline"
 import { cn } from "@/lib/utils"
+import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
 
 interface HomeTask {
@@ -465,19 +465,7 @@ export default function HomeDetailPage() {
     { startDate: home.startDate, scheduledTaskCount }
   )
 
-  // Schedule status: use same logic as homes list (at_risk = 1–7 days late, behind = >7 days)
-  const getScheduleStatus = () => {
-    if (barStatus === "not_started") return { label: "Not started", variant: "secondary" as const }
-    if (!home.forecastCompletionDate || !home.targetCompletionDate) return null
-    const forecast = startOfDay(new Date(home.forecastCompletionDate))
-    const target = startOfDay(new Date(home.targetCompletionDate))
-    if (barStatus === "at_risk") return { label: "At Risk", variant: "warning" as const }
-    if (barStatus === "behind") return { label: "Behind schedule", variant: "destructive" as const }
-    if (isBefore(forecast, target)) return { label: "Ahead of schedule", variant: "success" as const }
-    // Match homes list: "On Track" and green when schedule is healthy
-    return { label: "On Track", variant: "success" as const }
-  }
-  const scheduleStatus = getScheduleStatus()
+  const scheduleStatus: ScheduleStatus | null = barStatus
   const today = startOfDay(new Date())
 
   // Sort categories - Preliminary work always first, then by predefined order
@@ -545,12 +533,7 @@ export default function HomeDetailPage() {
                   )}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {scheduleStatus && (
-                    <Badge variant={scheduleStatus.variant} className="gap-1 rounded-full px-3 py-1">
-                      <Check className="h-3.5 w-3.5" />
-                      {scheduleStatus.label}
-                    </Badge>
-                  )}
+                  {scheduleStatus && <StatusPill status={scheduleStatus} />}
                   {(home.hasPlan === true || home.planStoragePath || home.planName || home.planVariant) && (
                     <Button
                       type="button"
