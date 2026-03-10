@@ -228,6 +228,7 @@ export default function AdminPage() {
   const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
   const [impersonationChecked, setImpersonationChecked] = useState(false)
   const [workTemplatesSearchQuery, setWorkTemplatesSearchQuery] = useState("")
+  const [criticalTemplateIds, setCriticalTemplateIds] = useState<string[]>([])
 
   useEffect(() => {
     fetch("/api/super-admin/impersonation/context")
@@ -293,8 +294,16 @@ export default function AdminPage() {
         if (!res.ok) return null
         return data as CompanyBranding
       }),
+      fetch("/api/admin/templates/gantt").then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) {
+          console.error("Templates Gantt API error:", data)
+          return null
+        }
+        return data
+      }),
     ])
-      .then(([subs, homesData, templatesData, contractorsData, usersData, branding]) => {
+      .then(([subs, homesData, templatesData, contractorsData, usersData, branding, ganttData]) => {
         setSubdivisions(subs)
         setHomes(homesData)
         setTemplates(templatesData)
@@ -307,6 +316,11 @@ export default function AdminPage() {
             brandPrimaryColor: branding.brandPrimaryColor ?? "",
             brandAccentColor: branding.brandAccentColor ?? "",
           })
+        }
+        if (ganttData && Array.isArray(ganttData.criticalPathIds)) {
+          setCriticalTemplateIds(ganttData.criticalPathIds as string[])
+        } else {
+          setCriticalTemplateIds([])
         }
         setLoading(false)
       })
@@ -2035,9 +2049,9 @@ export default function AdminPage() {
                               >
                                 {template.name}
                               </CardTitle>
-                              {template.isCriticalGate && (
+                              {criticalTemplateIds.includes(template.id) && (
                                 <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
-                                  Critical gate
+                                  Critical path
                                 </span>
                               )}
                             </div>
