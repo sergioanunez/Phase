@@ -11,14 +11,7 @@ import { groupFlowByHome } from "@/lib/flow/groupFlowByHome"
 import { computeFlowBriefing } from "@/lib/flow/briefing"
 import type { FlowAction } from "@/lib/flow/types"
 
-type Scope = "today" | "next7" | "overdue"
 type Filter = "all" | "prep" | "execute"
-
-const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "next7", label: "Next 7 days" },
-  { value: "overdue", label: "Overdue" },
-]
 
 const FILTER_OPTIONS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
@@ -31,7 +24,6 @@ export default function FlowPage() {
   const [actions, setActions] = useState<FlowAction[]>([])
   const [circularWarning, setCircularWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [scope, setScope] = useState<Scope>("today")
   const [filter, setFilter] = useState<Filter>("all")
   const [search, setSearch] = useState("")
   const [sheetAction, setSheetAction] = useState<FlowAction | null>(null)
@@ -39,7 +31,6 @@ export default function FlowPage() {
   const fetchFlow = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams()
-    params.set("scope", scope)
     params.set("filter", filter)
     if (search.trim()) params.set("search", search.trim())
     fetch(`/api/flow?${params.toString()}`, { credentials: "same-origin" })
@@ -58,7 +49,7 @@ export default function FlowPage() {
         setCircularWarning(null)
       })
       .finally(() => setLoading(false))
-  }, [scope, filter, search])
+  }, [filter, search])
 
   useEffect(() => {
     if (
@@ -103,7 +94,7 @@ export default function FlowPage() {
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <h1 className="mb-4 text-2xl font-bold text-foreground">Flow</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Flow shows what to do today to keep homes moving.
+          Flow shows what to do today to keep homes moving, including overdue items and prep or ordering work.
         </p>
 
         {circularWarning && (
@@ -150,25 +141,6 @@ export default function FlowPage() {
 
         <div className="mt-4 space-y-4">
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Time range</p>
-            <div className="flex flex-wrap gap-2">
-              {SCOPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setScope(opt.value)}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    scope === opt.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-white text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
             <p className="mb-2 text-xs font-medium text-muted-foreground">Filter</p>
             <div className="flex flex-wrap gap-2">
               {FILTER_OPTIONS.map((opt) => (
@@ -210,7 +182,7 @@ export default function FlowPage() {
             <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
           ) : groups.length === 0 ? (
             <div className="rounded-lg border border-border bg-white p-8 text-center text-sm text-muted-foreground">
-              No actions match your filters.
+              You’re clear for today. No immediate actions are required.
             </div>
           ) : (
             groups.map((group) => (

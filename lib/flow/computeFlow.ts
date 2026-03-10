@@ -470,15 +470,10 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
     filtered = filtered.filter((a) => a.type === "EXECUTE")
   }
 
-  if (scope === "today") {
-    filtered = filtered.filter((a) => a.actionDate === today)
-  } else if (scope === "next7") {
-    const end = addWorkingDays(todayDate, 7)
-    const endStr = toDateOnly(end)
-    filtered = filtered.filter((a) => a.actionDate >= today && a.actionDate <= endStr)
-  } else if (scope === "overdue") {
-    filtered = filtered.filter((a) => a.isOverdue)
-  }
+  // Single unified \"today\" view:
+  // - include tasks whose actionDate is today or earlier
+  // - overdue items are always included (they have actionDate < today and isOverdue = true)
+  filtered = filtered.filter((a) => a.actionDate <= today)
 
   filtered.sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1

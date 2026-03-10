@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     const ctx = await requireTenantContext()
 
     const { searchParams } = new URL(request.url)
-    const scope = (searchParams.get("scope") ?? "today") as "today" | "next7" | "overdue"
+    // Scope is now always \"today\" – Flow is a single daily action list.
+    const scope = "today" as const
     const filter = (searchParams.get("filter") ?? "all") as "all" | "prep" | "execute"
     const search = searchParams.get("search") ?? undefined
 
