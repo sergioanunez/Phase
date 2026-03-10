@@ -28,7 +28,13 @@ export function AIAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  if (pathname && (MARKETING_PATHS.includes(pathname) || pathname.startsWith("/super-admin"))) {
+  // Hide AI on marketing pages, super-admin, and all auth screens (sign in, reset, etc.)
+  if (
+    pathname &&
+    (MARKETING_PATHS.includes(pathname) ||
+      pathname.startsWith("/super-admin") ||
+      pathname.startsWith("/auth"))
+  ) {
     return null
   }
 
@@ -88,7 +94,8 @@ export function AIAssistant() {
     handleSend()
   }
 
-  const fabBottom = "bottom-[88px] md:bottom-6"
+  // Leave extra space above the bottom navigation on mobile/tablet so the FAB doesn't overlap it.
+  const fabBottom = "bottom-[112px] md:bottom-6"
   const fabZ = "z-40"
 
   return (
