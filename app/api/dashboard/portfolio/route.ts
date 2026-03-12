@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { getBuildCycleTimeKpi } = await import("@/lib/dashboard/buildCycleTime")
+    const { getAverageDelayPerHomeKpi } = await import("@/lib/dashboard/averageDelayPerHome")
     const ctx = await requireTenantPermission("dashboard:view")
 
     const where: Record<string, unknown> = { companyId: ctx.companyId }
@@ -160,16 +161,13 @@ export async function GET(request: NextRequest) {
         : 0
 
     const buildCycle = await getBuildCycleTimeKpi(ctx.companyId)
+    const avgDelay = await getAverageDelayPerHomeKpi(ctx.companyId)
 
     const kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }> = []
 
     kpis.push({ label: "% Homes on Track", value: `${pctOnTrack}%`, delta: null })
 
     if (buildCycle.averageWorkingDays != null) {
-      let details = "Completed homes in last 90 days"
-      if (buildCycle.homesConsidered >= 3 && buildCycle.bestWorkingDays != null && buildCycle.worstWorkingDays != null) {
-        details = `Best: ${buildCycle.bestWorkingDays} wd • Worst: ${buildCycle.worstWorkingDays} wd`
-      }
       kpis.push({
         label: "Build Cycle Time",
         value: `${buildCycle.averageWorkingDays} wd avg`,
@@ -183,18 +181,29 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    kpis.push(
-      {
-        label: "Avg schedule variance",
+    if (avgDelay.averageDelayDays != null) {
+      const sign = avgDelay.averageDelayDays > 0 ? "+" : ""
+      const value = `${sign}${avgDelay.averageDelayDays} days`
+      const delta: "up" | "down" | null =
+        avgDelay.averageDelayDays < 0 ? "up" : avgDelay.averageDelayDays > 0 ? "down" : null
+      kpis.push({
+        label: "Average Delay per Home",
+        value,
+        delta,
+      })
+    } else {
+      kpis.push({
+        label: "Average Delay per Home",
         value: "—",
         delta: null,
-      },
-      {
-        label: "Starts vs Completions (MTD)",
-        value: "—",
-        delta: null,
-      },
-    )
+      })
+    }
+
+    kpis.push({
+      label: "Starts vs Completions (MTD)",
+      value: "—",
+      delta: null,
+    })
 
     const body: PortfolioResponse = {
       activeHomesCount,

@@ -39,6 +39,11 @@ export function KPIGrid({ kpis }: KPIGridProps) {
                   value={Number(kpi.value.split(" ")[0])}
                   className="text-sm font-semibold tabular-nums"
                 />
+              ) : /^-?\d+\s+days$/.test(kpi.value) ? (
+                <CountUpNumber
+                  value={Number(kpi.value.split(" ")[0])}
+                  className="text-sm font-semibold tabular-nums"
+                />
               ) : (
                 <span className="text-sm font-semibold">{kpi.value}</span>
               )}
