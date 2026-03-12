@@ -24,10 +24,7 @@ export async function getBuildCycleTimeKpi(tenantId: string): Promise<BuildCycle
     where: {
       companyId: tenantId,
       isComplete: true,
-      OR: [
-        { completedAt: { gte: ninetyDaysAgo } },
-        { closedAt: { gte: ninetyDaysAgo } },
-      ],
+      completedAt: { gte: ninetyDaysAgo },
     },
     select: {
       id: true,
@@ -35,7 +32,6 @@ export async function getBuildCycleTimeKpi(tenantId: string): Promise<BuildCycle
       startDate: true,
       constructionStartDate: true as any,
       completedAt: true,
-      closedAt: true as any,
       tasks: {
         select: {
           startedAt: true as any,
@@ -64,8 +60,9 @@ export async function getBuildCycleTimeKpi(tenantId: string): Promise<BuildCycle
 
     const completion =
       startOfDay(home.completedAt) ??
-      startOfDay((home as any).closedAt) ??
-      (taskCompletedDates.length > 0 ? startOfDay(new Date(Math.max(...taskCompletedDates.map((d) => d.getTime())))) : null)
+      (taskCompletedDates.length > 0
+        ? startOfDay(new Date(Math.max(...taskCompletedDates.map((d) => d.getTime()))))
+        : null)
 
     if (!start || !completion) continue
     if (completion <= start) continue
