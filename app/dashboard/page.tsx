@@ -116,12 +116,9 @@ function PhaseDistributionCard({
             Where homes are in the build process
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end">
           <span className="text-xs font-medium text-muted-foreground text-right">
             Days to completion (working days)
-          </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {phaseDistribution.totalActiveHomes} active homes
           </span>
         </div>
       </div>
