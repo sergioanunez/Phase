@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
+    const { getBuildCycleTimeKpi } = await import("@/lib/dashboard/buildCycleTime")
     const ctx = await requireTenantPermission("dashboard:view")
 
     const where: Record<string, unknown> = { companyId: ctx.companyId }
@@ -157,14 +158,32 @@ export async function GET(request: NextRequest) {
       activeHomesCount > 0
         ? Math.round((onTrack / activeHomesCount) * 100)
         : 0
-    // TODO: Avg phase duration and avg schedule variance when phase/variance data is available
-    const kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }> = [
-      { label: "% Homes on Track", value: `${pctOnTrack}%`, delta: null },
-      {
-        label: "Avg phase duration",
+
+    const buildCycle = await getBuildCycleTimeKpi(ctx.companyId)
+
+    const kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }> = []
+
+    kpis.push({ label: "% Homes on Track", value: `${pctOnTrack}%`, delta: null })
+
+    if (buildCycle.averageWorkingDays != null) {
+      let details = "Completed homes in last 90 days"
+      if (buildCycle.homesConsidered >= 3 && buildCycle.bestWorkingDays != null && buildCycle.worstWorkingDays != null) {
+        details = `Best: ${buildCycle.bestWorkingDays} wd • Worst: ${buildCycle.worstWorkingDays} wd`
+      }
+      kpis.push({
+        label: "Build Cycle Time",
+        value: `${buildCycle.averageWorkingDays} wd avg`,
+        delta: null,
+      })
+    } else {
+      kpis.push({
+        label: "Build Cycle Time",
         value: "—",
         delta: null,
-      },
+      })
+    }
+
+    kpis.push(
       {
         label: "Avg schedule variance",
         value: "—",
@@ -175,7 +194,7 @@ export async function GET(request: NextRequest) {
         value: "—",
         delta: null,
       },
-    ]
+    )
 
     const body: PortfolioResponse = {
       activeHomesCount,
