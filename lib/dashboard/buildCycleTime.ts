@@ -30,7 +30,6 @@ export async function getBuildCycleTimeKpi(tenantId: string): Promise<BuildCycle
       id: true,
       createdAt: true,
       startDate: true,
-      constructionStartDate: true as any,
       completedAt: true,
       tasks: {
         select: {
@@ -48,8 +47,9 @@ export async function getBuildCycleTimeKpi(tenantId: string): Promise<BuildCycle
       .filter((d): d is Date => d != null)
 
     const start =
-      startOfDay((home as any).constructionStartDate) ??
-      (taskCompletedDates.length > 0 ? startOfDay(new Date(Math.min(...taskCompletedDates.map((d) => d.getTime())))) : null) ??
+      (taskCompletedDates.length > 0
+        ? startOfDay(new Date(Math.min(...taskCompletedDates.map((d) => d.getTime()))))
+        : null) ??
       startOfDay(home.startDate) ??
       startOfDay(home.createdAt)
 
