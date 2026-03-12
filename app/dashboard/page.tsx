@@ -110,18 +110,20 @@ function PhaseDistributionCard({
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold text-foreground">
-            Phase Distribution
+            Construction Timeline
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground sm:block hidden">
-            Where active homes are in the build pipeline
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground sm:hidden">
-            Build pipeline by phase
+          <p className="mt-1 text-sm text-muted-foreground">
+            Where homes are in the build process
           </p>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {phaseDistribution.totalActiveHomes} active homes
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs font-medium text-muted-foreground text-right">
+            Days to completion (working days)
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {phaseDistribution.totalActiveHomes} active homes
+          </span>
+        </div>
       </div>
       {phases.length === 0 ? (
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
@@ -134,12 +136,8 @@ function PhaseDistributionCard({
               phase.count === 1 ? "1 home" : `${phase.count} homes`
             const metricStr =
               phase.avgRemainingDays != null
-                ? `~${phase.avgRemainingDays} wd`
-                : "~—"
-            const metricTooltip =
-              phase.avgRemainingDays != null
-                ? `Template-based estimate: ~${phase.avgRemainingDays} working days to completion`
-                : "Template-based estimate not available"
+                ? `${phase.avgRemainingDays} days`
+                : "—"
             return (
               <button
                 key={phase.key}
@@ -171,8 +169,7 @@ function PhaseDistributionCard({
                     />
                   </div>
                   <span
-                    className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground"
-                    title={metricTooltip}
+                    className="w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground"
                   >
                     {metricStr}
                   </span>
