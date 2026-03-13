@@ -12,6 +12,7 @@ import { Providers } from "./providers"
 import { AppHeader } from "@/components/app-header"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 
 const inter = Inter({ subsets: ["latin"], display: "swap" })
 
@@ -65,6 +66,7 @@ export default async function RootLayout({
             <AppHeader />
             <TrialExpiredOverlay />
             {children}
+            <OnboardingTour />
           </Providers>
         </body>
       </html>
@@ -88,6 +90,7 @@ export default async function RootLayout({
           <AppHeader />
           <TrialExpiredOverlay />
           {children}
+          <OnboardingTour />
         </Providers>
       </body>
     </html>
