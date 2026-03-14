@@ -118,7 +118,7 @@ async function buildReadResponse(
       const behind = actions.filter(
         (a) => a.isOverdue || (typeof a.slackWorkingDays === "number" && a.slackWorkingDays < 0)
       )
-      const byHome = Array.from(new Map(behind.map((a) => [a.homeId, a])).values()
+      const byHome = Array.from(new Map(behind.map((a) => [a.homeId, a])).values())
       if (byHome.length === 0) {
         return {
           message: "No homes are currently behind schedule.",
