@@ -141,3 +141,65 @@ export async function createPunchlistSentEvent(params: {
     recipientName: params.recipientName,
   })
 }
+
+/** Assistant execution logging (deterministic copilot actions). */
+export async function createAssistantScheduledTaskEvent(params: {
+  companyId: string
+  userId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  scheduledDate: string
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "assistant_scheduled_task",
+    title: `Assistant: ${params.taskName} scheduled`,
+    description: params.scheduledDate,
+    metadata: { userId: params.userId, timestamp: new Date().toISOString() },
+  })
+}
+
+export async function createAssistantCreatedPunchlistEvent(params: {
+  companyId: string
+  userId: string
+  homeId: string
+  taskId: string
+  punchItemIds: string[]
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "assistant_created_punchlist",
+    title: `Assistant: Punchlist created (${params.punchItemIds.length} item(s))`,
+    metadata: {
+      userId: params.userId,
+      punchItemIds: params.punchItemIds,
+      timestamp: new Date().toISOString(),
+    },
+  })
+}
+
+export async function createAssistantCreatedMaterialRequestEvent(params: {
+  companyId: string
+  userId: string
+  homeId: string
+  material: string
+  quantity?: string | null
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: null,
+    eventType: "assistant_created_material_request",
+    title: `Assistant: Material request draft — ${params.material}`,
+    description: params.quantity ?? undefined,
+    metadata: {
+      userId: params.userId,
+      timestamp: new Date().toISOString(),
+    },
+  })
+}

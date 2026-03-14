@@ -80,6 +80,9 @@ enum ActivityEventType {
   inspection_failed
   home_started
   home_completed
+  assistant_scheduled_task
+  assistant_created_punchlist
+  assistant_created_material_request
 }
 
 enum GateScope {
