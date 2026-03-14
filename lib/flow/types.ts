@@ -42,7 +42,7 @@ export type FlowAction = {
   notStarted?: boolean
 }
 
-export type FlowScope = "today" | "next7" | "overdue"
+export type FlowScope = "today"
 export type FlowFilter = "all" | "prep" | "execute"
 
 export type ComputeFlowInput = {
