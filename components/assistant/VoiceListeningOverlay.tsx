@@ -13,19 +13,32 @@ function prefersReducedMotion(): boolean {
 }
 
 export function VoiceListeningOverlay({ onClose, onTranscript }: Props) {
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<{ start(): void; abort(): void } | null>(null)
 
   useEffect(() => {
-    const SpeechRecognition =
+    const SpeechRecognitionAPI =
       typeof window !== "undefined" &&
-      (window.SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition })["webkitSpeechRecognition"])
-    if (!SpeechRecognition) {
+      (typeof (window as unknown as { SpeechRecognition?: new () => unknown }).SpeechRecognition !== "undefined"
+        ? (window as unknown as { SpeechRecognition: new () => unknown }).SpeechRecognition
+        : (window as unknown as { webkitSpeechRecognition?: new () => unknown }).webkitSpeechRecognition)
+    if (!SpeechRecognitionAPI) {
       onTranscript("(Speech recognition not supported in this browser)")
       onClose()
       return
     }
 
-    const recognition = new SpeechRecognition()
+    type ResultItem = { isFinal: boolean; 0: { transcript: string }; length: number }
+    type ResultEvent = { resultIndex: number; results: { length: number; [i: number]: ResultItem } }
+    const recognition = new SpeechRecognitionAPI() as {
+      start(): void
+      abort(): void
+      continuous: boolean
+      interimResults: boolean
+      lang: string
+      onresult: ((event: ResultEvent) => void) | null
+      onend: (() => void) | null
+      onerror: (() => void) | null
+    }
     recognition.continuous = false
     recognition.interimResults = true
     recognition.lang = "en-US"
@@ -33,11 +46,12 @@ export function VoiceListeningOverlay({ onClose, onTranscript }: Props) {
 
     let finalTranscript = ""
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: ResultEvent) => {
       let interim = ""
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
+        const result = event.results[i]
+        const transcript = result[0].transcript
+        if (result.isFinal) {
           finalTranscript += transcript
         } else {
           interim += transcript
