@@ -49,11 +49,20 @@ export function AssistantCommandInput({
     }
   }
 
-  const handleVoiceTranscript = useCallback((text: string) => {
-    if (text && !text.startsWith("(")) setInput((prev) => (prev ? `${prev} ${text}` : text))
-    setShowVoice(false)
-    setTimeout(() => inputRef.current?.focus(), 100)
-  }, [])
+  const handleVoiceTranscript = useCallback(
+    (text: string) => {
+      if (text && !text.startsWith("(")) {
+        if (isControlled && controlledOnChange) {
+          controlledOnChange(input ? `${input} ${text}` : text)
+        } else {
+          setInternalInput((prev) => (prev ? `${prev} ${text}` : text))
+        }
+      }
+      setShowVoice(false)
+      setTimeout(() => inputRef.current?.focus(), 100)
+    },
+    [isControlled, controlledOnChange, input]
+  )
 
   return (
     <>
