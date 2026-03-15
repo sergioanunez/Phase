@@ -3,9 +3,11 @@
 import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { Navigation } from "@/components/navigation"
+import { WelcomeBanner } from "@/components/onboarding/welcome-banner"
 import { PortfolioOverviewCard } from "@/components/dashboard/portfolio-overview-card"
 import { BottleneckListCard } from "@/components/dashboard/bottleneck-list-card"
 import { UpcomingInspectionsCard } from "@/components/dashboard/upcoming-inspections-card"
@@ -182,8 +184,12 @@ function PhaseDistributionCard({
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const isAdmin = session?.user?.role === "Admin"
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null)
+  const showTourParam = searchParams.get("tour") === "onboarding"
   const [portfolioLoading, setPortfolioLoading] = useState(true)
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
@@ -258,13 +264,21 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
+    if (isAdmin || session?.user?.role === "Manager") {
+      fetch("/api/onboarding", { credentials: "same-origin" })
+        .then((res) => res.json())
+        .then((data) => setOnboardingCompleted(data.onboardingCompleted ?? true))
+        .catch(() => setOnboardingCompleted(true))
+    } else {
+      setOnboardingCompleted(true)
+    }
     const interval = setInterval(fetchActivities, 5000)
     const minuteTicker = setInterval(() => setTick((t) => t + 1), 60_000)
     return () => {
       clearInterval(interval)
       clearInterval(minuteTicker)
     }
-  }, [session?.user])
+  }, [session?.user, isAdmin])
 
   useEffect(() => {
     if (!lastUpdated || !freshnessLabel) return
@@ -305,9 +319,33 @@ export default function DashboardPage() {
     )
   }
 
+  const showWelcomeBanner =
+    onboardingCompleted === false && !showTourParam && (isAdmin || session?.user?.role === "Manager")
+
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
-      <div className="app-container px-4">
+      <div className="app-container px-4" data-onboarding="dashboard">
+        {/* Welcome banner (non-blocking) */}
+        {showWelcomeBanner && (
+          <div className="mb-6">
+            <WelcomeBanner
+              onStartTour={() => router.push("/dashboard?tour=onboarding")}
+              onSkip={async () => {
+                try {
+                  await fetch("/api/onboarding", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ onboardingCompleted: true }),
+                  })
+                  setOnboardingCompleted(true)
+                } catch {
+                  setOnboardingCompleted(true)
+                }
+              }}
+            />
+          </div>
+        )}
+
         {/* Header */}
         <header className="mb-6">
           <div className="flex items-center justify-between">

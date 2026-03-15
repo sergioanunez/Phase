@@ -43,10 +43,10 @@ export function Navigation() {
             { href: "/my-schedule/updates", icon: Bell, label: "Updates" },
           ]
         : [
-            { href: "/homes", icon: Home, label: "Homes", roles: ["Admin", "Superintendent", "Manager"] },
+            { href: "/homes", icon: Home, label: "Homes", roles: ["Admin", "Superintendent", "Manager"], dataOnboarding: "homes" },
             { href: "/calendar", icon: Calendar, label: "Calendar", roles: ["Admin", "Superintendent", "Manager"] },
-            { href: "/flow", icon: ListChecks, label: "Flow", roles: ["Admin", "Superintendent", "Manager"] },
-            { href: "/dashboard", icon: BarChart3, label: "Dashboard", roles: ["Admin", "Manager"] },
+            { href: "/flow", icon: ListChecks, label: "Flow", roles: ["Admin", "Superintendent", "Manager"], dataOnboarding: "flow" },
+            { href: "/dashboard", icon: BarChart3, label: "Dashboard", roles: ["Admin", "Manager"], dataOnboarding: "dashboard" },
             {
               href: "/assistant",
               icon: Sparkles,
@@ -71,6 +71,7 @@ export function Navigation() {
             <Link
               key={item.href}
               href={item.href}
+              {...((item as any).dataOnboarding ? { "data-onboarding": (item as any).dataOnboarding } : {})}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 px-3 py-3 text-[11px] transition-colors",
                 isAssistant

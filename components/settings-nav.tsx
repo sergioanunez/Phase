@@ -10,11 +10,12 @@ const tabs: Array<{
   href: string
   label: string
   icon?: typeof Palette
+  dataOnboarding?: string
 }> = [
-  { value: "subdivisions-homes", href: "/admin", label: "Subdivisions & Homes" },
-  { value: "work-templates", href: "/admin?tab=work-templates", label: "Work Items Template" },
-  { value: "contractors", href: "/admin?tab=contractors", label: "Vendors" },
-  { value: "users", href: "/admin?tab=users", label: "Users" },
+  { value: "subdivisions-homes", href: "/admin", label: "Subdivisions & Homes", dataOnboarding: "subdivisions" },
+  { value: "work-templates", href: "/admin?tab=work-templates", label: "Work Items Template", dataOnboarding: "template" },
+  { value: "contractors", href: "/admin?tab=contractors", label: "Vendors", dataOnboarding: "contractors" },
+  { value: "users", href: "/admin?tab=users", label: "Users", dataOnboarding: "team" },
   { value: "white-label", href: "/admin?tab=white-label", label: "White Label", icon: Palette },
   { value: "billing", href: "/admin/billing", label: "Billing", icon: CreditCard },
 ]
@@ -41,6 +42,7 @@ export function SettingsNav({ className }: { className?: string }) {
             href={t.href}
             role="tab"
             aria-selected={active}
+            {...(t.dataOnboarding ? { "data-onboarding": t.dataOnboarding } : {})}
             className={cn(
               "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
               active

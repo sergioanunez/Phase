@@ -68,6 +68,22 @@ html {
   animation: pricing-panel-in 0.2s ease-out;
 }
 
+/* Spotlight tour */
+@keyframes spotlight-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes spotlight-tooltip-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-spotlight-overlay-in {
+  animation: spotlight-overlay-in 180ms ease-out;
+}
+.animate-spotlight-tooltip-in {
+  animation: spotlight-tooltip-in 220ms ease-out;
+}
+
 /* Subtle forecast pulse: scale + soft glow, 2–3 times on load */
 @keyframes forecast-pulse {
   0%,
