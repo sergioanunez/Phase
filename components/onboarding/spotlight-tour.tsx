@@ -137,7 +137,16 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
     if (!mounted) return
     const goToRoute = () => {
       if (config.route && config.route !== pathname) {
-        const url = config.tab ? `${config.route}?tab=${config.tab}` : config.route
+        const params = new URLSearchParams()
+        if (config.tab) params.set("tab", config.tab)
+        params.set("tour", "onboarding")
+        const url = `${config.route}?${params.toString()}`
+        router.push(url)
+      } else if (config.route === pathname && config.tab) {
+        const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "")
+        params.set("tab", config.tab)
+        params.set("tour", "onboarding")
+        const url = `${pathname}?${params.toString()}`
         router.push(url)
       }
     }
