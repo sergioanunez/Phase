@@ -15,7 +15,7 @@ const tabs: Array<{
   { value: "subdivisions-homes", href: "/admin", label: "Subdivisions & Homes", dataOnboarding: "subdivisions" },
   { value: "work-templates", href: "/admin?tab=work-templates", label: "Work Items Template", dataOnboarding: "template" },
   { value: "contractors", href: "/admin?tab=contractors", label: "Vendors", dataOnboarding: "contractors" },
-  { value: "users", href: "/admin?tab=users", label: "Users", dataOnboarding: "team" },
+  { value: "users", href: "/admin?tab=users", label: "Team", dataOnboarding: "team" },
   { value: "white-label", href: "/admin?tab=white-label", label: "White Label", icon: Palette },
   { value: "billing", href: "/admin/billing", label: "Billing", icon: CreditCard },
 ]
