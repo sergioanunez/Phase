@@ -8,7 +8,7 @@ import { SpotlightTour, type SpotlightStepId } from "./spotlight-tour"
 export function OnboardingTour() {
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
-  const [spotlightStep, setSpotlightStep] = useState<SpotlightStepId>("dashboard")
+  const [spotlightStep, setSpotlightStep] = useState<SpotlightStepId>("subdivisions")
   const [showSpotlight, setShowSpotlight] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -24,7 +24,7 @@ export function OnboardingTour() {
     }
     if (forceTour) {
       setShowSpotlight(true)
-      setSpotlightStep("dashboard")
+      setSpotlightStep("subdivisions")
       setLoading(false)
       return
     }
