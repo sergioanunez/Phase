@@ -82,6 +82,7 @@ export default function HomeDetailPage() {
   const { data: session } = useSession()
   const [home, setHome] = useState<Home | null>(null)
   const [loading, setLoading] = useState(true)
+  const [homeError, setHomeError] = useState<"not_found" | "forbidden" | null>(null)
   const [selectedTask, setSelectedTask] = useState<HomeTask | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [punchTaskId, setPunchTaskId] = useState<string | null>(null)
@@ -98,16 +99,24 @@ export default function HomeDetailPage() {
     const homeId = params.id as string
 
     // Fast path: load home from GET /api/homes/[id] so schedule shows immediately (no forecast recompute)
+    setHomeError(null)
     fetch(`/api/homes/${homeId}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+      .then((res) => {
+        if (res.ok) return res.json().then((data: Home) => ({ data, status: res.status }))
+        if (res.status === 403) return { data: null, status: 403 }
+        return { data: null, status: res.status }
+      })
+      .then(({ data, status }) => {
         if (data) {
           setHome(data)
+          setHomeError(null)
           setLoading(false)
         } else {
           setHome(null)
+          setHomeError(status === 403 ? "forbidden" : "not_found")
           setLoading(false)
         }
+        if (!data) return
         // Background: refresh with forecast (recompute); update home when done
         fetch(`/api/homes/${homeId}/forecast`)
           .then((res) => res.json().then((d) => ({ ok: res.ok, data: d })))
@@ -119,6 +128,7 @@ export default function HomeDetailPage() {
       .catch((err) => {
         console.error(err)
         setHome(null)
+        setHomeError("not_found")
         setLoading(false)
       })
 
@@ -410,8 +420,18 @@ export default function HomeDetailPage() {
 
   if (!home) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div>Home not found</div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <p className="text-center text-lg font-medium text-foreground">
+          {homeError === "forbidden"
+            ? "You don't have access to this home."
+            : "Home not found."}
+        </p>
+        <Link
+          href="/homes"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          ← Back to Homes
+        </Link>
       </div>
     )
   }

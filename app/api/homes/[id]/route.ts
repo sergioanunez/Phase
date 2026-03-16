@@ -30,7 +30,7 @@ export async function GET(
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("homes:read")
 
-    const home = await prisma.home.findFirst({
+    let home = await prisma.home.findFirst({
       where: {
         id: params.id,
         OR: [
@@ -70,6 +70,43 @@ export async function GET(
         },
       },
     })
+
+    // Fallback: find by id and check company in code (handles Prisma OR edge cases)
+    if (!home) {
+      const byId = await prisma.home.findUnique({
+        where: { id: params.id },
+        include: {
+          subdivision: true,
+          tasks: {
+            include: {
+              contractor: true,
+              templateItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  optionalCategory: true,
+                  isCriticalGate: true,
+                  gateName: true,
+                },
+              },
+            },
+            orderBy: { sortOrderSnapshot: "asc" },
+          },
+          assignments: {
+            include: {
+              superintendent: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      })
+      const canAccess =
+        byId &&
+        (byId.companyId === ctx.companyId ||
+          (byId.companyId == null && byId.subdivision?.companyId === ctx.companyId))
+      if (canAccess) home = byId
+    }
 
     if (!home) {
       return NextResponse.json({ error: "Home not found" }, { status: 404 })
