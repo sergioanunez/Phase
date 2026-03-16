@@ -115,7 +115,7 @@ export function LandingPage() {
 
         {/* Credibility: Built by Builders */}
         <section
-          id="built-by-builders"
+          id="why-phase"
           className={`${SECTION_CLASS} bg-gray-50/80`}
           aria-labelledby="built-by-builders-heading"
         >
@@ -176,7 +176,7 @@ export function LandingPage() {
         </section>
 
         {/* How We Solve It */}
-        <section id="benefits" className={SECTION_CLASS}>
+        <section id="solution" className={SECTION_CLASS}>
           <div className="mx-auto max-w-6xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
               A System That Controls the Field

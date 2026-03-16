@@ -9,9 +9,9 @@ import logoImage from "../../public/logo.png"
 
 const NAV_LINKS = [
   { href: "#problem", label: "Problem" },
-  { href: "#benefits", label: "Our Solution" },
+  { href: "#solution", label: "Solution" },
+  { href: "#why-phase", label: "Why Phase" },
   { href: "#pricing", label: "Pricing" },
-  { href: "#custom", label: "Custom Solutions" },
   { href: "#faq", label: "FAQ" },
 ]
 
