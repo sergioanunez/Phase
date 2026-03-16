@@ -120,16 +120,12 @@ export function LandingPage() {
         <section id="solution" className={SECTION_CLASS}>
           <div className="mx-auto max-w-6xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              A System That Controls Field Execution
+              A System That Controls the Field
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg max-w-2xl">
-              Phase coordinates schedules, contractors, and execution in one system built for residential construction.
+              Phase organizes construction operations into three layers.
             </p>
-
-            <p className="mt-10 text-lg font-medium text-gray-800">
-              Construction operations depend on three things.
-            </p>
-            <p className="mt-1 text-base text-gray-600">
+            <p className="mt-6 text-base text-gray-600">
               Execution. Communication. Visibility.
             </p>
 
