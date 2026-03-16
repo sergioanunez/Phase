@@ -120,33 +120,72 @@ export function LandingPage() {
         <section id="solution" className={SECTION_CLASS}>
           <div className="mx-auto max-w-6xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              A System That Controls the Field
+              A System That Controls Field Execution
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg max-w-2xl">
-              Phase centralizes execution into one operating layer built specifically for residential construction.
+              Phase coordinates schedules, contractors, and execution in one system built for residential construction.
             </p>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { title: "Flow Mode", desc: "Daily action feed that tells your team exactly what needs to happen — before delays occur." },
-                { title: "Critical Path Forecasting", desc: "Working-day completion forecasts powered by dependencies and sequencing logic.", supportingLine: "Deterministic at its core. Enhanced with intelligent insights." },
-                { title: "AI Risk & Schedule Insights", desc: "Surface delay risks, forecast drift, and sequencing issues using intelligent analysis layered on top of deterministic scheduling logic." },
-                { title: "Gates & Blocking", desc: "Tasks cannot start until predecessors are complete. No skipped steps." },
-                { title: "Smart Notifications", desc: "Real-time alerts when work is scheduled, confirmed, reported complete, or at risk." },
-                { title: "Subcontractor Panel", desc: "Trades see only their tasks, punch lists, and calendar. No clutter." },
-                { title: "SMS Confirmations", desc: "Send schedules in batch. Receive confirmations instantly." },
-                { title: "Punch Lists", desc: "Create, assign, batch send via SMS, and track verification — all structured." },
-                { title: "Live Calendar", desc: "Visualize every home, every task, every dependency." },
-                { title: "Management Dashboard", desc: "See forecast drift, reliability, and project health in real time." },
-                { title: "Plans Viewer", desc: "Access floor plans directly inside the system." },
-              ].map((item) => (
-                <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
-                  <p className="mt-2 text-sm text-gray-600">{item.desc}</p>
-                  {"supportingLine" in item && item.supportingLine && (
-                    <p className="mt-2 text-xs text-gray-500">{item.supportingLine}</p>
-                  )}
-                </div>
-              ))}
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Execution Engine
+                </p>
+                <h3 className="mt-2 text-base font-semibold text-gray-900">Keep builds moving</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  The sequencing system that keeps work flowing in the right order.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                  <li>
+                    <span className="font-semibold">Flow Mode</span>
+                  </li>
+                  <li>Gates &amp; Blocking</li>
+                  <li>Critical Path Forecasting</li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Field Coordination
+                </p>
+                <h3 className="mt-2 text-base font-semibold text-gray-900">Coordinate the field</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Coordinate subcontractors without relying on scattered text threads.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                  <li>SMS Confirmations</li>
+                  <li>Smart Notifications</li>
+                  <li>Subcontractor Panel</li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Live Visibility
+                </p>
+                <h3 className="mt-2 text-base font-semibold text-gray-900">See every build</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Know where every home stands and where risk is forming.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                  <li>Management Dashboard</li>
+                  <li>AI Risk &amp; Schedule Insights</li>
+                  <li>Live Calendar</li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Field Tools
+                </p>
+                <h3 className="mt-2 text-base font-semibold text-gray-900">Work from the field</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Everything teams need on site, in one place.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                  <li>Punch Lists</li>
+                  <li>Plans Viewer</li>
+                </ul>
+              </div>
             </div>
             <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
               <p className="text-base font-medium text-gray-800">Everything lives in one place.</p>
