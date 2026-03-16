@@ -41,11 +41,18 @@ export async function GET(request: NextRequest) {
     const subdivisionId = searchParams.get("subdivisionId")
     const phaseFilter = searchParams.get("phase")
 
-    const where: { companyId: string; subdivisionId?: string; id?: { in: string[] } } = {
-      companyId: ctx.companyId,
+    const baseWhere: {
+      OR: Array<{ companyId: string } | { companyId: null; subdivision: { companyId: string } }>
+      subdivisionId?: string
+      id?: { in: string[] }
+    } = {
+      OR: [
+        { companyId: ctx.companyId },
+        { companyId: null, subdivision: { companyId: ctx.companyId } },
+      ],
     }
     if (subdivisionId) {
-      where.subdivisionId = subdivisionId
+      baseWhere.subdivisionId = subdivisionId
     }
 
     // For Superintendent, filter by assignments
@@ -54,7 +61,7 @@ export async function GET(request: NextRequest) {
         where: { companyId: ctx.companyId, superintendentUserId: ctx.userId },
         select: { homeId: true },
       })
-      where.id = { in: assignments.map((a) => a.homeId) }
+      baseWhere.id = { in: assignments.map((a) => a.homeId) }
     }
 
     // For Subcontractor, only assigned homes
@@ -63,11 +70,11 @@ export async function GET(request: NextRequest) {
       if (assignedHomeIds.length === 0) {
         return NextResponse.json([])
       }
-      where.id = { in: assignedHomeIds }
+      baseWhere.id = { in: assignedHomeIds }
     }
 
     const homes = await prisma.home.findMany({
-      where,
+      where: baseWhere,
       include: {
         subdivision: {
           select: {

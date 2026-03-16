@@ -31,7 +31,13 @@ export async function GET(
     const ctx = await requireTenantPermission("homes:read")
 
     const home = await prisma.home.findFirst({
-      where: { id: params.id, companyId: ctx.companyId },
+      where: {
+        id: params.id,
+        OR: [
+          { companyId: ctx.companyId },
+          { companyId: null, subdivision: { companyId: ctx.companyId } },
+        ],
+      },
       include: {
         subdivision: true,
         tasks: {
