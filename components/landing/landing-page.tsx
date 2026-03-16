@@ -116,7 +116,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* How We Solve It */}
+        {/* How We Solve It – three pillars */}
         <section id="solution" className={SECTION_CLASS}>
           <div className="mx-auto max-w-6xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
@@ -125,69 +125,90 @@ export function LandingPage() {
             <p className="mt-4 text-base text-gray-600 sm:text-lg max-w-2xl">
               Phase coordinates schedules, contractors, and execution in one system built for residential construction.
             </p>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
-              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Execution Engine
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-gray-900">Keep builds moving</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  The sequencing engine that keeps work flowing in the right order.
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-gray-700">
-                  <li>
-                    <span className="font-semibold">Flow Mode</span>
-                  </li>
-                  <li>Gates &amp; Blocking</li>
-                  <li>Critical Path Forecasting</li>
-                </ul>
-              </div>
 
-              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Field Coordination
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-gray-900">Coordinate the field</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Coordinate subcontractors without relying on scattered text threads.
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-gray-700">
-                  <li>SMS Confirmations</li>
-                  <li>Smart Notifications</li>
-                  <li>Subcontractor Panel</li>
-                </ul>
-              </div>
+            <p className="mt-10 text-lg font-medium text-gray-800">
+              Construction operations depend on three things.
+            </p>
+            <p className="mt-1 text-base text-gray-600">
+              Execution. Communication. Visibility.
+            </p>
 
-              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Live Visibility
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-gray-900">See every build</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Know where every home stands and where risk is forming.
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-gray-700">
-                  <li>Management Dashboard</li>
-                  <li>AI Risk &amp; Schedule Insights</li>
-                  <li>Live Calendar</li>
-                </ul>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Field Tools
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-gray-900">Work from the field</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Everything teams need on site, in one place.
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-gray-700">
-                  <li>Punch Lists</li>
-                  <li>Plans Viewer</li>
-                </ul>
+            {/* Pillar: Execution */}
+            <div className="mt-14 first:mt-10">
+              <div className="h-0.5 w-12 sm:w-16 rounded-full bg-blue-200/80" aria-hidden />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-blue-700/90">
+                Execution
+              </p>
+              <p className="mt-1 text-base text-gray-700">
+                Keep builds moving in the right order.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-900">Flow Mode</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Gates &amp; Blocking</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Critical Path Forecasting</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Plans Viewer</p>
+                </div>
               </div>
             </div>
-            <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
+
+            {/* Pillar: Communication */}
+            <div className="mt-14">
+              <div className="h-0.5 w-12 sm:w-16 rounded-full bg-blue-200/80" aria-hidden />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-blue-700/90">
+                Communication
+              </p>
+              <p className="mt-1 text-base text-gray-700">
+                Coordinate subcontractors and field teams without scattered messages.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">SMS Confirmations</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Smart Notifications</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Subcontractor Panel</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Punch Lists</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Pillar: Visibility */}
+            <div className="mt-14">
+              <div className="h-0.5 w-12 sm:w-16 rounded-full bg-blue-200/80" aria-hidden />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-blue-700/90">
+                Visibility
+              </p>
+              <p className="mt-1 text-base text-gray-700">
+                See where every build stands and where risk is forming.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Management Dashboard</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">AI Risk &amp; Schedule Insights</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Live Calendar</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">Forecast &amp; KPI visibility</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
               <p className="text-base font-medium text-gray-800">Everything lives in one place.</p>
               <p className="mt-1 text-base text-gray-700">No spreadsheets. No scattered messages. No guesswork.</p>
             </div>
