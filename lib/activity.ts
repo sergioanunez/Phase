@@ -73,6 +73,23 @@ export async function createTaskCompletedEvent(params: {
   })
 }
 
+export async function createTaskStartedEvent(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  actorName?: string | null
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "task_started",
+    title: `${params.taskName} started`,
+    actorName: params.actorName,
+  })
+}
+
 export async function createSmsSentEvent(params: {
   companyId: string
   homeId: string

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
+import { createTaskStartedEvent } from "@/lib/activity"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
 export const dynamic = "force-dynamic"
@@ -76,12 +77,26 @@ export async function POST(
 
     const updated = await prisma.homeTask.update({
       where: { id: params.id },
-      data: { status: "InProgress" },
+      data: {
+        status: "InProgress",
+        startedAt: task.startedAt ?? new Date(),
+      },
       include: {
         contractor: true,
         home: { include: { subdivision: true } },
       },
     })
+
+    // Log activity: task started
+    if (ctx.companyId && updated.homeId) {
+      await createTaskStartedEvent({
+        companyId: ctx.companyId,
+        homeId: updated.homeId,
+        taskId: updated.id,
+        taskName: updated.nameSnapshot,
+        actorName: ctx.userId,
+      })
+    }
 
     return NextResponse.json(updated)
   } catch (error) {

@@ -438,6 +438,10 @@ export async function PATCH(
       }
       updateData.status = data.status
 
+      // Set startedAt when entering InProgress (if not already set)
+      if (data.status === "InProgress" && !before.startedAt) {
+        updateData.startedAt = new Date()
+      }
       // Set completedAt if status is Completed
       if (data.status === "Completed" && !before.completedAt) {
         updateData.completedAt = new Date()

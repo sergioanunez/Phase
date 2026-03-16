@@ -691,11 +691,12 @@ export default function HomeDetailPage() {
                                   task.status === "Unscheduled" && "bg-gray-100 text-gray-600",
                                   (task.status === "Scheduled" || task.status === "Confirmed") && "bg-blue-50 text-blue-700",
                                   task.status === "PendingConfirm" && "bg-amber-50 text-amber-700",
-                                  (task.status === "InProgress" || task.status === "Declined") && "bg-gray-100 text-gray-700",
+                                  task.status === "InProgress" && "bg-blue-100 text-blue-800",
+                                  task.status === "Declined" && "bg-gray-100 text-gray-700",
                                   task.status === "Canceled" && "bg-gray-100 text-gray-500"
                                 )}
                               >
-                                {task.status}
+                                {task.status === "InProgress" ? "In Progress" : task.status}
                               </span>
                             </div>
                             {blocked && (

@@ -71,6 +71,7 @@ enum ActivityEventType {
   task_cancelled
   task_completed
   task_reported_complete
+  task_started
   sms_sent
   sms_confirmed
   sms_declined
@@ -511,6 +512,8 @@ model HomeTask {
   contractor           Contractor?      @relation(fields: [contractorId], references: [id])
   status               TaskStatus       @default(Unscheduled)
   lastConfirmationAt   DateTime?
+  /// When work on this task actually started (field execution).
+  startedAt            DateTime?
   completedAt          DateTime?
   /// Flow: when materials were marked ordered (for requiresOrdering tasks).
   orderedAt            DateTime?
