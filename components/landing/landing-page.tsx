@@ -78,7 +78,7 @@ export function LandingPage() {
         <section id="problem" className={`${SECTION_CLASS} bg-gray-100/90`}>
           <div className="mx-auto max-w-3xl">
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Build Delays Don&apos;t Happen All at Once.
+              Why builds slow down
             </h2>
             <p className="mt-4 text-base text-gray-700 sm:text-lg">
               When scheduling lives in texts, spreadsheets, and memory, it breaks quickly.
@@ -86,22 +86,25 @@ export function LandingPage() {
             <ul className="mt-6 space-y-3 sm:space-y-4">
               <li className="flex gap-3 text-gray-700 sm:text-base">
                 <span className="text-gray-500 shrink-0">•</span>
-                <span>Subcontractors miss work or claim they weren&apos;t notified</span>
+                <span>Subs miss work or say they weren&apos;t notified</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
                 <span className="text-gray-500 shrink-0">•</span>
-                <span>Materials aren&apos;t ordered early enough</span>
+                <span>Materials get ordered too late</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
                 <span className="text-gray-500 shrink-0">•</span>
-                <span>Punch lists sit inside text threads</span>
+                <span>Punchlists disappear inside text threads</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
                 <span className="text-gray-500 shrink-0">•</span>
-                <span>Delays become visible only after they impact the schedule</span>
+                <span>Delays appear only after the schedule slips</span>
               </li>
             </ul>
             <div className="mt-10 space-y-3 rounded-lg border border-gray-200 bg-white px-4 py-5 sm:px-6 sm:py-6">
+              <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                What this creates
+              </p>
               <p className="text-base font-semibold text-gray-900">Longer build cycles.</p>
               <p className="text-base font-semibold text-gray-900">Overloaded superintendents.</p>
               <p className="text-base font-semibold text-gray-900">Reactive management instead of controlled execution.</p>
