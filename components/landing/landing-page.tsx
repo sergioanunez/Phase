@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Calendar, MessageSquare } from "lucide-react"
+import { Calendar, MessageSquare, Workflow, Eye, Smartphone, Layers } from "lucide-react"
 import { LandingNav } from "./landing-nav"
 import { LandingFooter } from "./landing-footer"
 import { PricingSection } from "./pricing-section"
@@ -148,6 +148,68 @@ export function LandingPage() {
             <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 sm:px-5 sm:py-5">
               <p className="text-base font-medium text-gray-800">Everything lives in one place.</p>
               <p className="mt-1 text-base text-gray-700">No spreadsheets. No scattered messages. No guesswork.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Credibility: Built by Builders */}
+        <section
+          id="built-by-builders"
+          className={`${SECTION_CLASS} bg-gray-50/80`}
+          aria-labelledby="built-by-builders-heading"
+        >
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-3xl">
+              <h2
+                id="built-by-builders-heading"
+                className="text-2xl font-bold text-gray-900 sm:text-3xl"
+              >
+                Built by Builders for Real Field Execution
+              </h2>
+              <p className="mt-4 text-base text-gray-700 sm:text-lg">
+                Phase is designed for the way home builders actually coordinate projects in the field.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
+              {[
+                {
+                  title: "Schedules tied to real progress",
+                  desc: "Build schedules follow task dependencies and update based on real field activity, not static paperwork.",
+                  Icon: Workflow,
+                },
+                {
+                  title: "Live visibility across homes",
+                  desc: "Managers can see where every home stands in the pipeline and where delays are forming.",
+                  Icon: Eye,
+                },
+                {
+                  title: "Field-first design",
+                  desc: "Phase is built to work on phones and tablets so teams can coordinate work from the field, not just the office.",
+                  Icon: Smartphone,
+                },
+                {
+                  title: "One system for field execution",
+                  desc: "Schedules, contractors, punchlists, and inspections live in one operational workflow.",
+                  Icon: Layers,
+                },
+              ].map(({ title, desc, Icon }) => (
+                <article
+                  key={title}
+                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 focus-within:outline-none"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {title}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-700 sm:text-base">
+                    {desc}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
         </section>
