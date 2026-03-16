@@ -77,7 +77,11 @@ export function LandingPage() {
         {/* The Problem */}
         <section id="problem" className={`${SECTION_CLASS} bg-gray-100/90`}>
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            <p className="text-lg font-semibold text-gray-900">
+              Most builders don&apos;t have a scheduling problem.<br />
+              They have an execution problem.
+            </p>
+            <h2 className="mt-8 text-2xl font-bold text-gray-900 sm:text-3xl">
               Why builds slow down
             </h2>
             <p className="mt-4 text-base text-gray-700 sm:text-lg">
@@ -109,10 +113,6 @@ export function LandingPage() {
               <p className="text-base font-semibold text-gray-900">Overloaded superintendents.</p>
               <p className="text-base font-semibold text-gray-900">Reactive management instead of controlled execution.</p>
             </div>
-            <p className="mt-8 text-lg font-semibold text-gray-900">
-              Most builders don&apos;t have a scheduling problem.<br />
-              They have an execution problem.
-            </p>
           </div>
         </section>
 
