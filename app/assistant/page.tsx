@@ -404,7 +404,7 @@ export default function AssistantPage() {
     )
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] pb-52 pt-20">
+    <div className="min-h-screen bg-[#F6F7F9] pb-64 pt-20">
       <div className="app-container mx-auto max-w-2xl px-4">
         <header className="mb-4">
           <div className="flex items-center gap-2">
