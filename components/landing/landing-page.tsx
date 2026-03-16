@@ -132,7 +132,7 @@ export function LandingPage() {
                 </p>
                 <h3 className="mt-2 text-base font-semibold text-gray-900">Keep builds moving</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  The sequencing system that keeps work flowing in the right order.
+                  The sequencing engine that keeps work flowing in the right order.
                 </p>
                 <ul className="mt-3 space-y-1 text-sm text-gray-700">
                   <li>
