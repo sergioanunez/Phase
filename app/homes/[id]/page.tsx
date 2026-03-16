@@ -101,9 +101,11 @@ export default function HomeDetailPage() {
     // Fast path: load home from GET /api/homes/[id] so schedule shows immediately (no forecast recompute)
     setHomeError(null)
     fetch(`/api/homes/${homeId}`)
-      .then((res) => {
-        if (res.ok) return res.json().then((data: Home) => ({ data, status: res.status }))
-        if (res.status === 403) return { data: null, status: 403 }
+      .then(async (res): Promise<{ data: Home | null; status: number }> => {
+        if (res.ok) {
+          const data = await res.json() as Home
+          return { data, status: res.status }
+        }
         return { data: null, status: res.status }
       })
       .then(({ data, status }) => {
