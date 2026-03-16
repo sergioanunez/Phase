@@ -44,7 +44,7 @@ export function Navigation() {
           ]
         : [
             { href: "/homes", icon: Home, label: "Homes", roles: ["Admin", "Superintendent", "Manager"], dataOnboarding: "homes" },
-            { href: "/calendar", icon: Calendar, label: "Calendar", roles: ["Admin", "Superintendent", "Manager"] },
+            { href: "/calendar", icon: Calendar, label: "Calendar", roles: ["Admin", "Superintendent", "Manager"], dataOnboarding: "calendar" },
             { href: "/flow", icon: ListChecks, label: "Flow", roles: ["Admin", "Superintendent", "Manager"], dataOnboarding: "flow" },
             { href: "/dashboard", icon: BarChart3, label: "Dashboard", roles: ["Admin", "Manager"], dataOnboarding: "dashboard" },
             {
@@ -53,6 +53,7 @@ export function Navigation() {
               label: "Assistant",
               roles: ["Admin", "Superintendent", "Manager"],
               isAssistant: true,
+              dataOnboarding: "assistant",
             },
           ].filter((item) => (item as any).roles?.includes(role))
 

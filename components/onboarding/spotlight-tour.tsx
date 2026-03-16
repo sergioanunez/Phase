@@ -7,23 +7,28 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 export type SpotlightStepId =
-  | "dashboard"
   | "subdivisions"
-  | "homes"
   | "template"
   | "contractors"
   | "team"
+  | "homes"
+  | "calendar"
   | "flow"
+  | "dashboard"
+  | "assistant"
   | "complete"
 
+// Display order for the tour (\"complete\" is an internal final state).
 const STEP_ORDER: SpotlightStepId[] = [
-  "dashboard",
   "subdivisions",
-  "homes",
   "template",
   "contractors",
   "team",
+  "homes",
+  "calendar",
   "flow",
+  "dashboard",
+  "assistant",
   "complete",
 ]
 
@@ -31,39 +36,26 @@ const STEP_CONFIG: Record<
   SpotlightStepId,
   { title: string; description: string; selector: string; route?: string; tab?: string }
 > = {
-  dashboard: {
-    title: "Dashboard",
-    description:
-      "Your construction control center. See active homes, schedule health, phase distribution, and what needs attention.",
-    selector: "[data-onboarding=dashboard]",
-    route: "/dashboard",
-  },
   subdivisions: {
-    title: "Subdivisions",
+    title: "Subdivisions & Homes",
     description:
-      "Subdivisions organize your projects. Each contains multiple homes and their schedules.",
+      "Start by organizing your projects. Subdivisions hold the homes you are building.",
     selector: "[data-onboarding=subdivisions]",
     route: "/admin",
     tab: "subdivisions-homes",
   },
-  homes: {
-    title: "Homes",
-    description:
-      "Homes are where construction happens. Each has a build schedule, tasks, punchlists, and contractor assignments.",
-    selector: "[data-onboarding=homes]",
-  },
   template: {
     title: "Work Items Template",
     description:
-      "Defines the build sequence—task order, dependencies, and durations. Every home uses this template.",
+      "This defines the build sequence, task durations, and dependencies for every home.",
     selector: "[data-onboarding=template]",
     route: "/admin",
     tab: "work-templates",
   },
   contractors: {
-    title: "Contractors",
+    title: "Vendors",
     description:
-      "Register subcontractors here. They receive task confirmations, punchlists, and schedule notifications.",
+      "Register the contractors and trades that will receive schedules, confirmations, and punchlists.",
     selector: "[data-onboarding=contractors]",
     route: "/admin",
     tab: "contractors",
@@ -71,21 +63,50 @@ const STEP_CONFIG: Record<
   team: {
     title: "Team Members",
     description:
-      "Invite superintendents and team members. They can schedule work, manage punchlists, and monitor homes.",
+      "Invite superintendents and internal users who will run the work in the field.",
     selector: "[data-onboarding=team]",
     route: "/admin",
     tab: "users",
   },
-  flow: {
-    title: "Flow Mode",
+  homes: {
+    title: "Homes",
     description:
-      "Shows what needs to happen today to keep builds on schedule—what to schedule, order, and what's at risk.",
+      "Each home is where scheduling, progress, forecasts, and punchlists come together.",
+    selector: "[data-onboarding=homes]",
+    route: "/homes",
+  },
+  calendar: {
+    title: "Calendar",
+    description:
+      "See scheduled work across homes and coordinate upcoming tasks.",
+    selector: "[data-onboarding=calendar]",
+    route: "/calendar",
+  },
+  flow: {
+    title: "Flow",
+    description:
+      "Flow tells you what needs attention next to keep houses moving.",
     selector: "[data-onboarding=flow]",
+    route: "/flow",
+  },
+  dashboard: {
+    title: "Dashboard",
+    description:
+      "Get a portfolio-level view of schedule health, bottlenecks, and your construction pipeline.",
+    selector: "[data-onboarding=dashboard]",
+    route: "/dashboard",
+  },
+  assistant: {
+    title: "Assistant",
+    description:
+      "Assistant summarizes the operation and helps prepare actions faster.",
+    selector: "[data-onboarding=assistant]",
+    route: "/assistant",
   },
   complete: {
     title: "You're ready",
     description:
-      "Suggested next: create a subdivision, add homes, register contractors, and schedule your first tasks.",
+      "You’ve seen how projects are organized, how work moves through the system, and where to monitor progress.",
     selector: "[data-onboarding=dashboard]",
   },
 }
@@ -113,8 +134,8 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
 
   const config = STEP_CONFIG[step]
   const stepIndex = STEP_ORDER.indexOf(step)
-  const totalSteps = STEP_ORDER.length
-  const stepNumber = stepIndex + 1
+  const totalSteps = STEP_ORDER.length - 1 // exclude \"complete\" from visible count
+  const stepNumber = step === "complete" ? totalSteps : stepIndex + 1
   const isFirst = stepIndex === 0
   const isComplete = step === "complete"
 

@@ -34,7 +34,7 @@ export function WelcomeBanner({ onStartTour, onSkip, className }: Props) {
             Track homes, coordinate contractors, and keep schedules moving.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Take a quick tour to see how it works.
+            Take a quick tour to see how Phase is set up and how work moves through the system.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
