@@ -10,10 +10,10 @@ export function PricingSection() {
           Simple. Transparent. Scales With You.
         </h2>
         <p className="mt-4 text-lg text-gray-600">
-          All features are included in every plan.
+          All features included.
         </p>
         <p className="mt-1 text-base text-gray-600">
-          Pricing only changes based on the number of active homes.
+          Pricing only scales with the number of active homes.
         </p>
         <ul className="mt-6 list-none space-y-1.5 pl-0 text-sm text-gray-600">
           <li>No per-seat fees.</li>
