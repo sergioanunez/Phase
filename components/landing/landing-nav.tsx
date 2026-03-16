@@ -9,9 +9,9 @@ import logoImage from "../../public/logo.png"
 
 const NAV_LINKS = [
   { href: "#problem", label: "Problem" },
-  { href: "#benefits", label: "How We Solve" },
+  { href: "#benefits", label: "Our Solution" },
   { href: "#pricing", label: "Pricing" },
-  { href: "#custom", label: "Custom" },
+  { href: "#custom", label: "Custom Solutions" },
   { href: "#faq", label: "FAQ" },
 ]
 
@@ -40,12 +40,12 @@ export function LandingNav() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-8" aria-label="Main">
+        <nav className="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Main">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded whitespace-nowrap"
             >
               {link.label}
             </a>
@@ -55,15 +55,15 @@ export function LandingNav() {
         <div className="hidden md:flex items-center gap-3">
           <Link
             href="/auth/signin"
-            className="min-h-[44px] inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="min-h-[44px] inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 whitespace-nowrap"
           >
-            Login Area
+            Login
           </Link>
           <Link
             href="/start-trial"
-            className="min-h-[44px] inline-flex items-center justify-center rounded-lg bg-[#2563eb] px-5 text-sm font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
+            className="min-h-[44px] inline-flex items-center justify-center rounded-lg bg-[#2563eb] px-5 text-sm font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 whitespace-nowrap"
           >
-            Start free trial
+            Start Free Trial
           </Link>
         </div>
 
@@ -101,14 +101,14 @@ export function LandingNav() {
               className="flex min-h-[44px] items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700"
               onClick={() => setMobileOpen(false)}
             >
-              Login Area
+              Login
             </Link>
             <Link
               href="/start-trial"
               className="flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
               onClick={() => setMobileOpen(false)}
             >
-              Start free trial
+              Start Free Trial
             </Link>
           </div>
         </nav>

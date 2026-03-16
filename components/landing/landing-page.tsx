@@ -28,7 +28,7 @@ export function LandingPage() {
                 Keep Your Builds Moving.
               </h1>
               <p className="mt-6 text-lg text-gray-600 sm:text-xl max-w-xl">
-                Phase helps home builders reduce cycle time by improving execution, communication, and visibility.
+                Reduce build cycle time through better execution, communication, and visibility.
               </p>
               <p className="mt-2 text-base font-medium text-gray-700 sm:text-lg">
                 Your field operating system.
@@ -38,7 +38,7 @@ export function LandingPage() {
                   href="/start-trial"
                   className="min-h-[48px] shrink-0 inline-flex items-center justify-center rounded-xl bg-[#2563eb] px-6 text-base font-semibold text-white hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 whitespace-nowrap"
                 >
-                  Start 30-Day Free Trial
+                  Start Free Trial
                 </Link>
                 <p className="mt-2 text-sm text-gray-500">Upgrade anytime. No per-seat pricing.</p>
               </div>
