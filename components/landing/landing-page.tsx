@@ -143,17 +143,29 @@ export function LandingPage() {
                 Keep builds moving in the right order.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-semibold text-gray-900">Flow Mode</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Daily action feed showing exactly what must happen next to keep builds moving.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Gates &amp; Blocking</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Tasks cannot start until prerequisite work is completed.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Critical Path Forecasting</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Predict completion dates based on task dependencies and sequencing.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Plans Viewer</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Access construction plans directly inside the system while managing work.
+                  </p>
                 </div>
               </div>
             </div>
@@ -168,17 +180,29 @@ export function LandingPage() {
                 Coordinate subcontractors and field teams without scattered messages.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">SMS Confirmations</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Send schedules to trades and receive confirmations instantly.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Smart Notifications</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Automatic alerts when work is scheduled, confirmed, or delayed.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Subcontractor Panel</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Trades see only their tasks, punch lists, and schedule.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Punch Lists</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Create, assign, and track punch list items with clear ownership.
+                  </p>
                 </div>
               </div>
             </div>
@@ -193,17 +217,29 @@ export function LandingPage() {
                 See where every build stands and where risk is forming.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Management Dashboard</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    See schedule health and progress across all active homes.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">AI Risk &amp; Schedule Insights</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Identify delay risks and sequencing issues before they impact the schedule.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Live Calendar</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Visualize every home, every task, and every dependency.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                   <p className="text-sm font-medium text-gray-800">Forecast &amp; KPI visibility</p>
+                  <p className="mt-1 text-xs text-gray-600 sm:text-sm">
+                    Track cycle time, delays, and key construction performance metrics.
+                  </p>
                 </div>
               </div>
             </div>
