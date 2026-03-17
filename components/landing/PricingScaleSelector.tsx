@@ -144,7 +144,9 @@ export function PricingScaleSelector() {
         >
           Start 30-Day Free Trial
         </Link>
-        <p className="text-sm text-gray-500">No credit card required.</p>
+        <p className="text-sm text-gray-500">
+          No credit card required. Choose your plan after the trial.
+        </p>
       </div>
 
       {/* Footnote – muted, close to cluster */}
