@@ -406,9 +406,6 @@ export function LandingPage() {
               </article>
             </div>
 
-            <p className="mt-10 text-center text-base font-semibold text-gray-900">
-              No spreadsheets. No guesswork. Just controlled execution.
-            </p>
           </div>
         </section>
 
