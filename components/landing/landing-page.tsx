@@ -444,7 +444,7 @@ export function LandingPage() {
                 ))}
               </ul>
               <p className="pt-3 text-base font-semibold text-gray-900">
-                Simple enough to use on a tablet in the field.
+                Simple enough to use on any phone or tablet
               </p>
             </div>
 
