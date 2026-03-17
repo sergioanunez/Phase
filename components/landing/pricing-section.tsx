@@ -7,18 +7,30 @@ export function PricingSection() {
     <section id="pricing" className={`${SECTION_CLASS} bg-white pb-0`}>
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-          Simple. Transparent. Scales With You.
+          Simple pricing that scales with your builds.
         </h2>
         <p className="mt-4 text-lg text-gray-600">
-          All features included.
+          You only pay for active homes. All features are included.
         </p>
-        <p className="mt-1 text-base text-gray-600">
-          Pricing only scales with the number of active homes.
-        </p>
-        <ul className="mt-6 list-none space-y-1.5 pl-0 text-sm text-gray-600">
-          <li>No per-seat fees.</li>
-          <li>No subcontractor fees.</li>
-          <li>No locked features.</li>
+        <ul className="mt-6 flex flex-col items-center gap-1.5 text-sm text-gray-600">
+          <li className="flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
+              ✓
+            </span>
+            <span>No per-seat fees.</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
+              ✓
+            </span>
+            <span>No subcontractor fees.</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
+              ✓
+            </span>
+            <span>No locked features.</span>
+          </li>
         </ul>
       </div>
 
