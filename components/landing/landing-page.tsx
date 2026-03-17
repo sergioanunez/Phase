@@ -409,64 +409,129 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Credibility: Built by Builders */}
+        {/* Built for Real Field Execution */}
         <section
           id="why-phase"
-          className={`${SECTION_CLASS} bg-gray-50/80`}
-          aria-labelledby="built-by-builders-heading"
+          className={`${SECTION_CLASS} bg-[#F7F8FC]`}
+          aria-labelledby="built-for-field-heading"
         >
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-3xl">
+          <div className="mx-auto max-w-6xl grid gap-10 lg:grid-cols-2 lg:items-center">
+            {/* Left: copy */}
+            <div className="space-y-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700/80">
+                Built for the field
+              </p>
               <h2
-                id="built-by-builders-heading"
+                id="built-for-field-heading"
                 className="text-2xl font-bold text-gray-900 sm:text-3xl"
               >
-                Built by Builders for Real Field Execution
+                Built for Real Field Execution
               </h2>
-              <p className="mt-4 text-base text-gray-700 sm:text-lg">
-                Phase is designed for the way home builders actually coordinate projects in the field.
+              <p className="text-base text-gray-700 sm:text-lg">
+                Phase was designed for the realities of residential construction:
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-gray-800 sm:text-base">
+                {[
+                  "crews across multiple homes",
+                  "changing schedules",
+                  "subcontractor coordination",
+                  "real-time field decisions",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-300" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="pt-3 text-base font-semibold text-gray-900">
+                Simple enough to use on a tablet in the field.
               </p>
             </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
-              {[
-                {
-                  title: "Schedules tied to real progress",
-                  desc: "Build schedules follow task dependencies and update based on real field activity, not static paperwork.",
-                  Icon: Workflow,
-                },
-                {
-                  title: "Live visibility across homes",
-                  desc: "Managers can see where every home stands in the pipeline and where delays are forming.",
-                  Icon: Eye,
-                },
-                {
-                  title: "Field-first design",
-                  desc: "Phase is built to work on phones and tablets so teams can coordinate work from the field, not just the office.",
-                  Icon: Smartphone,
-                },
-                {
-                  title: "One system for field execution",
-                  desc: "Schedules, contractors, punchlists, and inspections live in one operational workflow.",
-                  Icon: Layers,
-                },
-              ].map(({ title, desc, Icon }) => (
-                <article
-                  key={title}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 focus-within:outline-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                      <Icon className="h-4 w-4" aria-hidden="true" />
+
+            {/* Right: illustrative mini cards */}
+            <div
+              className="relative mx-auto flex max-w-md flex-col gap-3"
+              aria-hidden="true"
+            >
+              <div className="pointer-events-none absolute inset-x-6 top-6 h-40 rounded-3xl bg-gradient-to-b from-blue-50/60 via-white to-transparent shadow-[0_24px_40px_rgba(15,23,42,0.12)]" />
+
+              <div className="relative space-y-3">
+                <div className="rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Active framing
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        4 homes in structural phase
+                      </p>
+                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                      <Layers className="h-3.5 w-3.5" />
                     </span>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {title}
-                    </h3>
                   </div>
-                  <p className="mt-3 text-sm text-gray-700 sm:text-base">
-                    {desc}
+                  <p className="mt-2 text-xs text-gray-600">
+                    Crews distributed across lots with shared subs.
                   </p>
-                </article>
-              ))}
+                </div>
+
+                <div className="ml-6 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-amber-700">
+                        Schedule change
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        Concrete pushed by 1 day
+                      </p>
+                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                      <Calendar className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Downstream tasks and trades updated automatically.
+                  </p>
+                </div>
+
+                <div className="-ml-2 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-emerald-700">
+                        Field confirmation
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        Concrete crew confirmed
+                      </p>
+                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    SMS reply recorded, schedule locked for tomorrow.
+                  </p>
+                </div>
+
+                <div className="ml-10 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-sky-700">
+                        Upcoming inspection
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        Final walk-through in 2 days
+                      </p>
+                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                      <Eye className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Punch items and prerequisites surfaced ahead of time.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
