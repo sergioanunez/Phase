@@ -432,10 +432,10 @@ export function LandingPage() {
               </p>
               <ul className="mt-4 space-y-2 text-sm text-gray-800 sm:text-base">
                 {[
-                  "crews across multiple homes",
-                  "changing schedules",
-                  "subcontractor coordination",
-                  "real-time field decisions",
+                  "crews working simultaneously across multiple homes",
+                  "schedules that change daily",
+                  "coordinating multiple subcontractors and vendors",
+                  "real-time decisions made in the field",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-300" aria-hidden />
