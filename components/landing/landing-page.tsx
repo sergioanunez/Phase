@@ -40,7 +40,7 @@ export function LandingPage() {
                 >
                   Start 30-Days Free Trial
                 </Link>
-                <p className="mt-2 text-sm text-gray-500">Upgrade anytime. No per-seat pricing.</p>
+                <p className="mt-2 text-sm text-gray-500">No credit card needed. No per-seat pricing.</p>
               </div>
             </div>
             <div className="relative">
