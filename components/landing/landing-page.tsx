@@ -116,6 +116,171 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* How Phase Works */}
+        <section className={`${SECTION_CLASS} bg-[#EFF3FB]`}>
+          <div className="mx-auto max-w-6xl text-center">
+            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              How Phase Works
+            </h2>
+            <p className="mt-3 text-base text-gray-600 sm:text-lg max-w-2xl mx-auto">
+              From scheduling to execution, Phase connects your entire operation in one system.
+            </p>
+          </div>
+
+          <div className="relative mx-auto mt-10 max-w-6xl">
+            {/* Desktop process rail */}
+            <div
+              className="pointer-events-none absolute inset-x-6 top-1/2 hidden h-px bg-gradient-to-r from-blue-100 via-blue-200/80 to-blue-100 lg:block"
+              aria-hidden
+            />
+            <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Step 01 */}
+              <article className="relative flex flex-col justify-between rounded-2xl border border-gray-200 bg-white px-4 py-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1">
+                    <span className="text-[11px] font-semibold tracking-[0.16em] text-blue-700">
+                      01
+                    </span>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">
+                      Schedule
+                    </span>
+                  </div>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <Calendar className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-4 text-left">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Schedule the Work
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Assign tasks to homes and subcontractors using your build template.
+                  </p>
+                  <ul className="mt-3 space-y-1 text-sm text-gray-600">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Dependencies stay enforced</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Every home follows the plan</span>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+
+              {/* Step 02 */}
+              <article className="relative flex flex-col justify-between rounded-2xl border border-gray-200 bg-white px-4 py-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1">
+                    <span className="text-[11px] font-semibold tracking-[0.16em] text-blue-700">
+                      02
+                    </span>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">
+                      Confirm
+                    </span>
+                  </div>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-4 text-left">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Trades Confirm Instantly
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Subcontractors receive schedules by SMS and confirm availability.
+                  </p>
+                  <ul className="mt-3 space-y-1 text-sm text-gray-600">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>No missed work</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>No “I didn’t know”</span>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+
+              {/* Step 03 */}
+              <article className="relative flex flex-col justify-between rounded-2xl border border-gray-200 bg-white px-4 py-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1">
+                    <span className="text-[11px] font-semibold tracking-[0.16em] text-blue-700">
+                      03
+                    </span>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">
+                      Execute
+                    </span>
+                  </div>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <Workflow className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-4 text-left">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Execute with Clarity
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Flow Mode shows exactly what needs to happen next.
+                  </p>
+                  <ul className="mt-3 space-y-1 text-sm text-gray-600">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Daily action feed by home</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Less guesswork in the field</span>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+
+              {/* Step 04 */}
+              <article className="relative flex flex-col justify-between rounded-2xl border border-gray-200 bg-white px-4 py-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1">
+                    <span className="text-[11px] font-semibold tracking-[0.16em] text-blue-700">
+                      04
+                    </span>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-blue-700/80">
+                      Monitor
+                    </span>
+                  </div>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-4 text-left">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Monitor &amp; Stay Ahead
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Track progress, forecast completion, and catch risks early.
+                  </p>
+                  <ul className="mt-3 space-y-1 text-sm text-gray-600">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Real-time dashboard</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-200" aria-hidden />
+                      <span>Early visibility into delays</span>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+            </div>
+
+            <p className="mt-10 text-center text-base font-semibold text-gray-900">
+              No spreadsheets. No guesswork. Just controlled execution.
+            </p>
+          </div>
+        </section>
+
         {/* How We Solve It – three pillars */}
         <section id="solution" className={SECTION_CLASS}>
           <div className="mx-auto max-w-6xl">
