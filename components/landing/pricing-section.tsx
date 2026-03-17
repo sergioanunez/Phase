@@ -21,7 +21,7 @@ export function PricingSection() {
         
 
         {/* Collapsible comparison: why builders choose Phase */}
-        <div className="mx-auto mt-6 max-w-3xl">
+        <div className="mx-auto mt-4 max-w-3xl">
           <button
             type="button"
             onClick={() => setShowWhyPhase((open) => !open)}
@@ -38,8 +38,8 @@ export function PricingSection() {
           </button>
 
           <div
-            className={`mt-5 overflow-hidden rounded-xl border border-black/5 bg-[#f8f9fb] p-6 text-left transition-all duration-200 ease-out ${
-              showWhyPhase ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+            className={`overflow-hidden rounded-xl border border-black/5 bg-[#f8f9fb] p-6 text-left transition-all duration-200 ease-out ${
+              showWhyPhase ? "mt-4 max-h-[800px] opacity-100" : "mt-1 max-h-0 opacity-0"
             }`}
             aria-hidden={!showWhyPhase}
           >
@@ -108,7 +108,7 @@ export function PricingSection() {
       </div>
 
       {/* Scale Selector – main anchor */}
-      <div className="mt-10 flex justify-center">
+      <div className="mt-6 flex justify-center">
         <div className="w-full max-w-2xl">
           <PricingScaleSelector />
         </div>
