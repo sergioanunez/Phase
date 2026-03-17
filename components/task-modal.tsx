@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { TaskStatus } from "@prisma/client"
 import { format } from "date-fns"
-import { MessageCircle, CalendarX, Loader2 } from "lucide-react"
+import { MessageCircle, CalendarX, Loader2, CheckCircle, PlayCircle } from "lucide-react"
 
 interface Contractor {
   id: string
@@ -418,9 +418,15 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
                 onClick={() => handleStatusChange("Completed")}
                 disabled={loading}
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 shrink-0"
+                className="bg-green-600 hover:bg-green-700 shrink-0 size-9 p-0"
+                title="Mark Completed"
+                aria-label="Mark Completed"
               >
-                {loading ? "Saving..." : "Mark Completed"}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
               </Button>
             )}
             {currentTask.status === "Confirmed" && (
@@ -429,9 +435,15 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
                 disabled={loading}
                 size="sm"
                 variant="outline"
-                className="shrink-0"
+                className="shrink-0 size-9 p-0"
+                title="Mark In Progress"
+                aria-label="Mark In Progress"
               >
-                Mark In Progress
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PlayCircle className="h-4 w-4" />
+                )}
               </Button>
             )}
             {currentTask.status === "Completed" && (
