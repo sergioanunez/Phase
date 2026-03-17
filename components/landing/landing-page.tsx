@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Calendar, MessageSquare, Workflow, Eye, Smartphone, Layers } from "lucide-react"
+import { Calendar, MessageSquare, Workflow, Eye, Smartphone, Layers, AlertCircle, Package, FileText, TrendingDown, AlertTriangle } from "lucide-react"
 import { LandingNav } from "./landing-nav"
 import { LandingFooter } from "./landing-footer"
 import { PricingSection } from "./pricing-section"
@@ -77,41 +77,55 @@ export function LandingPage() {
         {/* The Problem */}
         <section id="problem" className={`${SECTION_CLASS} bg-gray-100/90 pb-12 sm:pb-16`}>
           <div className="mx-auto max-w-3xl">
-            <p className="text-lg font-semibold text-gray-900">
-              Most builders don&apos;t have a scheduling problem.<br />
-              They have an execution problem.
-            </p>
+            <div className="flex gap-3">
+              <div className="h-1 w-10 shrink-0 rounded-full bg-amber-400/80 mt-1.5" aria-hidden />
+              <p className="text-lg font-semibold text-gray-900">
+                Most builders don&apos;t have a scheduling problem.<br />
+                They have an execution problem.
+              </p>
+            </div>
             <h2 className="mt-8 text-2xl font-bold text-gray-900 sm:text-3xl">
               Why builds slow down
             </h2>
             <p className="mt-4 text-base text-gray-700 sm:text-lg">
               When scheduling lives in texts, spreadsheets, and memory, it breaks quickly.
             </p>
-            <ul className="mt-6 space-y-3 sm:space-y-4">
+            <ul className="mt-6 space-y-3 sm:space-y-4" role="list">
               <li className="flex gap-3 text-gray-700 sm:text-base">
-                <span className="text-gray-500 shrink-0">•</span>
+                <span className="mt-0.5 shrink-0 rounded-full bg-amber-100 p-1.5 text-amber-700" aria-hidden>
+                  <AlertCircle className="h-4 w-4" />
+                </span>
                 <span>Subs miss work or say they weren&apos;t notified</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
-                <span className="text-gray-500 shrink-0">•</span>
+                <span className="mt-0.5 shrink-0 rounded-full bg-amber-100 p-1.5 text-amber-700" aria-hidden>
+                  <Package className="h-4 w-4" />
+                </span>
                 <span>Materials get ordered too late</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
-                <span className="text-gray-500 shrink-0">•</span>
+                <span className="mt-0.5 shrink-0 rounded-full bg-amber-100 p-1.5 text-amber-700" aria-hidden>
+                  <FileText className="h-4 w-4" />
+                </span>
                 <span>Punchlists disappear inside text threads</span>
               </li>
               <li className="flex gap-3 text-gray-700 sm:text-base">
-                <span className="text-gray-500 shrink-0">•</span>
+                <span className="mt-0.5 shrink-0 rounded-full bg-amber-100 p-1.5 text-amber-700" aria-hidden>
+                  <TrendingDown className="h-4 w-4" />
+                </span>
                 <span>Delays appear only after the schedule slips</span>
               </li>
             </ul>
-            <div className="mt-10 space-y-3 rounded-lg border border-gray-200 bg-white px-4 py-5 sm:px-6 sm:py-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                What this creates
-              </p>
-              <p className="text-base font-semibold text-gray-900">Longer build cycles.</p>
-              <p className="text-base font-semibold text-gray-900">Overloaded superintendents.</p>
-              <p className="text-base font-semibold text-gray-900">Reactive management instead of controlled execution.</p>
+            <div className="mt-10 flex gap-4 rounded-xl border border-gray-200 border-l-4 border-l-amber-500/80 bg-white px-4 py-5 shadow-sm sm:px-6 sm:py-6">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" aria-hidden />
+              <div className="space-y-3 min-w-0">
+                <p className="text-sm font-semibold uppercase tracking-wide text-amber-800/90">
+                  What this creates
+                </p>
+                <p className="text-base font-semibold text-gray-900">Longer build cycles.</p>
+                <p className="text-base font-semibold text-gray-900">Overloaded superintendents.</p>
+                <p className="text-base font-semibold text-gray-900">Reactive management instead of controlled execution.</p>
+              </div>
             </div>
           </div>
         </section>
