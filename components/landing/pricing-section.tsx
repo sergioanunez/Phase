@@ -18,26 +18,7 @@ export function PricingSection() {
         <p className="mt-4 text-lg text-gray-600">
           You only pay for active homes. All features are included.
         </p>
-        <ul className="mt-6 flex flex-col items-center gap-1.5 text-sm text-gray-600">
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
-              ✓
-            </span>
-            <span>No per-seat fees.</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
-              ✓
-            </span>
-            <span>No subcontractor fees.</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-xs">
-              ✓
-            </span>
-            <span>No locked features.</span>
-          </li>
-        </ul>
+        
 
         {/* Collapsible comparison: why builders choose Phase */}
         <div className="mx-auto mt-6 max-w-3xl">
@@ -64,18 +45,49 @@ export function PricingSection() {
           >
             <div className="grid gap-8 md:grid-cols-2">
               <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Phase
+                </p>
                 <p className="text-sm font-semibold text-gray-900 sm:text-base">
                   Built for execution in the field
                 </p>
                 <ul className="mt-3 space-y-2 text-sm text-gray-700">
-                  <li>Pay per active home</li>
-                  <li>No per-seat fees</li>
-                  <li>No subcontractor fees</li>
-                  <li>All features included</li>
-                  <li>Start instantly — no demo required</li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px]">
+                      ✓
+                    </span>
+                    <span>Pay per active home</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px]">
+                      ✓
+                    </span>
+                    <span>No per-seat fees</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px]">
+                      ✓
+                    </span>
+                    <span>No subcontractor fees</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px]">
+                      ✓
+                    </span>
+                    <span>All features included</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-50 text-blue-600 text-[10px]">
+                      ✓
+                    </span>
+                    <span>Start instantly — no demo required</span>
+                  </li>
                 </ul>
               </div>
               <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Other software
+                </p>
                 <p className="text-sm font-semibold text-gray-900 sm:text-base">
                   Built for planning and documentation
                 </p>
