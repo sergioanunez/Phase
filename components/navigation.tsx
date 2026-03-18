@@ -11,6 +11,7 @@ export function Navigation() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const [impersonationRole, setImpersonationRole] = useState<string | null>(null)
+  const [assistantJustActivated, setAssistantJustActivated] = useState(false)
 
   useEffect(() => {
     fetch("/api/super-admin/impersonation/context")
@@ -19,13 +20,6 @@ export function Navigation() {
       .catch(() => setImpersonationRole(null))
   }, [])
 
-  // When impersonating, show nav for the impersonated role; otherwise use session role
-  const role = impersonationRole ?? session?.user?.role ?? ""
-
-  if (!session?.user) return null
-
-  const [assistantJustActivated, setAssistantJustActivated] = useState(false)
-
   useEffect(() => {
     if (pathname?.startsWith("/assistant")) {
       setAssistantJustActivated(true)
@@ -33,6 +27,11 @@ export function Navigation() {
       return () => clearTimeout(timer)
     }
   }, [pathname])
+
+  if (!session?.user) return null
+
+  // When impersonating, show nav for the impersonated role; otherwise use session role
+  const role = impersonationRole ?? session.user.role ?? ""
 
   const navItems =
     role === "SUPER_ADMIN"
