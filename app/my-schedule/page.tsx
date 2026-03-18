@@ -216,11 +216,8 @@ export default function MySchedulePage() {
       <div className="app-container px-4">
         {/* Top app bar */}
         <header className="mb-4 flex items-center justify-between">
-          <Link
-            href="/my-schedule"
-            className="text-lg font-semibold text-foreground"
-          >
-            Phase
+          <Link href="/my-schedule" className="text-lg font-semibold text-foreground">
+            {companyName ?? "Phase"}
           </Link>
           <button
             type="button"
