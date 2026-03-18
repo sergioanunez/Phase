@@ -26,7 +26,8 @@ export async function sendSubcontractorLinkedEmail({ to, name, tenantName, appUr
 
   const resend = new Resend(apiKey)
   const baseUrl = getServerAppUrl(appUrl)
-  const url = `${baseUrl.replace(/\/+$/, "")}/subcontractor`
+  // Subcontractor landing route is the multi-tenant schedule page.
+  const url = `${baseUrl.replace(/\/+$/, "")}/my-schedule`
 
   const subject = `${tenantName} added you on Phase`
 

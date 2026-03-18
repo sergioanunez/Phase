@@ -3067,7 +3067,7 @@ export default function AdminPage() {
                   <DialogTitle>Search Phase directory</DialogTitle>
                   <p className="text-sm text-muted-foreground">
                     Search subcontractors by name, company, email, or phone. Results show masked contact
-                    details and whether they already have a Phase account. Linking does not expose other builders.
+                    details and whether they already have a Phase account.
                   </p>
                 </DialogHeader>
                 <form onSubmit={handleSubSearchSubmit} className="space-y-4">
