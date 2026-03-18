@@ -1664,6 +1664,7 @@ export default function AdminPage() {
                     onClick={() => setCreateSubdivisionOpen(true)}
                     variant="outline"
                     size="sm"
+                    data-onboarding="subdivisions-button"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     New Subdivision
