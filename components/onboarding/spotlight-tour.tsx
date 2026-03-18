@@ -173,7 +173,9 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
       }
     }
     goToRoute()
-    const t = setTimeout(updateTarget, config.route && config.route !== pathname ? 400 : 50)
+    // Give the target a bit more time to mount and layout (especially bottom nav).
+    const delay = config.route && config.route !== pathname ? 700 : 120
+    const t = setTimeout(updateTarget, delay)
     return () => clearTimeout(t)
   }, [mounted, step, config.route, config.tab, pathname, router, updateTarget])
 
