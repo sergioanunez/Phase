@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { Bell, ArrowLeft } from "lucide-react"
 import logoImage from "../public/logo.png"
 import { UserMenu } from "@/components/user-menu"
@@ -23,12 +22,12 @@ type Branding = {
 
 export function AppHeader() {
   const pathname = usePathname()
-  const { data: session } = useSession()
   const [branding, setBranding] = useState<Branding>(null)
   const [notificationCount, setNotificationCount] = useState<number>(0)
 
-  const isSubcontractor = session?.user?.role === "Subcontractor"
-  const isSubcontractorSchedule = isSubcontractor && pathname === "/my-schedule"
+  // Contractor (subcontractor) dashboard should use Phase branding,
+  // regardless of tenant white-label settings.
+  const isContractorScheduleRoute = pathname?.startsWith("/my-schedule")
 
   useEffect(() => {
     if (
@@ -37,8 +36,7 @@ export function AppHeader() {
       pathname === "/contact" ||
       pathname?.startsWith("/super-admin") ||
       pathname?.startsWith("/punchlist") ||
-      // Subcontractor dashboard uses neutral Phase branding, not tenant white-label.
-      isSubcontractorSchedule
+      isContractorScheduleRoute
     )
       return
     fetch("/api/company/branding")
@@ -58,7 +56,7 @@ export function AppHeader() {
           })
       )
       .catch(() => setBranding(null))
-  }, [pathname, isSubcontractorSchedule])
+  }, [pathname, isContractorScheduleRoute])
 
   useEffect(() => {
     if (
@@ -86,12 +84,12 @@ export function AppHeader() {
   }
 
   const useCustomLogo =
-    !isSubcontractorSchedule && branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
+    !isContractorScheduleRoute && branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
   const logoAlt = useCustomLogo && branding?.brandAppName ? branding.brandAppName : "Phase"
   const logoHref = pathname === "/start-trial" ? "/" : "/homes"
 
-  const beltColor = isSubcontractorSchedule
-    ? "#111827"
+  const beltColor = isContractorScheduleRoute
+    ? "#ffffff"
     : getTenantBrandColor({
         whiteLabelEnabled: branding?.whiteLabelExperienceEnabled,
         brandPrimaryColor: branding?.brandPrimaryColor,

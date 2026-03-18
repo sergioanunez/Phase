@@ -97,6 +97,12 @@ export default function MySchedulePage() {
         if (data.error) throw new Error(data.error)
         const list = Array.isArray(data.tenants) ? data.tenants : []
         setTenants(list)
+
+        // Show the subcontractor's contractor name in the header.
+        const contractorTitle =
+          list.find((t) => t.contractorName && t.contractorName.trim().length > 0)?.contractorName ?? null
+        setCompanyName(contractorTitle)
+
         if (list.length === 1) {
           setSelectedTenantId(list[0].companyId)
         } else {
@@ -112,6 +118,7 @@ export default function MySchedulePage() {
       })
       .catch(() => {
         setTenants([])
+        setCompanyName(null)
       })
   }, [session?.user?.role, session?.user?.id])
 
@@ -129,11 +136,9 @@ export default function MySchedulePage() {
       .then((data: ScheduleResponse & { error?: string }) => {
         if (data.error) throw new Error(data.error)
         setEvents(Array.isArray(data.events) ? data.events : [])
-        setCompanyName(data.contractorCompanyName ?? null)
       })
       .catch(() => {
         setEvents([])
-        setCompanyName(null)
       })
       .finally(() => setLoading(false))
   }, [session?.user?.role, fetchStart.toISOString(), fetchEnd.toISOString(), selectedTenantId])
