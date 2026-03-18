@@ -14,7 +14,7 @@ import { format, isBefore, isAfter, startOfDay } from "date-fns"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { ProgressBar } from "@/components/homes/progress-bar"
 import { getScheduleStatus as getBarScheduleStatus } from "@/lib/schedule-status"
-import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail } from "lucide-react"
+import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail, MapPin } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
 import { PlanViewer } from "@/components/plan-viewer"
@@ -566,6 +566,28 @@ export default function HomeDetailPage() {
                     >
                       <FileText className="h-4 w-4" />
                       View Plan
+                    </Button>
+                  )}
+                  {home.addressOrLot?.trim() && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-full"
+                      onClick={() => {
+                        const query = [home.addressOrLot, home.subdivision?.name].filter(Boolean).join(", ")
+                        const encoded = encodeURIComponent(query)
+                        const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent)
+                        const url = isIOS
+                          ? `https://maps.apple.com/?q=${encoded}`
+                          : `https://www.google.com/maps/search/?api=1&query=${encoded}`
+                        window.open(url, "_blank", "noopener,noreferrer")
+                      }}
+                      title="Open location in native maps"
+                      aria-label="Open in Maps"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Open in Maps
                     </Button>
                   )}
                 </div>
