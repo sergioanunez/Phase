@@ -19,6 +19,8 @@ export interface ContractorScheduleEvent {
   homeId?: string
   workItemId: string
   status?: "scheduled" | "completed" | "canceled" | "delayed"
+  tenantId?: string
+  tenantName?: string
   notes?: string | null
   updatedAt?: string
   punchOpenCount?: number
@@ -47,6 +49,13 @@ export function JobRow({ event, onClick, className }: JobRowProps) {
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground">{event.title}</p>
         <p className="text-sm text-muted-foreground">{event.address}</p>
+        {event.tenantName && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+              {event.tenantName}
+            </span>
+          </p>
+        )}
         {punchCount > 0 && (
           <p className="mt-0.5 flex items-center gap-1 text-xs text-amber-700">
             <ClipboardList className="h-3.5 w-3.5" aria-hidden />

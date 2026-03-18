@@ -34,6 +34,8 @@ export interface ContractorScheduleEvent {
   workItemId: string
   status?: ContractorScheduleEventStatus
   contractorCompanyId: string
+  tenantId: string
+  tenantName: string
   notes?: string | null
   updatedAt?: string
   punchOpenCount?: number
@@ -65,13 +67,6 @@ export async function GET(request: NextRequest) {
     const { prisma } = await import("@/lib/prisma")
     const { requireRole } = await import("@/lib/rbac")
     const user = await requireRole("Subcontractor")
-
-    if (!user.contractorId) {
-      return NextResponse.json(
-        { error: "User must be linked to a contractor" },
-        { status: 400 }
-      )
-    }
 
     const { searchParams } = new URL(request.url)
     const startParam = searchParams.get("start")
@@ -107,14 +102,49 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Load all subcontractor memberships for this user
+    const memberships = await prisma.companyMembership.findMany({
+      where: {
+        userId: user.id,
+        role: "Subcontractor",
+        contractorId: { not: null },
+      },
+      include: {
+        company: { select: { id: true, name: true } },
+      },
+    })
+
+    if (memberships.length === 0) {
+      return NextResponse.json(
+        { error: "No subcontractor memberships configured" },
+        { status: 400 }
+      )
+    }
+
+    const companyFilter = searchParams.get("companyId")
+    const effectiveMemberships =
+      companyFilter && companyFilter !== "all"
+        ? memberships.filter((m) => m.company.id === companyFilter)
+        : memberships
+
+    if (effectiveMemberships.length === 0) {
+      return NextResponse.json({ events: [], contractorCompanyName: null })
+    }
+
+    const companyIds = effectiveMemberships.map((m) => m.company.id)
+    const contractorIds = effectiveMemberships
+      .map((m) => m.contractorId)
+      .filter((id): id is string => !!id)
+
     const tasks = await prisma.homeTask.findMany({
       where: {
-        ...(user.companyId ? { companyId: user.companyId } : {}),
-        contractorId: user.contractorId,
+        companyId: { in: companyIds },
+        contractorId: { in: contractorIds },
         scheduledDate: { gte: start, lte: end },
         status: { notIn: ["Canceled"] },
       },
       include: {
+        company: { select: { id: true, name: true } },
         home: {
           select: {
             id: true,
@@ -131,13 +161,6 @@ export async function GET(request: NextRequest) {
       orderBy: [{ scheduledDate: "asc" }, { nameSnapshot: "asc" }],
     })
 
-    const contractor = user.contractorId
-      ? await prisma.contractor.findUnique({
-          where: { id: user.contractorId },
-          select: { companyName: true },
-        })
-      : null
-
     const events: ContractorScheduleEvent[] = tasks
       .filter((t) => t.scheduledDate != null)
       .map((task) => ({
@@ -149,7 +172,9 @@ export async function GET(request: NextRequest) {
         homeId: task.home.id,
         workItemId: task.id,
         status: taskStatusToEventStatus(task.status),
-        contractorCompanyId: user.contractorId!,
+        contractorCompanyId: task.contractorId!,
+        tenantId: task.companyId!,
+        tenantName: task.company?.name ?? "",
         notes: task.notes,
         updatedAt: task.updatedAt?.toISOString(),
         punchOpenCount: task.punchItems?.length ?? 0,
@@ -163,7 +188,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       events,
-      contractorCompanyName: contractor?.companyName ?? null,
+      contractorCompanyName: null,
     })
   } catch (error: unknown) {
     console.error("Contractor schedule error:", error)

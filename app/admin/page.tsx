@@ -19,7 +19,7 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart, Link2 } from "lucide-react"
 import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
@@ -159,6 +159,21 @@ export default function AdminPage() {
   const [inviteContactEmail, setInviteContactEmail] = useState("")
   const [inviteContactLoading, setInviteContactLoading] = useState(false)
   const [inviteContactError, setInviteContactError] = useState("")
+  const [subSearchOpen, setSubSearchOpen] = useState(false)
+  const [subSearchQuery, setSubSearchQuery] = useState("")
+  const [subSearchResults, setSubSearchResults] = useState<
+    Array<{
+      contractorDirectoryId: string
+      displayName: string
+      companyName: string | null
+      maskedEmail: string | null
+      maskedPhone: string | null
+      alreadyLinkedToTenant: boolean
+      hasUserAccount: boolean
+    }>
+  >([])
+  const [subSearchLoading, setSubSearchLoading] = useState(false)
+  const [subSearchError, setSubSearchError] = useState<string | null>(null)
   const [refreshSubdivisions, setRefreshSubdivisions] = useState(0)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [editingTemplateName, setEditingTemplateName] = useState("")
@@ -229,6 +244,63 @@ export default function AdminPage() {
   const [impersonationChecked, setImpersonationChecked] = useState(false)
   const [workTemplatesSearchQuery, setWorkTemplatesSearchQuery] = useState("")
   const [criticalTemplateIds, setCriticalTemplateIds] = useState<string[]>([])
+
+  async function handleSubSearchSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const q = subSearchQuery.trim()
+    if (!q) return
+    setSubSearchLoading(true)
+    setSubSearchError(null)
+    try {
+      const res = await fetch(`/api/admin/subcontractors/search?query=${encodeURIComponent(q)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setSubSearchError(data?.error || "Search failed")
+        setSubSearchResults([])
+        return
+      }
+      setSubSearchResults(Array.isArray(data.results) ? data.results : [])
+    } catch (err: any) {
+      console.error("Subcontractor search error:", err)
+      setSubSearchError("Search failed")
+      setSubSearchResults([])
+    } finally {
+      setSubSearchLoading(false)
+    }
+  }
+
+  async function handleLinkExistingSubcontractor(contractorDirectoryId: string) {
+    try {
+      const res = await fetch("/api/admin/subcontractors/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractorDirectoryId }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        alert(data?.error || "Failed to link subcontractor")
+        return
+      }
+      if (data.mode === "linked-existing-user") {
+        alert("Linked. Subcontractor was notified.")
+      } else if (data.mode === "invited-new-user") {
+        alert("Invite sent. Subcontractor will set their password and connect.")
+      } else if (data.mode === "invite-blocked") {
+        alert(data.error || "Cannot invite subcontractor. Check your plan limits.")
+      } else if (data.mode === "email-already-in-use") {
+        alert(data.error || "A user with this email already exists.")
+      } else if (data.mode === "invite-email-failed") {
+        alert(data.warning || "User was created but invite email failed. Check email logs.")
+      } else {
+        alert("Linked, but no user account found. You may need to invite them manually.")
+      }
+      // Refresh contractors list
+      handleRefresh()
+    } catch (err: any) {
+      console.error("Link subcontractor error:", err)
+      alert("Failed to link subcontractor")
+    }
+  }
 
   useEffect(() => {
     fetch("/api/super-admin/impersonation/context")
@@ -2292,14 +2364,29 @@ export default function AdminPage() {
           <TabsContent value="contractors" className="space-y-8">
             <div className="flex gap-2 flex-wrap mb-6">
               {(session?.user?.role === "Admin" || session?.user?.role === "Manager") && (
-                <Button
-                  onClick={() => setImportContractorsOpen(true)}
-                  variant="outline"
-                  size="sm"
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-1" />
-                  Import from Excel
-                </Button>
+                <>
+                  <Button
+                    onClick={() => setImportContractorsOpen(true)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />
+                    Import from Excel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSubSearchOpen(true)
+                      setSubSearchQuery("")
+                      setSubSearchResults([])
+                      setSubSearchError(null)
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Search className="h-4 w-4 mr-1" />
+                    Search Phase directory
+                  </Button>
+                </>
               )}
               <Button
                 onClick={() => setCreateContractorOpen(true)}
@@ -2963,6 +3050,90 @@ export default function AdminPage() {
               onOpenChange={setCreateUserOpen}
               onSuccess={handleRefresh}
             />
+            <Dialog
+              open={subSearchOpen}
+              onOpenChange={(open) => {
+                setSubSearchOpen(open)
+                if (!open) {
+                  setSubSearchQuery("")
+                  setSubSearchResults([])
+                  setSubSearchError(null)
+                  setSubSearchLoading(false)
+                }
+              }}
+            >
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Search Phase directory</DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Search subcontractors by name, company, email, or phone. Results show masked contact
+                    details and whether they already have a Phase account. Linking does not expose other builders.
+                  </p>
+                </DialogHeader>
+                <form onSubmit={handleSubSearchSubmit} className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={subSearchQuery}
+                      onChange={(e) => setSubSearchQuery(e.target.value)}
+                      className="flex-1 px-3 py-2 border rounded-md text-sm"
+                      placeholder="Search name, company, email, or phone"
+                    />
+                    <Button type="submit" disabled={subSearchLoading || !subSearchQuery.trim()}>
+                      {subSearchLoading ? "Searching..." : "Search"}
+                    </Button>
+                  </div>
+                  {subSearchError && <p className="text-sm text-destructive">{subSearchError}</p>}
+                </form>
+                <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">
+                  {subSearchResults.length === 0 && !subSearchLoading && !subSearchError && (
+                    <p className="text-sm text-muted-foreground">No results yet. Try a search above.</p>
+                  )}
+                  {subSearchResults.map((r) => (
+                    <div
+                      key={r.contractorDirectoryId}
+                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {r.displayName}
+                          {r.companyName ? ` — ${r.companyName}` : ""}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.maskedEmail || "No email"} · {r.maskedPhone || "No phone"}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {r.alreadyLinkedToTenant && (
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
+                              Already in your company
+                            </span>
+                          )}
+                          {r.hasUserAccount && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                              Has Phase account
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {r.alreadyLinkedToTenant ? (
+                          <span className="text-xs text-muted-foreground">Linked</span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLinkExistingSubcontractor(r.contractorDirectoryId)}
+                          >
+                            <Link2 className="h-3 w-3 mr-1" />
+                            {r.hasUserAccount ? "Link to my company" : "Link / invite"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
             <Dialog
               open={inviteContactOpen}
               onOpenChange={(open) => {

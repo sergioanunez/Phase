@@ -339,10 +339,14 @@ model CompanyMembership {
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   contractor Contractor?  @relation(fields: [contractorId], references: [id])
+  /// For subcontractor memberships, ties this user to a global subcontractor identity.
+  contractorDirectoryId String?
+  contractorDirectory   ContractorDirectory? @relation(fields: [contractorDirectoryId], references: [id])
 
   @@unique([companyId, userId])
   @@index([userId])
   @@index([companyId])
+  @@index([contractorDirectoryId])
 }
 
 model UserInvite {
@@ -579,6 +583,9 @@ model Contractor {
   /// Set when created via bulk import; enables undo last import.
   importBatchId       String?
   importBatch         ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  /// Optional link to global subcontractor identity used for multi-tenant access.
+  contractorDirectoryId String?
+  contractorDirectory   ContractorDirectory? @relation(fields: [contractorDirectoryId], references: [id])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -596,6 +603,23 @@ model Contractor {
   @@index([active])
   @@index([defaultContactId])
   @@index([importBatchId])
+  @@index([contractorDirectoryId])
+  @@unique([companyId, contractorDirectoryId])
+}
+
+/// Global subcontractor identity shared across tenants/companies.
+model ContractorDirectory {
+  id               String   @id @default(cuid())
+  displayName      String
+  companyName      String?
+  email            String?
+  normalizedEmail  String?  @unique
+  phone            String?
+  normalizedPhone  String?  @unique
+  createdAt        DateTime @default(now())
+
+  contractors      Contractor[]
+  memberships      CompanyMembership[]
 }
 
 model ImportBatch {

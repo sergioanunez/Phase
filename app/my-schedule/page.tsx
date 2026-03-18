@@ -32,8 +32,15 @@ const VIEW_OPTIONS: { value: CalendarViewMode; label: string }[] = [
 ]
 
 interface ScheduleResponse {
-  events: ContractorScheduleEvent[]
+  events: (ContractorScheduleEvent & { tenantId: string; tenantName: string })[]
   contractorCompanyName: string | null
+}
+
+interface SubTenant {
+  companyId: string
+  companyName: string
+  contractorId: string | null
+  contractorName: string | null
 }
 
 export default function MySchedulePage() {
@@ -46,6 +53,8 @@ export default function MySchedulePage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [events, setEvents] = useState<ContractorScheduleEvent[]>([])
   const [companyName, setCompanyName] = useState<string | null>(null)
+  const [tenants, setTenants] = useState<SubTenant[]>([])
+  const [selectedTenantId, setSelectedTenantId] = useState<string | "all">("all")
   const [loading, setLoading] = useState(true)
   const [jobDetailOpen, setJobDetailOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<ContractorScheduleEvent | null>(null)
@@ -82,10 +91,40 @@ export default function MySchedulePage() {
 
   useEffect(() => {
     if (session?.user?.role !== "Subcontractor") return
+    // Load subcontractor tenants for switcher
+    fetch("/api/subcontractor/tenants", { credentials: "same-origin" })
+      .then((res) => res.json())
+      .then((data: { tenants?: SubTenant[]; error?: string }) => {
+        if (data.error) throw new Error(data.error)
+        const list = Array.isArray(data.tenants) ? data.tenants : []
+        setTenants(list)
+        if (list.length === 1) {
+          setSelectedTenantId(list[0].companyId)
+        } else {
+          // Restore last selection
+          if (session?.user?.id) {
+            const key = `subcontractor:lastTenant:${session.user.id}`
+            const stored = typeof window !== "undefined" ? window.localStorage.getItem(key) : null
+            if (stored && (stored === "all" || list.some((t) => t.companyId === stored))) {
+              setSelectedTenantId(stored as any)
+            }
+          }
+        }
+      })
+      .catch(() => {
+        setTenants([])
+      })
+  }, [session?.user?.role, session?.user?.id])
+
+  useEffect(() => {
+    if (session?.user?.role !== "Subcontractor") return
     const params = new URLSearchParams({
       start: fetchStart.toISOString(),
       end: fetchEnd.toISOString(),
     })
+    if (selectedTenantId) {
+      params.set("companyId", selectedTenantId)
+    }
     fetch(`/api/subcontractor/schedule?${params}`, { credentials: "same-origin" })
       .then((res) => res.json())
       .then((data: ScheduleResponse & { error?: string }) => {
@@ -98,7 +137,7 @@ export default function MySchedulePage() {
         setCompanyName(null)
       })
       .finally(() => setLoading(false))
-  }, [session?.user?.role, fetchStart.toISOString(), fetchEnd.toISOString()])
+  }, [session?.user?.role, fetchStart.toISOString(), fetchEnd.toISOString(), selectedTenantId])
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, ContractorScheduleEvent[]> = {}
@@ -231,17 +270,38 @@ export default function MySchedulePage() {
           </div>
         )}
 
-        {/* Contractor identity */}
-        {companyName && (
-          <div className="mt-4">
-            <span className="inline-flex items-center rounded-full border border-[#E6E8EF] bg-white px-4 py-2 text-sm font-medium text-foreground shadow-sm">
-              {companyName}
-            </span>
+        {/* Tenant switcher for subcontractors */}
+        {tenants.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <select
+              value={selectedTenantId}
+              onChange={(e) => {
+                const value = e.target.value as string | "all"
+                setSelectedTenantId(value)
+                if (session?.user?.id) {
+                  const key = `subcontractor:lastTenant:${session.user.id}`
+                  window.localStorage.setItem(key, value)
+                }
+              }}
+              className="rounded-full border border-[#E6E8EF] bg-white px-3 py-1.5 text-sm shadow-sm"
+            >
+              {tenants.length > 1 && <option value="all">All builders</option>}
+              {tenants.map((t) => (
+                <option key={t.companyId} value={t.companyId}>
+                  {t.companyName}
+                </option>
+              ))}
+            </select>
+            {selectedTenantId === "all" && tenants.length > 1 && (
+              <span className="text-xs text-muted-foreground">
+                Showing work from all builders you&apos;re linked to.
+              </span>
+            )}
           </div>
         )}
 
         <p className="mt-2 text-sm text-muted-foreground">
-          Tap any job for more details.
+          Tap any job for more details. You only see work assigned to you for each builder.
         </p>
 
         {loading ? (
