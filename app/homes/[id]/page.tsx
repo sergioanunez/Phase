@@ -571,7 +571,7 @@ export default function HomeDetailPage() {
                   {home.addressOrLot?.trim() && (
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
                       className="h-8 gap-1.5 rounded-full"
                       onClick={() => {
