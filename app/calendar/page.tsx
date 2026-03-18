@@ -13,7 +13,6 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns"
-import { Navigation } from "@/components/navigation"
 import { SegmentedControl, type CalendarViewMode } from "@/components/calendar/segmented-control"
 import { FilterChipsRow } from "@/components/calendar/filter-chips-row"
 import { WeekHeaderCard } from "@/components/calendar/week-header-card"
@@ -427,7 +426,6 @@ export default function CalendarPage() {
         events={dayDetailEvents}
       />
 
-      <Navigation />
     </div>
   )
 }

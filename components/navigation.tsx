@@ -58,7 +58,10 @@ export function Navigation() {
           ].filter((item) => (item as any).roles?.includes(role))
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200/80 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:left-1/2 sm:right-auto sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:rounded-t-2xl md:max-w-2xl lg:max-w-3xl">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200/80 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:left-1/2 sm:right-auto sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:rounded-t-2xl md:max-w-2xl lg:max-w-3xl"
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+    >
       <div className="flex justify-around">
         {navItems.map((item) => {
           const Icon = item.icon as React.ComponentType<{ className?: string }>

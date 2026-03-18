@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
-import { Navigation } from "@/components/navigation"
 import { WelcomeBanner } from "@/components/onboarding/welcome-banner"
 import { PortfolioOverviewCard } from "@/components/dashboard/portfolio-overview-card"
 import { BottleneckListCard } from "@/components/dashboard/bottleneck-list-card"
@@ -159,7 +158,7 @@ function PhaseDistributionCard({
                   </div>
                   <div className="phase-rail h-2 min-w-0 flex-1 rounded-full bg-gray-100">
                     <div
-                      className="phase-fill h-2 rounded-full transition-[width] duration-[600ms] ease-out"
+                      className="phase-fill h-2 rounded-full transition-[width] duration-500 ease-out"
                       style={{
                         width: animate ? `${Math.max(8, barWidthPercent)}%` : "0%",
                         backgroundColor: fillColor,
@@ -450,7 +449,6 @@ export default function DashboardPage() {
           <ActivityFeed activities={activities} loading={activitiesLoading} />
         </div>
       </div>
-      <Navigation />
     </div>
   )
 }

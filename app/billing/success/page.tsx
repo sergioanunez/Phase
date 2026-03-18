@@ -3,7 +3,6 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { CheckCircle } from "lucide-react"
 
@@ -28,7 +27,6 @@ export default function BillingSuccessPage() {
           <Link href="/admin/billing">Go to Billing</Link>
         </Button>
       </div>
-      <Navigation />
     </div>
   )
 }

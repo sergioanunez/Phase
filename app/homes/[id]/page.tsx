@@ -7,7 +7,6 @@ import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Navigation } from "@/components/navigation"
 import { TaskModal } from "@/components/task-modal"
 import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
@@ -858,8 +857,6 @@ export default function HomeDetailPage() {
         open={thumbnailViewerOpen}
         onOpenChange={setThumbnailViewerOpen}
       />
-
-      <Navigation />
     </div>
   )
 }

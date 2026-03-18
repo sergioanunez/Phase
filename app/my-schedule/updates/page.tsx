@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Bell, ChevronLeft } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 
 export default function MyScheduleUpdatesPage() {
   const { data: session, status } = useSession()
@@ -62,7 +61,6 @@ export default function MyScheduleUpdatesPage() {
           </p>
         </div>
       </div>
-      <Navigation />
     </div>
   )
 }

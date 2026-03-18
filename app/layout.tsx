@@ -14,13 +14,13 @@ import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { PullToRefresh } from "@/components/pull-to-refresh"
+import { Navigation } from "@/components/navigation"
 
 const inter = Inter({ subsets: ["latin"], display: "swap" })
 
 export const metadata: Metadata = {
   title: "Phase",
   description: "Construction scheduling and management system",
-  themeColor: "#111827",
   manifest: "/manifest.json",
   icons: [
     {
@@ -46,6 +46,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#111827",
 }
 
 const PUBLIC_PATHS = ["/", "/contact", "/start-trial"]
@@ -66,7 +67,12 @@ export default async function RootLayout({
             <ImpersonationBanner />
             <AppHeader />
             <TrialExpiredOverlay />
-            <PullToRefresh>{children}</PullToRefresh>
+            <PullToRefresh>
+              <main className="min-h-screen bg-[#F6F7F9]">
+                {children}
+              </main>
+            </PullToRefresh>
+            <Navigation />
             <OnboardingTour />
           </Providers>
         </body>
@@ -90,7 +96,12 @@ export default async function RootLayout({
           <ImpersonationBanner />
           <AppHeader />
           <TrialExpiredOverlay />
-          <PullToRefresh>{children}</PullToRefresh>
+          <PullToRefresh>
+            <main className="min-h-screen bg-[#F6F7F9]">
+              {children}
+            </main>
+          </PullToRefresh>
+          <Navigation />
           <OnboardingTour />
         </Providers>
       </body>

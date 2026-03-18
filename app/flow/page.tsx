@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Search } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 import { FlowHomeCard } from "@/components/flow/flow-home-card"
 import { TaskActionSheet } from "@/components/flow/task-action-sheet"
 import { groupFlowByHome } from "@/lib/flow/groupFlowByHome"
@@ -195,8 +194,6 @@ export default function FlowPage() {
           )}
         </div>
       </div>
-      <Navigation />
-
       <TaskActionSheet
         open={!!sheetAction}
         onOpenChange={(open) => !open && setSheetAction(null)}

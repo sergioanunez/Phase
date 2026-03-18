@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Navigation } from "@/components/navigation"
 import { CreateContractorDialog } from "@/components/create-contractor-dialog"
 import { Plus, Trash2 } from "lucide-react"
 
@@ -157,7 +156,6 @@ export default function ContractorsPage() {
         />
       )}
 
-      <Navigation />
     </div>
   )
 }

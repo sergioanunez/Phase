@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
 import { SettingsNav } from "@/components/settings-nav"
 import { CreditCard, Loader2, ExternalLink, FileText, Palette } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -229,7 +228,6 @@ export default function AdminBillingPage() {
     return (
       <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20 flex items-center justify-center">
         <div className="text-center text-muted-foreground">Billing is available for account admins.</div>
-        <Navigation />
       </div>
     )
   }
@@ -552,7 +550,6 @@ export default function AdminBillingPage() {
           </div>
         )}
       </div>
-      <Navigation />
     </div>
   )
 }

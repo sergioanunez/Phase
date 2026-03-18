@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Search } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 import { TaskStatus } from "@prisma/client"
 import { PlanViewer } from "@/components/plan-viewer"
 import { CommunityAccordion } from "@/components/homes/community-accordion"
@@ -334,7 +333,6 @@ export default function HomesPage() {
           }}
         />
       )}
-      <Navigation />
     </div>
   )
 }

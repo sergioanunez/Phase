@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useId } from "react"
 import { useSession } from "next-auth/react"
 import { Sparkles } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AssistantFeed, type FeedItem } from "@/components/assistant/AssistantFeed"
@@ -561,7 +560,6 @@ export default function AssistantPage() {
         </div>
       )}
 
-      <Navigation />
     </div>
   )
 }

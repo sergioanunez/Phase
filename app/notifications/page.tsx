@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Bell, ChevronLeft } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { format, formatDistanceToNow } from "date-fns"
 import type { NotificationItem } from "@/app/api/notifications/route"
@@ -330,7 +329,6 @@ export default function NotificationsPage() {
           </ul>
         )}
       </div>
-      <Navigation />
     </div>
   )
 }

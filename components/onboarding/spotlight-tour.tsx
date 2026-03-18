@@ -265,7 +265,7 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
           className={cn(
             "absolute rounded-lg ring-2 ring-sky-400/90 ring-offset-2 ring-offset-transparent",
             "bg-transparent",
-            reduceMotion ? "" : "transition-[box-shadow] duration-[180ms] ease-out"
+            reduceMotion ? "" : "transition-[box-shadow] duration-200 ease-out"
           )}
           style={{
             // Add padding so the halo feels centered and generous.

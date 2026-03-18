@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Navigation } from "@/components/navigation"
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns"
 import { TaskStatus } from "@prisma/client"
 import { ClipboardList } from "lucide-react"
@@ -242,7 +241,6 @@ export default function MyWeekPage() {
           </div>
         )}
       </div>
-      <Navigation />
     </div>
   )
 }

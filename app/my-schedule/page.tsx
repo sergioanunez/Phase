@@ -16,7 +16,6 @@ import {
   startOfDay,
 } from "date-fns"
 import { ChevronLeft, Bell } from "lucide-react"
-import { Navigation } from "@/components/navigation"
 import { SegmentedControl, type CalendarViewMode } from "@/components/calendar/segmented-control"
 import { WeekHeader } from "@/components/contractor-schedule/week-header"
 import { ContractorDayCard } from "@/components/contractor-schedule/day-card"
@@ -386,7 +385,6 @@ export default function MySchedulePage() {
         event={selectedEvent}
       />
 
-      <Navigation />
     </div>
   )
 }

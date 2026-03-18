@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Navigation } from "@/components/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CreateHomeDialog } from "@/components/create-home-dialog"
 import { CreateSubdivisionDialog } from "@/components/create-subdivision-dialog"
@@ -3276,7 +3275,6 @@ export default function AdminPage() {
           }}
         />
       )}
-      <Navigation />
     </div>
   )
 }
