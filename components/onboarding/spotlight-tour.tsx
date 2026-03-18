@@ -40,7 +40,8 @@ const STEP_CONFIG: Record<
     title: "Subdivisions & Homes",
     description:
       "Start by organizing your projects. Subdivisions hold the homes you are building.",
-    selector: "[data-onboarding=subdivisions]",
+    // Prefer the New Subdivision button so the call-to-action is spotlighted.
+    selector: "[data-onboarding=subdivisions-button]",
     route: "/admin",
     tab: "subdivisions-homes",
   },
@@ -250,7 +251,8 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
       {/* Dim overlay: use a full-screen layer; highlight box will create the "cutout" via box-shadow */}
       <div
         className={cn(
-          "absolute inset-0 bg-black/20",
+          // Make the whole screen brighter while still dimming the background slightly.
+          "absolute inset-0 bg-black/6",
           reduceMotion ? "" : "animate-spotlight-overlay-in"
         )}
       />
@@ -264,11 +266,14 @@ export function SpotlightTour({ step, onStepChange, onComplete, onSkip }: Props)
             reduceMotion ? "" : "transition-[box-shadow] duration-[180ms] ease-out"
           )}
           style={{
-            left: targetRect.left - 8,
+            // Add padding so the halo feels centered and generous.
+            left: targetRect.left - 12,
+            // Slightly bias downward so tabs and buttons feel visually centered.
             top: targetRect.top - 8,
-            width: targetRect.width + 16,
-            height: targetRect.height + 16,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.22)",
+            width: targetRect.width + 24,
+            height: targetRect.height + 20,
+            // Lighter shadow so the spotlighted area reads brighter.
+            boxShadow: "0 0 0 9999px rgba(0,0,0,0.1)",
           }}
         />
       )}
