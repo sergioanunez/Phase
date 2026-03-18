@@ -60,10 +60,45 @@ export async function POST(request: NextRequest) {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
+    const { normalizeEmail, normalizePhone } = await import("@/lib/identity/normalize")
     const { createAuditLog } = await import("@/lib/audit")
     const ctx = await requireTenantPermission("contractors:write")
     const body = await request.json()
     const data = createContractorSchema.parse(body)
+
+    // Ensure every new vendor also has a global ContractorDirectory identity so they
+    // show up in cross-tenant Phase directory search.
+    const normalizedEmail = normalizeEmail(data.email ?? undefined)
+    const normalizedPhone = normalizePhone(data.phone)
+
+    let contractorDirectoryId: string | undefined
+
+    if (normalizedEmail || normalizedPhone) {
+      const existingDirectory = await prisma.contractorDirectory.findFirst({
+        where: {
+          OR: [
+            normalizedEmail ? { normalizedEmail } : undefined,
+            normalizedPhone ? { normalizedPhone } : undefined,
+          ].filter(Boolean) as any,
+        },
+      })
+
+      if (existingDirectory) {
+        contractorDirectoryId = existingDirectory.id
+      } else {
+        const newDirectory = await prisma.contractorDirectory.create({
+          data: {
+            displayName: data.contactName,
+            companyName: data.companyName,
+            email: data.email ?? undefined,
+            normalizedEmail,
+            phone: data.phone,
+            normalizedPhone,
+          },
+        })
+        contractorDirectoryId = newDirectory.id
+      }
+    }
 
     const contractor = await prisma.contractor.create({
       data: {
@@ -76,6 +111,7 @@ export async function POST(request: NextRequest) {
         preferredNoticeDays: data.preferredNoticeDays,
         leadDays: data.leadDays ?? 0,
         active: true,
+        contractorDirectoryId,
       },
     })
 
