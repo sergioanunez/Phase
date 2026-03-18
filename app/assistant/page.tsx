@@ -403,7 +403,7 @@ export default function AssistantPage() {
     )
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] pb-64 pt-20">
+    <div className="min-h-screen bg-[#F6F7F9] pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-20">
       <div className="app-container mx-auto max-w-2xl px-4">
         <header className="mb-4">
           <div className="flex items-center gap-2">
@@ -542,23 +542,19 @@ export default function AssistantPage() {
                   />
                 </CardContent>
               </Card>
+
+              {/* Section 4: Command Input (attached to feed) */}
+              <AssistantCommandInput
+                value={inputValue}
+                onChange={setInputValue}
+                onSend={handleSend}
+                disabled={processing}
+                placeholder="Ask Assistant about your schedule or tell it what to do."
+              />
             </>
           )}
         </div>
       </div>
-
-      {/* Section 4: Command Input (sticky) */}
-      {loadingPhase === "complete" && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 mx-auto max-w-2xl px-4">
-          <AssistantCommandInput
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={handleSend}
-            disabled={processing}
-            placeholder="Ask Assistant about your schedule or tell it what to do."
-          />
-        </div>
-      )}
 
     </div>
   )

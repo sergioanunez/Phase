@@ -66,7 +66,7 @@ export function AssistantCommandInput({
 
   return (
     <>
-      <div className="sticky bottom-0 left-0 right-0 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <div className="w-full border-t border-gray-200 bg-white p-3 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
