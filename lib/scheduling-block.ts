@@ -51,26 +51,6 @@ export async function getTaskSchedulingBlockReason(
   })
   const companyId = home?.companyId ?? null
 
-  // 1. Template-level dependencies (include null companyId so Admin-created deps apply)
-  const templateDeps = await prisma.templateDependency.findMany({
-    where: {
-      templateItemId: currentTask.templateItemId,
-      OR: companyId
-        ? [{ companyId }, { companyId: null }]
-        : [{ companyId: null }],
-    },
-  })
-  if (templateDeps.length > 0) {
-    const prereqTasks = allTasks.filter((t) =>
-      templateDeps.some((d) => d.dependsOnItemId === t.templateItemId)
-    )
-    const incompletePrereqs = prereqTasks.filter((t) => t.status !== "Completed")
-    if (incompletePrereqs.length > 0) {
-      const names = incompletePrereqs.map((t) => t.nameSnapshot).join(", ")
-      return `Task blocked until prerequisites are completed: ${names}`
-    }
-  }
-
   const currentTaskCategory =
     currentTask.templateItem?.optionalCategory || "Uncategorized"
   const currentTaskIndex = allTasks.findIndex((t) => t.id === taskId)
@@ -114,21 +94,7 @@ export async function getTaskSchedulingBlockReason(
     }
   }
 
-  // 3. Previous dependency tasks (isDependency)
-  const previousDependencyTasks = allTasks
-    .slice(0, currentTaskIndex)
-    .filter((task) => task.templateItem?.isDependency)
-  const incompleteDependencies = previousDependencyTasks.filter(
-    (task) => task.status !== "Completed"
-  )
-  if (incompleteDependencies.length > 0) {
-    const dependencyNames = incompleteDependencies
-      .map((t) => t.nameSnapshot)
-      .join(", ")
-    return `Cannot schedule this task. The following dependency tasks must be completed first: ${dependencyNames}`
-  }
-
-  // 4. Critical gate punch items
+  // 3. Critical gate punch items
   const gateCheck = await checkGateBlocking(
     homeId,
     taskId,
@@ -158,7 +124,7 @@ export async function getTaskSchedulingBlockReasonsBatch(
   })
   const companyId = home?.companyId ?? null
 
-  const [categoryGates, allTemplateDeps, homeTasksWithGates] = await Promise.all([
+  const [categoryGates, _allTemplateDeps, homeTasksWithGates] = await Promise.all([
     prisma.categoryGate.findMany({
       where:
         companyId != null ? { companyId } : { companyId: null },
@@ -208,36 +174,13 @@ export async function getTaskSchedulingBlockReasonsBatch(
     }
   }
 
-  const templateDepsByTemplateItemId = new Map<string, { dependsOnItemId: string }[]>()
-  for (const d of allTemplateDeps) {
-    const list = templateDepsByTemplateItemId.get(d.templateItemId) ?? []
-    list.push({ dependsOnItemId: d.dependsOnItemId })
-    templateDepsByTemplateItemId.set(d.templateItemId, list)
-  }
-
   for (const currentTask of allTasks) {
     const currentTaskIndex = allTasks.findIndex((t) => t.id === currentTask.id)
     const currentTaskCategory =
       currentTask.templateItem?.optionalCategory || "Uncategorized"
     const currentCategoryIndex = getCategoryIndex(currentTaskCategory)
 
-    // 1. Template-level dependencies
-    const templateDeps = templateDepsByTemplateItemId.get(currentTask.templateItemId) ?? []
-    if (templateDeps.length > 0) {
-      const prereqTasks = allTasks.filter((t) =>
-        templateDeps.some((d) => d.dependsOnItemId === t.templateItemId)
-      )
-      const incompletePrereqs = prereqTasks.filter((t) => t.status !== "Completed")
-      if (incompletePrereqs.length > 0) {
-        results.set(
-          currentTask.id,
-          `Task blocked until prerequisites are completed: ${incompletePrereqs.map((t) => t.nameSnapshot).join(", ")}`
-        )
-        continue
-      }
-    }
-
-    // 2. Category gates
+    // 1. Category gates
     const normalizeCategory = (c: string | null) =>
       (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
     let categoryBlockReason: string | null = null
@@ -270,22 +213,7 @@ export async function getTaskSchedulingBlockReasonsBatch(
       continue
     }
 
-    // 3. Previous dependency tasks (isDependency)
-    const previousDependencyTasks = allTasks
-      .slice(0, currentTaskIndex)
-      .filter((task) => task.templateItem?.isDependency)
-    const incompleteDependencies = previousDependencyTasks.filter(
-      (task) => task.status !== "Completed"
-    )
-    if (incompleteDependencies.length > 0) {
-      results.set(
-        currentTask.id,
-        `Cannot schedule this task. The following dependency tasks must be completed first: ${incompleteDependencies.map((t) => t.nameSnapshot).join(", ")}`
-      )
-      continue
-    }
-
-    // 4. Critical gate punch items (using pre-fetched homeTasksWithGates and openPunchCountByTaskId)
+    // 2. Critical gate punch items (using pre-fetched homeTasksWithGates and openPunchCountByTaskId)
     let gateBlockReason: string | null = null
     for (const gateTask of gateTasks) {
       const gateScope = gateTask.templateItem?.gateScope || "DownstreamOnly"

@@ -106,6 +106,8 @@ export function FlowHomeCard({
                 ? "border-l-4 border-l-amber-400"
                 : "border-l-4 border-l-rose-400"
               : "border-l border-l-transparent"
+            const isBlockedFromExecution = !action.executionEligible && action.state === "WAITING"
+
             return (
               <li key={`${action.taskInstanceId}-${action.type}`}>
                 <button
@@ -116,12 +118,14 @@ export function FlowHomeCard({
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        action.type === "EXECUTE"
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                          : "bg-amber-50 text-amber-800 border border-amber-200"
+                        isBlockedFromExecution
+                          ? "bg-amber-50 text-amber-800 border border-amber-200"
+                          : action.type === "EXECUTE"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : "bg-amber-50 text-amber-800 border border-amber-200"
                       }`}
                     >
-                      {modeLabel.short}
+                      {isBlockedFromExecution ? "SCHEDULE NOW" : modeLabel.short}
                     </span>
                     <span className="text-sm text-foreground flex-1 min-w-0">
                       {actionLabel(action)}
@@ -130,9 +134,9 @@ export function FlowHomeCard({
                       {dateLabel}
                     </span>
                   </div>
-                  {action.type === "PREP" && !action.executionEligible && (
+                  {isBlockedFromExecution && (
                     <p className="text-xs text-muted-foreground">
-                      Waiting on prior tasks to finish.
+                      Waiting to start until predecessor tasks are complete.
                     </p>
                   )}
                 </button>

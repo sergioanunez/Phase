@@ -49,30 +49,25 @@ export async function POST(
       return NextResponse.json({ error: "Task is already completed" }, { status: 400 })
     }
 
-    const templateDeps = await prisma.templateDependency.findMany({
-      where: {
-        templateItemId: task.templateItemId,
-        OR: ctx.companyId ? [{ companyId: ctx.companyId }, { companyId: null }] : [{ companyId: null }],
-      },
-      select: { dependsOnItemId: true },
+    const { getIncompletePrerequisiteDependencyNames } = await import("@/lib/tasks/dependency-guard")
+    const deps = await getIncompletePrerequisiteDependencyNames({
+      prisma,
+      homeId: task.homeId,
+      templateItemId: task.templateItemId,
+      companyId: ctx.companyId ?? null,
     })
 
-    if (templateDeps.length > 0) {
-      const prereqTasks = await prisma.homeTask.findMany({
-        where: {
-          homeId: task.homeId,
-          templateItemId: { in: templateDeps.map((d) => d.dependsOnItemId) },
+    if (deps.length > 0) {
+      const depNamesJoined = deps.join(", ")
+      return NextResponse.json(
+        {
+          code: "DEPENDENCY_BLOCKED",
+          dependencyBlocked: true,
+          dependencies: deps,
+          error: `Cannot start yet — this task depends on ${depNamesJoined} being complete.`,
         },
-        select: { id: true, nameSnapshot: true, status: true },
-      })
-      const incomplete = prereqTasks.filter((t) => t.status !== "Completed")
-      if (incomplete.length > 0) {
-        const depNames = incomplete.map((t) => t.nameSnapshot).join(", ")
-        return NextResponse.json(
-          { error: `This task is locked until ${depNames} are complete.` },
-          { status: 409 }
-        )
-      }
+        { status: 409 }
+      )
     }
 
     const updated = await prisma.homeTask.update({

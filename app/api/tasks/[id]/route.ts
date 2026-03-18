@@ -174,55 +174,6 @@ export async function PATCH(
           )
         }
       }
-      // Check template-level dependencies mapped onto this home's tasks
-      const currentTaskWithTemplate = await prisma.homeTask.findUnique({
-        where: { id: params.id },
-        include: {
-          templateItem: {
-            select: { id: true, name: true },
-          },
-        },
-      })
-
-      if (!currentTaskWithTemplate) {
-        return NextResponse.json({ error: "Task not found" }, { status: 404 })
-      }
-
-      // Include deps with companyId match or null (template deps created via Admin often have null companyId)
-      const templateDeps = await prisma.templateDependency.findMany({
-        where: {
-          templateItemId: currentTaskWithTemplate.templateItemId,
-          OR: ctx.companyId
-            ? [{ companyId: ctx.companyId }, { companyId: null }]
-            : [{ companyId: null }],
-        },
-      })
-
-      if (templateDeps.length > 0) {
-        const prereqTasks = await prisma.homeTask.findMany({
-          where: {
-            homeId: before.homeId,
-            templateItemId: {
-              in: templateDeps.map((d: { dependsOnItemId: string }) => d.dependsOnItemId),
-            },
-          },
-        })
-
-        const incompletePrereqs = prereqTasks.filter(
-          (t) => t.status !== "Completed"
-        )
-
-        if (incompletePrereqs.length > 0) {
-          const names = incompletePrereqs.map((t) => t.nameSnapshot).join(", ")
-          return NextResponse.json(
-            {
-              error: `Task blocked until prerequisites are completed: ${names}`,
-              dependencyBlocked: true,
-            },
-            { status: 409 }
-          )
-        }
-      }
 
       // Get all tasks for this home with their categories for category-gate checks
       const allTasks = await prisma.homeTask.findMany({
@@ -322,28 +273,6 @@ export async function PATCH(
         }
       }
 
-
-      // Check dependencies
-      const previousDependencyTasks = allTasks
-        .slice(0, currentTaskIndex)
-        .filter((task) => task.templateItem?.isDependency)
-
-      const incompleteDependencies = previousDependencyTasks.filter(
-        (task) => task.status !== "Completed"
-      )
-
-      if (incompleteDependencies.length > 0) {
-        const dependencyNames = incompleteDependencies
-          .map((t) => t.nameSnapshot)
-          .join(", ")
-        return NextResponse.json(
-          {
-            error: `Cannot schedule this task. The following dependency tasks must be completed first: ${dependencyNames}`,
-          },
-          { status: 400 }
-        )
-      }
-
       // Check gate blocking
       const { checkGateBlocking } = await import("@/lib/gates")
       const gateCheck = await checkGateBlocking(
@@ -405,35 +334,29 @@ export async function PATCH(
         )
       }
       // Execution lock: cannot enter InProgress until all dependencies are Complete
-      if (data.status === "InProgress") {
-        const templateDeps = await prisma.templateDependency.findMany({
-          where: {
-            templateItemId: before.templateItemId,
-            OR: ctx.companyId
-              ? [{ companyId: ctx.companyId }, { companyId: null }]
-              : [{ companyId: null }],
-          },
-          select: { dependsOnItemId: true },
+      if (data.status === "InProgress" || data.status === "Completed") {
+        const { getIncompletePrerequisiteDependencyNames } = await import("@/lib/tasks/dependency-guard")
+        const deps = await getIncompletePrerequisiteDependencyNames({
+          prisma,
+          homeId: before.homeId,
+          templateItemId: before.templateItemId,
+          companyId: ctx.companyId ?? null,
         })
-        if (templateDeps.length > 0) {
-          const prereqTasks = await prisma.homeTask.findMany({
-            where: {
-              homeId: before.homeId,
-              templateItemId: { in: templateDeps.map((d) => d.dependsOnItemId) },
+
+        if (deps.length > 0) {
+          const depNamesJoined = deps.join(", ")
+          return NextResponse.json(
+            {
+              code: "DEPENDENCY_BLOCKED",
+              dependencyBlocked: true,
+              dependencies: deps,
+              error:
+                data.status === "InProgress"
+                  ? `Cannot start yet — this task depends on ${depNamesJoined} being complete.`
+                  : `Cannot complete yet — this task depends on ${depNamesJoined} being complete.`,
             },
-            select: { id: true, nameSnapshot: true, status: true },
-          })
-          const incomplete = prereqTasks.filter((t) => t.status !== "Completed")
-          if (incomplete.length > 0) {
-            const depNames = incomplete.map((t) => t.nameSnapshot).join(", ")
-            return NextResponse.json(
-              {
-                error: `This task is locked until ${depNames} are complete.`,
-                dependencyBlocked: true,
-              },
-              { status: 409 }
-            )
-          }
+            { status: 409 }
+          )
         }
       }
       updateData.status = data.status

@@ -243,9 +243,120 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
     const taskMap = buildTaskMap(selectionTasks)
     const getDependencyIds = (taskId: string) => predecessors[taskId] ?? []
 
+    // Planning selection: show prep/scheduling actions even when execution is blocked
+    // by unfinished predecessors. ExecutionEligible still requires all predecessors Completed.
+    const duePrepCandidates = selectionTasks
+      .map((sel) => {
+        const task = taskById[sel.id]
+        const template = task?.templateItem
+        if (!task || !template) return null
+
+        const status = task.status as TaskStatus
+        // In-progress tasks should still be handled by the execution branch below.
+        if (status === IN_PROGRESS) return null
+
+        const preds = predecessors[task.id] ?? []
+        const fs = forecastStart[task.id]
+        const ff = forecastFinish[task.id]
+        if (!fs || !ff) return null
+
+        const contractorLeadDays =
+          template.contractorLeadOverrideDays != null
+            ? template.contractorLeadOverrideDays
+            : template.contractor?.leadDays ?? 0
+        const materialLead = template.requiresOrdering ? (template.materialLeadDays ?? 0) : 0
+        const prepLeadDays = Math.max(contractorLeadDays, materialLead)
+        const leadTimeSource: "contractor" | "override" | "unassigned" =
+          template.contractorLeadOverrideDays != null
+            ? "override"
+            : template.contractorId
+              ? "contractor"
+              : "unassigned"
+
+        const prepStart = subWorkingDays(fs, prepLeadDays)
+        const prepStartStr = toDateOnly(prepStart)
+        const forecastStartStr = toDateOnly(fs)
+        const forecastFinishStr = toDateOnly(ff)
+
+        const showPrep =
+          status !== COMPLETED && status !== CANCELED && prepStartStr <= today
+        if (!showPrep) return null
+
+        const executionEligible =
+          preds.length === 0 || preds.every((p) => (taskById[p]?.status as TaskStatus) === COMPLETED)
+
+        // Only surface "schedule now" actions when execution is blocked.
+        if (executionEligible) return null
+
+        const dependencyStatus = preds.map((p) => ({
+          name: taskById[p]?.nameSnapshot ?? "?",
+          complete: (taskById[p]?.status as TaskStatus) === COMPLETED,
+        }))
+
+        const contractorName =
+          template.contractor?.companyName ?? task.contractor?.companyName ?? undefined
+
+        return {
+          task,
+          template,
+          preds,
+          fs,
+          ff,
+          prepStartStr,
+          forecastStartStr,
+          forecastFinishStr,
+          prepLeadDays,
+          leadTimeSource,
+          executionEligible,
+          dependencyStatus,
+          contractorName,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null)
+
+    const duePrepCandidate = duePrepCandidates.sort((a, b) => {
+      const dateCmp = a.prepStartStr.localeCompare(b.prepStartStr)
+      if (dateCmp !== 0) return dateCmp
+      if (a.task.sortOrderSnapshot !== b.task.sortOrderSnapshot) return a.task.sortOrderSnapshot - b.task.sortOrderSnapshot
+      return a.task.nameSnapshot.localeCompare(b.task.nameSnapshot)
+    })[0]
+
     const frontier = computeFrontierTasks(selectionTasks, taskMap, getDependencyIds, COMPLETED)
     const nextExecutionTask =
       frontier.length > 0 ? pickNextExecutionTask(frontier, forecastStart) : null
+
+    if (duePrepCandidate) {
+      const { task, template, prepStartStr, forecastStartStr, forecastFinishStr, prepLeadDays, leadTimeSource, executionEligible, dependencyStatus, contractorName } =
+        duePrepCandidate
+
+      actions.push({
+        homeId: home.id,
+        homeAddress: address,
+        subdivisionName,
+        taskId: template.id,
+        taskInstanceId: task.id,
+        taskName: task.nameSnapshot,
+        contractorName,
+        type: "PREP",
+        actionDate: prepStartStr,
+        forecastStart: forecastStartStr,
+        forecastFinish: forecastFinishStr,
+        prepStart: prepStartStr,
+        prepLeadDays,
+        leadTimeSource,
+        executionEligible,
+        requiresOrdering: template.requiresOrdering ?? false,
+        isOverdue: prepStartStr < today,
+        slackWorkingDays,
+        sortOrderSnapshot: task.sortOrderSnapshot,
+        dependencyStatus,
+        state: executionEligible ? "READY" : "WAITING",
+        actionLabel: executionEligible ? `Get ready: ${task.nameSnapshot}` : `Schedule now: ${task.nameSnapshot}`,
+        actionCta: { type: "OPEN_TASK", taskId: task.id, homeId: home.id },
+        notStarted,
+      })
+      continue
+    }
 
     if (nextExecutionTask) {
       const task = taskById[nextExecutionTask.id]
@@ -444,7 +555,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         state: isBlockingInProgress ? "IN_PROGRESS" : "WAITING",
         actionLabel: isBlockingInProgress
           ? `In progress: ${task.nameSnapshot}`
-          : `Waiting on: ${task.nameSnapshot}`,
+          : `Schedule now: ${task.nameSnapshot}`,
         actionCta: { type: "OPEN_HOME_TASKS", taskId: task.id, homeId: home.id },
         notStarted,
       })

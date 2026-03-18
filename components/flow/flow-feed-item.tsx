@@ -10,6 +10,9 @@ function buildSentence(action: FlowAction): string {
   const addr = action.homeAddress
   const task = action.taskName
   const when = action.isOverdue ? "ASAP" : "today"
+  if (!action.executionEligible) {
+    return `${addr}. Schedule ${task} now to avoid a gap, but you can&apos;t start yet until predecessor tasks are complete.`
+  }
   if (action.type === "EXECUTE") {
     return `${addr}. Start work on ${task} ${when}.`
   }
@@ -47,6 +50,12 @@ export function FlowFeedItem({ action }: { action: FlowAction }) {
   const sentence = buildSentence(action)
   const dateLabel = formatDateBadge(action)
   const modeLabel = getFlowModeLabel(action.type)
+  const badgeText = action.executionEligible ? modeLabel.short : "SCHEDULE NOW"
+  const badgeClass = action.executionEligible
+    ? action.type === "EXECUTE"
+      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+      : "bg-amber-50 text-amber-800 border border-amber-200"
+    : "bg-amber-50 text-amber-800 border border-amber-200"
 
   return (
     <article className="rounded-lg border border-border bg-white p-4 shadow-sm">
@@ -55,22 +64,20 @@ export function FlowFeedItem({ action }: { action: FlowAction }) {
         <p className="text-sm text-muted-foreground">{sentence}</p>
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              action.type === "EXECUTE"
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                : "bg-amber-50 text-amber-800 border border-amber-200"
-            }`}
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass}`}
           >
-            {modeLabel.short}
+            {badgeText}
           </span>
           <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs text-muted-foreground">
             {dateLabel}
           </span>
         </div>
         {action.type === "PREP" && !action.executionEligible && (
-          <p className="text-xs text-muted-foreground">
-            Waiting on prior tasks to finish.
-          </p>
+          action.state === "WAITING" && (
+            <p className="text-xs text-muted-foreground">
+              Waiting to start until predecessor tasks are complete.
+            </p>
+          )
         )}
       </div>
       <div className="mt-3 border-t border-border pt-3">

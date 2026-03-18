@@ -182,6 +182,12 @@ export function TaskActionSheet({
     hasSchedule && task?.contractorId && (task?.status === "Scheduled" || task?.status === "PendingConfirm")
 
   const modeLabel = getFlowModeLabel(flowAction.type)
+  const badgeText = flowAction.executionEligible ? modeLabel.short : "SCHEDULE NOW"
+  const badgeClass = flowAction.executionEligible
+    ? flowAction.type === "EXECUTE"
+      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+      : "bg-amber-50 text-amber-800 border border-amber-200"
+    : "bg-amber-50 text-amber-800 border border-amber-200"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -199,19 +205,15 @@ export function TaskActionSheet({
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{task.status}</Badge>
               <Badge
-                className={
-                  flowAction.type === "EXECUTE"
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                    : "bg-amber-50 text-amber-800 border border-amber-200"
-                }
+                className={badgeClass}
               >
-                {modeLabel.short}
+                {badgeText}
               </Badge>
             </div>
 
-            {flowAction.type === "PREP" && !flowAction.executionEligible && (
+            {flowAction.state === "WAITING" && !flowAction.executionEligible && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                Waiting on prior tasks to finish.
+                Schedule now. You can&apos;t start yet until the predecessor tasks are complete.
               </p>
             )}
 

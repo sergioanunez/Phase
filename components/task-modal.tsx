@@ -239,13 +239,18 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
         body: JSON.stringify({ status: newStatus }),
       })
 
-      if (res.ok) {
-        const updatedTask = await res.json()
-        setCurrentTask(updatedTask)
-        onUpdate()
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        alert(data?.error || data?.message || "Failed to update status")
+        return
       }
+
+      const updatedTask = await res.json()
+      setCurrentTask(updatedTask)
+      onUpdate()
     } catch (error) {
       console.error("Failed to update status:", error)
+      alert(error instanceof Error ? error.message : "Failed to update status")
     } finally {
       setLoading(false)
     }
