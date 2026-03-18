@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import type { FlowAction, FlowHomeGroup } from "@/lib/flow/types"
-import { getFlowModeLabel } from "@/lib/flow/labels"
 import { getHomeRisk, type HomeRisk } from "@/lib/flow/briefing"
 
 const DEFAULT_VISIBLE = 2
@@ -91,46 +90,56 @@ export function FlowHomeCard({
       <CardContent className="pt-0 space-y-0">
         <ul className="divide-y divide-border">
           {visibleActions.map((action) => {
-            const modeLabel = getFlowModeLabel(action.type)
             const dateLabel = formatDateBadge(action)
             const overdueBorderClass = action.isOverdue
               ? action.type === "PREP"
                 ? "border-l-4 border-l-amber-400"
                 : "border-l-4 border-l-rose-400"
               : "border-l border-l-transparent"
-            const isBlockedFromExecution = !action.executionEligible && action.state === "WAITING"
+            const isWaitingBlocked = action.state === "WAITING" && !action.executionEligible
+            const isInProgress = action.state === "IN_PROGRESS"
+
+            const actionBadgeText = isWaitingBlocked
+              ? "SCHEDULE NOW"
+              : action.type === "EXECUTE"
+                ? "START WORK"
+                : "SCHEDULE"
+
+            const badgeClass =
+              isWaitingBlocked || action.type === "PREP"
+                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+
+            const helperText = isWaitingBlocked
+              ? "Waiting on prior task to finish."
+              : isInProgress
+                ? "In progress."
+                : action.type === "PREP"
+                  ? "Ready to schedule."
+                  : "Ready to start."
 
             return (
               <li key={`${action.taskInstanceId}-${action.type}`}>
                 <button
                   type="button"
                   onClick={() => onOpenAction(action)}
-                  className={`w-full text-left px-0 py-1.5 flex flex-col gap-1 rounded-md hover:bg-muted/50 active:bg-muted transition-colors border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-inset ${overdueBorderClass}`}
+                  aria-label={`Flow action: ${action.taskName}`}
+                  className={`w-full text-left px-0 py-1.25 flex flex-col gap-1 rounded-md hover:bg-muted/50 active:bg-muted transition-colors border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-inset cursor-pointer ${overdueBorderClass}`}
                 >
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1">
                     <span className="text-sm font-semibold text-foreground flex-1 min-w-0">
                       {action.taskName}
                     </span>
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        isBlockedFromExecution
-                          ? "bg-amber-50 text-amber-800 border border-amber-200"
-                          : action.type === "EXECUTE"
-                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                            : "bg-amber-50 text-amber-800 border border-amber-200"
-                      }`}
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}
                     >
-                      {isBlockedFromExecution ? "SCHEDULE NOW" : modeLabel.short}
+                      {actionBadgeText}
                     </span>
                     <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground shrink-0">
                       {dateLabel}
                     </span>
                   </div>
-                  {isBlockedFromExecution && (
-                    <p className="text-xs text-muted-foreground">
-                      Waiting on prior task to finish.
-                    </p>
-                  )}
+                  <p className="text-[11px] leading-tight text-muted-foreground">{helperText}</p>
                 </button>
               </li>
             )
@@ -157,22 +166,11 @@ export function FlowHomeCard({
         )}
         <div className="pt-2 mt-0.5 border-t border-border">
           <Link
-            href={
-              group.actions[0]?.actionCta?.taskId
-                ? `/homes/${group.homeId}?task=${group.actions[0].actionCta.taskId}`
-                : `/homes/${group.homeId}`
-            }
+            href={`/homes/${group.homeId}`}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            {(() => {
-              const first = group.actions[0]
-              if (!first?.actionCta) return "View home"
-              if (first.actionCta.type === "OPEN_HOME_TASKS") return "Review tasks"
-              if (first.type === "PREP") return "Schedule"
-              if (first.type === "EXECUTE") return first.executionEligible ? "Start task" : "Review task"
-              return "Review task"
-            })()}
+            View home
           </Link>
         </div>
       </CardContent>

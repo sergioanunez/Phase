@@ -212,9 +212,32 @@ export function TaskActionSheet({
             </div>
 
             {flowAction.state === "WAITING" && !flowAction.executionEligible && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                Schedule now. You can&apos;t start yet until the predecessor tasks are complete.
-              </p>
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-sm font-medium text-amber-800">
+                  Blocked from starting until prior tasks are complete.
+                </p>
+                <p className="mt-1 text-xs text-amber-800/80">
+                  You can still schedule below, but starting and completing are locked.
+                </p>
+                {flowAction.dependencyStatus && flowAction.dependencyStatus.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[11px] font-medium text-amber-800/90">Blocking tasks</p>
+                    <ul className="space-y-1">
+                      {flowAction.dependencyStatus.map((d) => (
+                        <li
+                          key={d.name}
+                          className="flex items-center justify-between gap-3 text-xs text-amber-900/90"
+                        >
+                          <span className={d.complete ? "line-through text-amber-900/60" : ""}>{d.name}</span>
+                          <span className="shrink-0 text-[11px] text-amber-800/80">
+                            {d.complete ? "Done" : "Missing"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
 
             <dl className="grid grid-cols-1 gap-2 text-sm">
@@ -304,7 +327,7 @@ export function TaskActionSheet({
                       ) : (
                         <Calendar className="h-4 w-4" />
                       )}
-                      <span className="ml-2">Save schedule</span>
+                      <span className="ml-2">Schedule</span>
                     </Button>
                     {canSendConfirm && (
                       <Button
@@ -328,7 +351,7 @@ export function TaskActionSheet({
 
             <div className="pt-2">
               <Link
-                href={`/homes/${flowAction.homeId}?task=${flowAction.taskInstanceId}`}
+                href={`/homes/${flowAction.homeId}`}
                 className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
