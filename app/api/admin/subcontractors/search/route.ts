@@ -78,12 +78,14 @@ export async function GET(req: NextRequest) {
         },
         select: { email: true },
       }),
-      prisma.user.findMany({
-        where: {
-          phoneE164: normalizedPhone ? { contains: normalizedPhone } : undefined,
-        },
-        select: { phoneE164: true },
-      }),
+      normalizedPhone
+        ? prisma.user.findMany({
+            where: {
+              phoneE164: { contains: normalizedPhone },
+            },
+            select: { phoneE164: true },
+          })
+        : Promise.resolve([] as { phoneE164: string | null }[]),
     ])
 
     const linkedSet = new Set(linked.map((l) => l.contractorDirectoryId))
