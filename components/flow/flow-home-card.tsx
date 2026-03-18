@@ -10,14 +10,6 @@ import { getHomeRisk, type HomeRisk } from "@/lib/flow/briefing"
 
 const DEFAULT_VISIBLE = 2
 
-function actionLabel(action: FlowAction): string {
-  if (action.actionLabel) return action.actionLabel
-  if (action.type === "EXECUTE") return `Start work: ${action.taskName}`
-  if (action.requiresOrdering) return `Order materials: ${action.taskName}`
-  if (action.contractorName) return `Confirm schedule: ${action.taskName}`
-  return `Get ready: ${action.taskName}`
-}
-
 function formatDateBadge(action: FlowAction): string {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -74,7 +66,7 @@ export function FlowHomeCard({
 
   return (
     <Card className="overflow-hidden border-border bg-white shadow-sm">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold text-foreground">{group.address}</h3>
@@ -113,9 +105,12 @@ export function FlowHomeCard({
                 <button
                   type="button"
                   onClick={() => onOpenAction(action)}
-                  className={`w-full text-left px-0 py-2 flex flex-col gap-1.5 rounded-md hover:bg-muted/50 active:bg-muted transition-colors border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-inset ${overdueBorderClass}`}
+                  className={`w-full text-left px-0 py-1.5 flex flex-col gap-1 rounded-md hover:bg-muted/50 active:bg-muted transition-colors border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-inset ${overdueBorderClass}`}
                 >
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-semibold text-foreground flex-1 min-w-0">
+                      {action.taskName}
+                    </span>
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         isBlockedFromExecution
@@ -127,16 +122,13 @@ export function FlowHomeCard({
                     >
                       {isBlockedFromExecution ? "SCHEDULE NOW" : modeLabel.short}
                     </span>
-                    <span className="text-sm text-foreground flex-1 min-w-0">
-                      {actionLabel(action)}
-                    </span>
                     <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground shrink-0">
                       {dateLabel}
                     </span>
                   </div>
                   {isBlockedFromExecution && (
                     <p className="text-xs text-muted-foreground">
-                      Waiting to start until predecessor tasks are complete.
+                      Waiting on prior task to finish.
                     </p>
                   )}
                 </button>
@@ -163,7 +155,7 @@ export function FlowHomeCard({
             )}
           </button>
         )}
-        <div className="pt-3 mt-1 border-t border-border">
+        <div className="pt-2 mt-0.5 border-t border-border">
           <Link
             href={
               group.actions[0]?.actionCta?.taskId
@@ -173,7 +165,14 @@ export function FlowHomeCard({
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            {group.actions[0]?.actionCta ? "Open task" : "View home"}
+            {(() => {
+              const first = group.actions[0]
+              if (!first?.actionCta) return "View home"
+              if (first.actionCta.type === "OPEN_HOME_TASKS") return "Review tasks"
+              if (first.type === "PREP") return "Schedule"
+              if (first.type === "EXECUTE") return first.executionEligible ? "Start task" : "Review task"
+              return "Review task"
+            })()}
           </Link>
         </div>
       </CardContent>
