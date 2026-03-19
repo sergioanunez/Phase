@@ -284,9 +284,17 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
 
         const executionEligible =
           preds.length === 0 || preds.every((p) => (taskById[p]?.status as TaskStatus) === COMPLETED)
+        const predecessorReadyForScheduling =
+          preds.length === 0 ||
+          preds.every((p) => {
+            const predTask = taskById[p]
+            if (!predTask) return false
+            const predStatus = predTask.status as TaskStatus
+            return predStatus === COMPLETED || !!predTask.scheduledDate
+          })
 
         // Only surface "schedule now" actions when execution is blocked.
-        if (executionEligible) return null
+        if (executionEligible || !predecessorReadyForScheduling) return null
 
         const dependencyStatus = preds.map((p) => ({
           name: taskById[p]?.nameSnapshot ?? "?",
@@ -530,6 +538,20 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       }))
       const actionDate = toDateOnly(fs)
       const isBlockingInProgress = status === IN_PROGRESS
+      const predecessorReadyForScheduling =
+        preds.length === 0 ||
+        preds.every((p) => {
+          const predTask = taskById[p]
+          if (!predTask) return false
+          const predStatus = predTask.status as TaskStatus
+          return predStatus === COMPLETED || !!predTask.scheduledDate
+        })
+
+      // Middle-ground behavior: don't show "schedule now" style blocked cards
+      // when predecessors are not even scheduled yet.
+      if (!isBlockingInProgress && !predecessorReadyForScheduling) {
+        continue
+      }
 
       actions.push({
         homeId: home.id,
