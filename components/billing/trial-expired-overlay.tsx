@@ -197,16 +197,6 @@ export function TrialExpiredOverlay() {
               View all plans
             </button>
           </div>
-            <button
-              type="button"
-              className="mt-2 text-xs font-medium text-primary underline-offset-2 hover:underline sm:mt-0"
-              onClick={() => {
-                dismissOverlay()
-                router.push("/homes")
-              }}
-            >
-              Continue viewing active homes
-            </button>
           {reduceToStarterNeeded && (
             <button
               type="button"
