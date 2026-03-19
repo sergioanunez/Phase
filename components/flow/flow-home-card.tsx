@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
+import { ChevronDown, ChevronUp } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import type { FlowAction, FlowHomeGroup } from "@/lib/flow/types"
 import { getHomeRisk, type HomeRisk } from "@/lib/flow/briefing"
@@ -65,19 +65,22 @@ export function FlowHomeCard({
 
   return (
     <Card className="overflow-hidden border-border bg-white shadow-sm">
-      <CardHeader className="pb-1">
+      <CardHeader className="pb-0">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground">{group.address}</h3>
+          <Link
+            href={`/homes/${group.homeId}`}
+            aria-label={`Open home details for ${group.address}`}
+            className="group cursor-pointer"
+          >
+            <h3 className="font-semibold text-foreground group-hover:underline group-hover:underline-offset-2">
+              {group.address}
+            </h3>
             {group.communityName && (
-              <p className="text-xs text-muted-foreground mt-0.5">{group.communityName}</p>
-            )}
-            {group.actions.length > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {group.actions.length} item{group.actions.length > 1 ? "s" : ""} need attention
+              <p className="text-xs text-muted-foreground mt-0.5 group-hover:text-foreground/80">
+                {group.communityName}
               </p>
             )}
-          </div>
+          </Link>
           <div className="mt-2 sm:mt-0">
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${riskInfo.className}`}
@@ -164,15 +167,6 @@ export function FlowHomeCard({
             )}
           </button>
         )}
-        <div className="pt-2 mt-0.5 border-t border-border">
-          <Link
-            href={`/homes/${group.homeId}`}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            View home
-          </Link>
-        </div>
       </CardContent>
     </Card>
   )
