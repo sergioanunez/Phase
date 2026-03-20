@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Search } from "lucide-react"
-import { FlowHomeCard } from "@/components/flow/flow-home-card"
+import { FlowQueueRow } from "@/components/flow/flow-queue-row"
 import { TaskActionSheet } from "@/components/flow/task-action-sheet"
 import { groupFlowByHome } from "@/lib/flow/groupFlowByHome"
 import { computeFlowBriefing } from "@/lib/flow/briefing"
@@ -176,7 +176,7 @@ export default function FlowPage() {
           </div>
         </div>
 
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 space-y-2">
           {loading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
           ) : groups.length === 0 ? (
@@ -184,13 +184,18 @@ export default function FlowPage() {
               You’re clear for today. No immediate actions are required.
             </div>
           ) : (
-            groups.map((group) => (
-              <FlowHomeCard
-                key={group.homeId}
-                group={group}
-                onOpenAction={setSheetAction}
-              />
-            ))
+            groups.map((group) => {
+              const nextAction = group.actions[0]
+              if (!nextAction) return null
+              return (
+                <FlowQueueRow
+                  key={`${group.homeId}-${nextAction.taskInstanceId}`}
+                  group={group}
+                  action={nextAction}
+                  onOpenAction={setSheetAction}
+                />
+              )
+            })
           )}
         </div>
       </div>
