@@ -15,6 +15,7 @@ import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { Navigation } from "@/components/navigation"
+import { SplashScreen } from "@/components/splash-screen"
 
 const inter = Inter({ subsets: ["latin"], display: "swap" })
 
