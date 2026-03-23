@@ -93,6 +93,7 @@ export default async function RootLayout({
     <html lang="en">
       <body className={`${inter.className} ${cormorantGaramond.variable}`}>
         <Providers>
+          <SplashScreen />
           <ImpersonationBanner />
           <AppHeader />
           <TrialExpiredOverlay />
