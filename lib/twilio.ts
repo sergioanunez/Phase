@@ -2,6 +2,7 @@ import twilio from "twilio"
 import { prisma } from "./prisma"
 import { generateConfirmationCode } from "./utils"
 import { TaskStatus, PricingTier } from "@prisma/client"
+import { parseAndNormalizePhone } from "@/lib/phone"
 import {
   buildScheduledSms,
   buildCancelledSms,
@@ -624,5 +625,106 @@ export async function sendPunchListSMS(
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorCode = (error as any)?.code
     throw new Error(errorCode ? `Twilio error ${errorCode}: ${errorMessage}` : errorMessage)
+  }
+}
+
+/** First name for SMS greeting; null if unusable (fallback body used). */
+export function extractFirstNameForFoundersSms(fullName: string): string | null {
+  const trimmed = fullName.trim()
+  if (!trimmed) return null
+  const raw = (trimmed.split(/\s+/)[0] ?? "").replace(/[^a-zA-ZÀ-ÿ'-]/g, "")
+  if (raw.length < 2 || raw.length > 40) return null
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+}
+
+/** Exact Founders10 applicant acknowledgment copy (Sergio / Phase). */
+export function buildFoundersApplicationSmsBody(firstName: string | null): string {
+  const intro = firstName
+    ? `Hi ${firstName}, this is Sergio with Phase.`
+    : `Hi, this is Sergio with Phase.`
+  return `${intro}
+
+Got your Founders10 application — appreciate you taking the time.
+
+I'll review it shortly and reach out if it looks like a fit.
+
+— Sergio`
+}
+
+export type SendFoundersApplicationSmsResult = {
+  sent: boolean
+  skipped?: "invalid_phone" | "twilio_not_configured" | "twilio_error"
+}
+
+/**
+ * Sends a personal acknowledgment SMS after Founders10 application.
+ * Does not throw; logs errors. Submission success should not depend on this.
+ */
+export async function sendFoundersApplicationSMS(params: {
+  name: string
+  phone: string
+}): Promise<SendFoundersApplicationSmsResult> {
+  const e164 = parseAndNormalizePhone(params.phone)
+  if (!e164) {
+    console.info("[Founders10 SMS] skip: invalid or unparseable phone")
+    return { sent: false, skipped: "invalid_phone" }
+  }
+
+  const sid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim()
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const fromNum = process.env.TWILIO_PHONE_NUMBER?.trim()
+  if (!sid || !token || !fromNum) {
+    console.info("[Founders10 SMS] skip: Twilio not configured")
+    return { sent: false, skipped: "twilio_not_configured" }
+  }
+
+  const firstName = extractFirstNameForFoundersSms(params.name)
+  const body = buildFoundersApplicationSmsBody(firstName)
+
+  try {
+    const twilioMessage = await getClient().messages.create({
+      body,
+      from: fromNum,
+      to: e164,
+    })
+
+    try {
+      await prisma.smsMessage.create({
+        data: {
+          companyId: null,
+          direction: "Outbound",
+          to: e164,
+          from: fromNum,
+          body,
+          status: "Sent",
+          messageType: "general",
+          recipientName: params.name.trim() || null,
+        },
+      })
+    } catch (logErr) {
+      console.error("[Founders10 SMS] failed to persist outbound row", logErr)
+    }
+
+    console.info("[Founders10 SMS] sent", { to: e164, sid: twilioMessage.sid })
+    return { sent: true }
+  } catch (err) {
+    console.error("[Founders10 SMS] Twilio send failed", err)
+    try {
+      await prisma.smsMessage.create({
+        data: {
+          companyId: null,
+          direction: "Outbound",
+          to: e164,
+          from: fromNum,
+          body,
+          status: "Failed",
+          messageType: "general",
+          recipientName: params.name.trim() || null,
+        },
+      })
+    } catch (logErr) {
+      console.error("[Founders10 SMS] failed to persist failed row", logErr)
+    }
+    return { sent: false, skipped: "twilio_error" }
   }
 }

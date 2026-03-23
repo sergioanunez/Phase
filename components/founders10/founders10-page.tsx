@@ -23,8 +23,6 @@ function scrollToApply() {
 }
 
 export function Founders10Page() {
-  const walkthroughUrl = process.env.NEXT_PUBLIC_FOUNDERS10_WALKTHROUGH_URL?.trim()
-
   const [name, setName] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [homesPerYear, setHomesPerYear] = useState<"1-20" | "20-50" | "50-100" | "100+" | "">("")
@@ -327,25 +325,26 @@ export function Founders10Page() {
               role="status"
               aria-live="polite"
             >
-              <h3 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold text-stone-900">
-                Application received
+              <h3 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold leading-snug text-stone-900">
+                You&apos;re one step closer to Founders10.
               </h3>
+              <p className="mt-5 text-base leading-relaxed text-stone-700">
+                We review every builder to make sure it&apos;s the right fit.
+              </p>
               <p className="mt-4 text-base leading-relaxed text-stone-700">
-                We review every builder to make sure it&apos;s a good fit.
+                We&apos;re selecting 10 builders to work closely with.
+                <br />
+                Not everyone gets in.
               </p>
-              <p className="mt-3 text-base leading-relaxed text-stone-700">
-                If selected, we&apos;ll reach out to schedule a walkthrough.
+              <p className="mt-4 text-base leading-relaxed text-stone-700">
+                If selected, we&apos;ll reach out within 24–48 hours to walk through your operation and see how
+                Phase fits your workflow.
               </p>
-              {walkthroughUrl ? (
-                <a
-                  href={walkthroughUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-8 inline-flex min-h-[48px] items-center justify-center rounded-lg border border-stone-800 bg-stone-900 px-6 text-base font-semibold text-[#f4f3f0] hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2"
-                >
-                  Schedule a walkthrough
-                </a>
-              ) : null}
+              <p className="mt-6 text-base leading-relaxed text-stone-800">
+                In the meantime, keep an eye on your phone.
+                <br />
+                We move fast with builders who are ready.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -574,7 +573,7 @@ export function Founders10Page() {
 
       <footer className="border-t border-stone-300/70 py-8 text-center text-sm text-stone-600">
         <Link href="/" className="underline-offset-4 hover:text-stone-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500">
-          Phase home
+          Back to Phase
         </Link>
       </footer>
     </div>

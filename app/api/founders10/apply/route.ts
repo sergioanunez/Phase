@@ -78,6 +78,17 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     })
 
+    void import("@/lib/twilio")
+      .then(({ sendFoundersApplicationSMS }) =>
+        sendFoundersApplicationSMS({ name: data.name, phone: data.phone })
+      )
+      .then((sms) => {
+        console.info("[Founders10 Application] SMS follow-up", sms)
+      })
+      .catch((err) => {
+        console.error("[Founders10 Application] SMS follow-up error", err)
+      })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof z.ZodError) {
