@@ -50,7 +50,7 @@ export const viewport = {
   themeColor: "#111827",
 }
 
-const PUBLIC_PATHS = ["/", "/contact", "/start-trial"]
+const PUBLIC_PATHS = ["/", "/contact", "/start-trial", "/founders10"]
 
 export default async function RootLayout({
   children,
