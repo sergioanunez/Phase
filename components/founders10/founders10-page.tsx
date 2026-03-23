@@ -93,7 +93,7 @@ export function Founders10Page() {
   return (
     <div className="min-h-screen bg-[#f0eeeb] text-stone-900">
       <header className="sticky top-0 z-40 border-b border-stone-300/60 bg-[#f0eeeb]/95 backdrop-blur supports-[backdrop-filter]:bg-[#f0eeeb]/90">
-        <div className={`${SECTION} flex h-14 items-center justify-between sm:h-16`}>
+        <div className={`${SECTION} flex h-14 items-center sm:h-16`}>
           <Link
             href="/"
             className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb]"
@@ -111,12 +111,6 @@ export function Founders10Page() {
               />
             </div>
           </Link>
-          <a
-            href="#application"
-            className="text-sm font-medium text-stone-700 underline-offset-4 hover:text-stone-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2"
-          >
-            Apply
-          </a>
         </div>
       </header>
 
