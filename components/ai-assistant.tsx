@@ -8,7 +8,7 @@ import { Sparkles, X, Send } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 
-const MARKETING_PATHS = ["/", "/contact", "/start-trial"]
+const MARKETING_PATHS = ["/", "/contact", "/start-trial", "/founders10"]
 
 interface Message {
   role: "user" | "assistant"

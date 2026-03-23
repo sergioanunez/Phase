@@ -41,7 +41,14 @@ export function TrialExpiredOverlay() {
 
   useEffect(() => {
     if (!pathname) return
-    if (pathname.startsWith("/auth") || pathname === "/" || pathname === "/contact" || pathname.startsWith("/punchlist")) return
+    if (
+      pathname.startsWith("/auth") ||
+      pathname === "/" ||
+      pathname === "/contact" ||
+      pathname === "/founders10" ||
+      pathname.startsWith("/punchlist")
+    )
+      return
     if (pathname.startsWith("/super-admin")) {
       setBilling(null)
       return

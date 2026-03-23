@@ -41,7 +41,13 @@ export function useBillingStatus(): {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/auth") || pathname === "/" || pathname === "/contact") {
+    if (
+      !pathname ||
+      pathname.startsWith("/auth") ||
+      pathname === "/" ||
+      pathname === "/contact" ||
+      pathname === "/founders10"
+    ) {
       setBilling(null)
       setLoading(false)
       setError(false)

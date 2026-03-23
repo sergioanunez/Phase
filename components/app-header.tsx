@@ -34,6 +34,7 @@ export function AppHeader() {
       pathname?.startsWith("/auth") ||
       pathname === "/" ||
       pathname === "/contact" ||
+      pathname === "/founders10" ||
       pathname?.startsWith("/super-admin") ||
       pathname?.startsWith("/punchlist") ||
       isContractorScheduleRoute
@@ -63,6 +64,7 @@ export function AppHeader() {
       pathname?.startsWith("/auth") ||
       pathname === "/" ||
       pathname === "/contact" ||
+      pathname === "/founders10" ||
       pathname?.startsWith("/super-admin") ||
       pathname?.startsWith("/punchlist")
     )
@@ -77,6 +79,7 @@ export function AppHeader() {
     pathname?.startsWith("/auth") ||
     pathname === "/" ||
     pathname === "/contact" ||
+    pathname === "/founders10" ||
     pathname?.startsWith("/super-admin") ||
     pathname?.startsWith("/punchlist")
   ) {

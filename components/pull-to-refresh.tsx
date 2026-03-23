@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-const PUBLIC_PATHS = ["/", "/contact", "/start-trial"]
+const PUBLIC_PATHS = ["/", "/contact", "/start-trial", "/founders10"]
 const PULL_THRESHOLD = 72
 const PULL_MAX = 120
 const RESISTANCE = 0.45
