@@ -142,14 +142,14 @@ export function Founders10Page() {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
 
           <div className={`${SECTION} relative z-10 max-w-2xl`}>
-            <p className="font-[family-name:var(--font-cormorant-garamond)] text-sm font-medium tracking-[0.2em] text-[#b8a882] uppercase">
+            <p className="font-[family-name:var(--font-cormorant-garamond)] text-sm font-semibold tracking-[0.2em] text-[#f5f0e8] uppercase">
               You&apos;ve been invited
             </p>
             <h1
               id="founders10-hero-title"
-              className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl font-semibold tracking-tight sm:text-5xl"
+              className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl font-semibold tracking-tight text-[#f4f3f0] sm:text-5xl"
             >
-              Founders10
+              Founders<span className="text-primary">10</span>
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-stone-300 sm:text-xl">
               10 builders.
@@ -158,7 +158,7 @@ export function Founders10Page() {
               <br />
               Built together.
             </p>
-            <div className="mt-10">
+            <div className="mt-10 flex w-full flex-col items-stretch sm:inline-flex sm:w-auto sm:items-start">
               <button
                 type="button"
                 onClick={scrollToApply}
@@ -166,7 +166,9 @@ export function Founders10Page() {
               >
                 Apply for Founders10
               </button>
-              <p className="mt-3 text-center text-xs text-stone-300/90">Takes about 2 minutes.</p>
+              <p className="mt-2.5 text-left text-xs text-stone-200/95">
+                Takes about 2 minutes.
+              </p>
             </div>
           </div>
         </section>
