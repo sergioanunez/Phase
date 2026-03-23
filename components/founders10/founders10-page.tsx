@@ -99,14 +99,15 @@ export function Founders10Page() {
             className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb]"
             aria-label="Phase home"
           >
-            <div className="relative h-8 w-24 sm:h-9 sm:w-28">
+            <div className="relative flex h-9 w-28 items-center sm:h-10 sm:w-32 md:h-[3.2rem] md:w-48 lg:h-[3.2rem] lg:w-52">
               <Image
                 src={logoImage}
                 alt=""
                 fill
                 className="object-contain object-left"
                 priority
-                sizes="112px"
+                quality={90}
+                sizes="(min-width: 1024px) 416px, (min-width: 768px) 384px, 256px"
               />
             </div>
           </Link>
