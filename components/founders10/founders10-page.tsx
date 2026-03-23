@@ -14,7 +14,7 @@ const SECTION = "mx-auto max-w-2xl px-4 sm:px-6 lg:max-w-3xl lg:px-8"
 const INPUT =
   "mt-2 block min-h-[48px] w-full rounded-lg border border-stone-300/90 bg-white px-4 text-base text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-400/40"
 const LABEL = "block text-sm font-medium text-stone-800"
-const FIELDSET = "space-y-3"
+const FIELDSET = "space-y-2"
 const RADIO_ROW =
   "flex min-h-[48px] cursor-pointer items-center gap-3 rounded-lg border border-stone-300/90 bg-white px-4 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-stone-400/50"
 
@@ -124,10 +124,24 @@ export function Founders10Page() {
       <main>
         {/* Hero */}
         <section
-          className="border-b border-stone-300/50 bg-[#141618] px-4 pb-14 pt-10 text-[#f4f3f0] sm:px-6 sm:pb-16 sm:pt-14 lg:px-8"
+          className="relative overflow-hidden border-b border-stone-300/60 bg-[#141618] px-4 pb-14 pt-10 text-[#f4f3f0] sm:px-6 sm:pb-16 sm:pt-14 lg:px-8"
           aria-labelledby="founders10-hero-title"
         >
-          <div className={`${SECTION} max-w-2xl`}>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/15 to-black/35"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_top,black,transparent_55%)]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg, rgba(184,168,130,0.30) 0, rgba(184,168,130,0.30) 1px, transparent 1px, transparent 24px), repeating-linear-gradient(90deg, rgba(184,168,130,0.22) 0, rgba(184,168,130,0.22) 1px, transparent 1px, transparent 24px)",
+            }}
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
+
+          <div className={`${SECTION} relative z-10 max-w-2xl`}>
             <p className="font-[family-name:var(--font-cormorant-garamond)] text-sm font-medium tracking-[0.2em] text-[#b8a882] uppercase">
               You&apos;ve been invited
             </p>
@@ -148,17 +162,18 @@ export function Founders10Page() {
               <button
                 type="button"
                 onClick={scrollToApply}
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-[#f4f3f0] px-6 text-base font-semibold text-[#141618] shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8a882] focus-visible:ring-offset-2 focus-visible:ring-offset-[#141618] sm:w-auto"
+                className="inline-flex min-h-[56px] w-full items-center justify-center rounded-xl bg-[#f4f3f0] px-8 text-base font-semibold text-[#141618] shadow-md transition hover:bg-white active:translate-y-[1px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8a882] focus-visible:ring-offset-2 focus-visible:ring-offset-[#141618] sm:w-auto"
               >
                 Apply for Founders10
               </button>
+              <p className="mt-3 text-center text-xs text-stone-300/90">Takes about 2 minutes.</p>
             </div>
           </div>
         </section>
 
         {/* What this is */}
         <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="what-this-is">
-          <h2 id="what-this-is" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+          <h2 id="what-this-is" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
             What this is
           </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
@@ -180,7 +195,7 @@ export function Founders10Page() {
 
         {/* Why only 10 */}
         <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="why-ten">
-          <h2 id="why-ten" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+          <h2 id="why-ten" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
             Why only 10
           </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
@@ -200,7 +215,7 @@ export function Founders10Page() {
 
         {/* What you get */}
         <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="what-you-get">
-          <h2 id="what-you-get" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+          <h2 id="what-you-get" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
             What you get
           </h2>
           <ul className="mt-8 space-y-4 text-base text-stone-800 sm:text-[17px]" role="list">
@@ -236,7 +251,7 @@ export function Founders10Page() {
 
         {/* Who this is for */}
         <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="who-for">
-          <h2 id="who-for" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+          <h2 id="who-for" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
             Who this is for
           </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
@@ -255,20 +270,6 @@ export function Founders10Page() {
 
         <div className="border-t border-stone-300/70" aria-hidden />
 
-        {/* Spots remaining */}
-        <section className={`${SECTION} py-12 sm:py-14`} aria-labelledby="spots-heading">
-          <div className="rounded-xl border border-stone-400/60 bg-white/60 px-5 py-6 sm:px-8 sm:py-7">
-            <h2 id="spots-heading" className="sr-only">
-              Availability
-            </h2>
-            <p className="text-center font-[family-name:var(--font-cormorant-garamond)] text-xl font-medium tracking-wide text-stone-800 sm:text-2xl">
-              {spots} of {FOUNDERS10_TOTAL_SPOTS} spots remaining
-            </p>
-          </div>
-        </section>
-
-        <div className="border-t border-stone-300/70" aria-hidden />
-
         {/* Repeat CTA */}
         <section className={`${SECTION} py-12 sm:py-14`}>
           <div className="text-center">
@@ -282,6 +283,21 @@ export function Founders10Page() {
           </div>
         </section>
 
+        {/* Spots remaining */}
+        <section className={`${SECTION} pt-2 pb-12 sm:pt-4 sm:pb-14`} aria-labelledby="spots-heading">
+          <div className="rounded-2xl border border-stone-300 bg-white px-5 py-6 shadow-sm sm:px-8 sm:py-7">
+            <h2 id="spots-heading" className="sr-only">
+              Availability
+            </h2>
+            <p className="text-center font-[family-name:var(--font-cormorant-garamond)] text-xl font-medium tracking-wide text-stone-900 sm:text-2xl">
+              {spots} of {FOUNDERS10_TOTAL_SPOTS} spots remaining
+            </p>
+            <p className="mt-2 text-center text-sm leading-relaxed text-stone-600">
+              We&apos;re onboarding builders one at a time.
+            </p>
+          </div>
+        </section>
+
         <div className="border-t border-stone-300/70" aria-hidden />
 
         {/* Application form */}
@@ -292,12 +308,15 @@ export function Founders10Page() {
         >
           <h2
             id="application-heading"
-            className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl"
+            className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl"
           >
             Application
           </h2>
           <p className="mt-3 text-base text-stone-600">
-            Short form — most people finish in under two minutes.
+            Short form — most builders finish in under 2 minutes.
+          </p>
+          <p className="mt-5 border-l-2 border-stone-300 pl-4 text-base font-medium text-stone-800">
+            Most builders don&apos;t need more software. They need control.
           </p>
 
           {success ? (
@@ -327,8 +346,8 @@ export function Founders10Page() {
               ) : null}
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="mt-10 space-y-8">
-              <div>
+            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+              <div className="space-y-0">
                 <label htmlFor="founders-name" className={LABEL}>
                   Name <span className="text-red-700">*</span>
                 </label>
@@ -344,7 +363,7 @@ export function Founders10Page() {
                 />
               </div>
 
-              <div>
+              <div className="space-y-0">
                 <label htmlFor="founders-company" className={LABEL}>
                   Company name <span className="text-red-700">*</span>
                 </label>
@@ -541,9 +560,9 @@ export function Founders10Page() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="min-h-[52px] w-full rounded-lg bg-stone-900 px-6 text-base font-semibold text-[#f4f3f0] shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 disabled:opacity-60"
+                  className="min-h-[52px] w-full rounded-xl bg-stone-900 px-6 text-base font-semibold text-[#f4f3f0] shadow-sm transition hover:bg-stone-800 active:translate-y-[1px] focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb] disabled:opacity-60"
                 >
-                  {loading ? "Sending…" : "Submit application"}
+                  {loading ? "Sending…" : "Apply now"}
                 </button>
               </div>
             </form>
