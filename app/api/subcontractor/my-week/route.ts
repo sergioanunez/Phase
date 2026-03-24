@@ -89,11 +89,18 @@ export async function GET(request: NextRequest) {
 
     const tasks = await prisma.homeTask.findMany({
       where: {
-        companyId: ctx.companyId,
-        homeId: { in: assignedHomeIds },
-        contractorId: ctx.contractorId,
-        scheduledDate: { gte: weekStart, lte: weekEnd },
-        status: { in: statusFilter },
+        AND: [
+          {
+            OR: [
+              { companyId: ctx.companyId },
+              { companyId: null, home: { companyId: ctx.companyId } },
+            ],
+          },
+          { homeId: { in: assignedHomeIds } },
+          { contractorId: ctx.contractorId },
+          { scheduledDate: { gte: weekStart, lte: weekEnd } },
+          { status: { in: statusFilter } },
+        ],
       },
       include: {
         home: {

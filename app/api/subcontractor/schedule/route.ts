@@ -129,18 +129,27 @@ export async function GET(request: NextRequest) {
 
     const tasks = await prisma.homeTask.findMany({
       where: {
-        companyId: { in: companyIds },
-        contractorId: { in: contractorIds },
-        scheduledDate: { gte: start, lte: end },
-        status: { notIn: ["Canceled"] },
+        AND: [
+          {
+            OR: [
+              { companyId: { in: companyIds } },
+              { companyId: null, home: { companyId: { in: companyIds } } },
+            ],
+          },
+          { contractorId: { in: contractorIds } },
+          { scheduledDate: { gte: start, lte: end } },
+          { status: { notIn: ["Canceled"] } },
+        ],
       },
       include: {
         company: { select: { id: true, name: true } },
         home: {
           select: {
             id: true,
+            companyId: true,
             addressOrLot: true,
             subdivision: { select: { name: true } },
+            company: { select: { id: true, name: true } },
           },
         },
         punchItems: {
@@ -164,8 +173,9 @@ export async function GET(request: NextRequest) {
         workItemId: task.id,
         status: taskStatusToEventStatus(task.status),
         contractorCompanyId: task.contractorId!,
-        tenantId: task.companyId!,
-        tenantName: task.company?.name ?? "",
+        tenantId: task.companyId ?? task.home.companyId ?? "",
+        tenantName:
+          task.company?.name ?? task.home.company?.name ?? "",
         notes: task.notes,
         updatedAt: task.updatedAt?.toISOString(),
         punchOpenCount: task.punchItems?.length ?? 0,

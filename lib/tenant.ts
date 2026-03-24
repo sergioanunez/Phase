@@ -104,8 +104,14 @@ export async function getAssignedHomeIdsForContractor(
   contractorId: string
 ): Promise<string[]> {
   const assignments = await prisma.contractorAssignment.findMany({
-    where: { companyId, contractorId },
+    where: {
+      contractorId,
+      OR: [
+        { companyId },
+        { companyId: null, home: { companyId } },
+      ],
+    },
     select: { homeId: true },
   })
-  return assignments.map((a) => a.homeId)
+  return [...new Set(assignments.map((a) => a.homeId))]
 }
