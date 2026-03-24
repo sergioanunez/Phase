@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
                 name: true,
                 optionalCategory: true,
                 sortOrder: true,
+                sequenceOrder: true,
                 isCriticalGate: true,
               },
             },
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
           name: t.templateItem.name,
           optionalCategory: t.templateItem.optionalCategory,
           sortOrder: t.templateItem.sortOrder,
+          sequenceOrder: t.templateItem.sequenceOrder ?? null,
         },
       })),
     }))
