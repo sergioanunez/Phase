@@ -116,7 +116,11 @@ export async function PATCH(
     const before = await prisma.punchItem.findUnique({
       where: { id: params.id },
       include: {
-        relatedHomeTask: true,
+        relatedHomeTask: {
+          include: {
+            home: { select: { id: true, addressOrLot: true, companyId: true } },
+          },
+        },
       },
     })
 
@@ -200,6 +204,25 @@ export async function PATCH(
       before,
       result
     )
+
+    const home = before.relatedHomeTask?.home
+    if (
+      data.status === "Closed" &&
+      before.status !== "Closed" &&
+      home?.companyId &&
+      before.relatedHomeTask
+    ) {
+      const { notifyPunchItemCompleted } = await import("@/lib/notificationRules")
+      await notifyPunchItemCompleted({
+        companyId: home.companyId,
+        homeId: home.id,
+        taskId: before.relatedHomeTask.id,
+        taskName: before.relatedHomeTask.nameSnapshot,
+        homeLabel: home.addressOrLot ?? "Home",
+        punchItemId: params.id,
+        punchTitle: result.title,
+      }).catch((err) => console.error("notifyPunchItemCompleted:", err))
+    }
 
     return NextResponse.json(result)
   } catch (error: any) {

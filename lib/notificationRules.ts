@@ -141,7 +141,7 @@ export async function notifyPunchItemsAddedToTask(params: {
 }) {
   const { companyId, homeId, taskId, taskName, homeLabel, punchCount, createdByUserId, targetRole = "ANY" } = params
   const countStr = punchCount != null && punchCount > 0 ? ` (${punchCount} ${punchCount === 1 ? "item" : "items"})` : ""
-  return upsertOrCreate({
+  const row = await upsertOrCreate({
     companyId,
     severity: "ATTENTION",
     category: "QUALITY",
@@ -154,6 +154,64 @@ export async function notifyPunchItemsAddedToTask(params: {
     targetRole,
     requiresAction: true,
   })
+  const { dispatchWebPushPunchlist } = await import("@/lib/web-push-dispatch")
+  dispatchWebPushPunchlist({
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    title: "Punchlist updated",
+    body: `New punch item${punchCount === 1 ? "" : "s"} on ${taskName} at ${homeLabel}.`,
+    dedupSuffix: `add:${taskId}`,
+  }).catch((err) => console.error("[push] notifyPunchItemsAddedToTask:", err))
+  return row
+}
+
+export async function notifyPunchItemCompleted(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  punchItemId: string
+  punchTitle: string
+  targetRole?: NotificationTargetRole
+}) {
+  const {
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    punchItemId,
+    punchTitle,
+    targetRole = "ANY",
+  } = params
+  const row = await upsertOrCreate({
+    companyId,
+    severity: "INFO",
+    category: "QUALITY",
+    title: "Punch item completed",
+    message: `"${punchTitle}" was marked complete on ${taskName} at ${homeLabel}.`,
+    entityType: "PUNCH",
+    entityId: punchItemId,
+    homeId,
+    targetRole,
+    requiresAction: false,
+  })
+  const { dispatchWebPushPunchlist } = await import("@/lib/web-push-dispatch")
+  dispatchWebPushPunchlist({
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    title: "Punchlist item completed",
+    body: `"${punchTitle}" completed on ${taskName} at ${homeLabel}.`,
+    dedupSuffix: `closed:${punchItemId}`,
+  }).catch((err) => console.error("[push] notifyPunchItemCompleted:", err))
+  return row
 }
 
 export async function notifyTaskOverdue(params: {
@@ -191,7 +249,7 @@ export async function notifySmsConfirmationReceived(params: {
   targetRole?: NotificationTargetRole
 }) {
   const { companyId, homeId, taskId, taskName, homeLabel, confirmed, targetRole = "ANY" } = params
-  return upsertOrCreate({
+  const row = await upsertOrCreate({
     companyId,
     severity: "INFO",
     category: "CONTRACTOR",
@@ -205,6 +263,16 @@ export async function notifySmsConfirmationReceived(params: {
     targetRole,
     requiresAction: false,
   })
+  const { dispatchWebPushSubcontractorReply } = await import("@/lib/web-push-dispatch")
+  dispatchWebPushSubcontractorReply({
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    confirmed,
+  }).catch((err) => console.error("[push] notifySmsConfirmationReceived:", err))
+  return row
 }
 
 export async function notifyConfirmationMissing(params: {

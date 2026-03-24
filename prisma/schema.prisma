@@ -245,6 +245,8 @@ model Company {
   notifications Notification[]
   subscriptionEventLogs SubscriptionEventLog[]
   activityEvents ActivityEvent[]
+  webPushSubscriptions WebPushSubscription[]
+  userWebPushPreferences UserWebPushPreference[]
 
   @@index([pricingTier])
   @@index([status])
@@ -327,6 +329,8 @@ model User {
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
   importBatchesCreated ImportBatch[]  @relation("ImportBatchesCreatedBy")
   tasksManuallyConfirmed HomeTask[]    @relation("TaskManualConfirm")
+  webPushSubscriptions WebPushSubscription[]
+  webPushPrefs         UserWebPushPreference[]
 
   @@index([companyId])
   @@index([email])
@@ -869,5 +873,50 @@ model Notification {
   @@index([homeId])
   @@index([targetUserId])
   @@index([companyId, entityType, entityId, category, severity])
+  @@index([createdAt])
+}
+
+/// Browser Web Push subscription (VAPID). Scoped to user + tenant.
+model WebPushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+
+  @@index([userId, companyId])
+  @@index([companyId])
+}
+
+/// Per-tenant push category toggles for a user (browser push only).
+model UserWebPushPreference {
+  id                       String   @id @default(cuid())
+  userId                   String
+  companyId                String
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enabled                  Boolean  @default(true)
+  notifySubcontractorReply Boolean  @default(true)
+  notifyFlowAlerts         Boolean  @default(true)
+  notifyPunchlist          Boolean  @default(true)
+  updatedAt                DateTime @updatedAt
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+/// Short-lived keys to avoid duplicate operational pushes (e.g. Flow fingerprint).
+model WebPushDedup {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  createdAt DateTime @default(now())
+
   @@index([createdAt])
 }

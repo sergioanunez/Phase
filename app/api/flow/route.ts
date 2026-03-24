@@ -36,6 +36,19 @@ export async function GET(request: NextRequest) {
       search,
     })
 
+    const attention = result.actions.filter(
+      (a) =>
+        a.isOverdue ||
+        (typeof a.slackWorkingDays === "number" && a.slackWorkingDays < 0)
+    )
+    const attentionHomeIds = new Set(attention.map((a) => a.homeId))
+    const { dispatchWebPushFlowAttention } = await import("@/lib/web-push-dispatch")
+    dispatchWebPushFlowAttention({
+      companyId: ctx.companyId,
+      attentionTaskIds: attention.map((a) => a.taskId),
+      attentionHomeCount: attentionHomeIds.size,
+    }).catch((err) => console.error("[push] flow attention:", err))
+
     return NextResponse.json({
       actions: result.actions,
       circularWarning: result.circularWarning,

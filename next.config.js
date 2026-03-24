@@ -3,6 +3,8 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  /** Prepends worker/index.js for push + notification click handling */
+  customWorkerSrc: "worker",
 })
 
 /** @type {import('next').NextConfig} */
