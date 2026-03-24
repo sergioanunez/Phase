@@ -78,6 +78,7 @@ enum ActivityEventType {
   task_completed
   task_reported_complete
   task_started
+  task_manually_confirmed
   sms_sent
   sms_confirmed
   sms_declined
