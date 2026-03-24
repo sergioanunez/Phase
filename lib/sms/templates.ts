@@ -1,22 +1,21 @@
 import { format } from "date-fns"
-import {
-  isWhiteLabelExperienceEnabled,
-  type WhiteLabelSubscriptionLike,
-} from "@/lib/branding/whiteLabel"
+import type { WhiteLabelSubscriptionLike } from "@/lib/branding/whiteLabel"
 
 export type SmsBrandTenant = {
   brandAppName?: string | null
   name?: string | null
 } | null | undefined
 
+/**
+ * Builder-facing SMS (schedule confirm, cancel, punchlist) uses the tenant company name when known.
+ * Falls back to "Phase" only when there is no tenant context (e.g. missing company on task/home).
+ */
 export function getBrand(
   tenant: SmsBrandTenant,
-  subscription?: WhiteLabelSubscriptionLike | null
+  _subscription?: WhiteLabelSubscriptionLike | null
 ): string {
   const displayName = (tenant?.name || tenant?.brandAppName || "").trim()
-  if (subscription && isWhiteLabelExperienceEnabled(subscription) && displayName) {
-    return displayName
-  }
+  if (displayName) return displayName
   return "Phase"
 }
 
@@ -111,7 +110,7 @@ Due: ${dueStr}
 ${itemsText}
 
 ...
-More items in Phase.
+More items in ${brand}.
 ${linkBlock}STOP to opt out. HELP for help.`
   }
 

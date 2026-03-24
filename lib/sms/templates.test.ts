@@ -28,13 +28,13 @@ describe("SMS templates - brand and date", () => {
     ).toBe("Cullers Homes")
   })
 
-  it("getBrand falls back to Phase when not white label", () => {
+  it("getBrand uses tenant name for any active company (not only white label)", () => {
     const inactiveSub = makeSub({
       companyStatus: "ACTIVE",
       trialEndsAt: new Date("2026-03-01"),
       whiteLabelAddOn: false,
     })
-    expect(getBrand({ name: "Cullers Homes" }, inactiveSub)).toBe("Phase")
+    expect(getBrand({ name: "Cullers Homes" }, inactiveSub)).toBe("Cullers Homes")
     expect(getBrand(null, inactiveSub)).toBe("Phase")
   })
 

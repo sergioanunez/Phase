@@ -45,6 +45,24 @@ async function getSmsSenderName(companyId: string | null): Promise<string> {
   return "Phase"
 }
 
+/** Resolve builder company for SMS when HomeTask.companyId may be null (use home.companyId). */
+async function resolveCompanyIdForHomeTaskSms(homeTaskId: string): Promise<{
+  effectiveCompanyId: string | null
+  homeId: string | null
+}> {
+  const row = await prisma.homeTask.findUnique({
+    where: { id: homeTaskId },
+    select: {
+      companyId: true,
+      homeId: true,
+      home: { select: { companyId: true } },
+    },
+  })
+  if (!row) return { effectiveCompanyId: null, homeId: null }
+  const effective = row.companyId ?? row.home?.companyId ?? null
+  return { effectiveCompanyId: effective, homeId: row.homeId }
+}
+
 async function getSmsBrandContext(
   companyId: string | null
 ): Promise<{ tenant: SmsBrandTenant; subscription: WhiteLabelSubscriptionLike | null }> {
@@ -137,14 +155,8 @@ export async function sendConfirmationSMS(
   }
 
   const confirmationCode = generateConfirmationCode()
-  const taskRow = await prisma.homeTask.findUnique({
-    where: { id: homeTaskId },
-    select: {
-      companyId: true,
-      homeId: true,
-    },
-  })
-  const { tenant, subscription } = await getSmsBrandContext(taskRow?.companyId ?? null)
+  const { effectiveCompanyId, homeId } = await resolveCompanyIdForHomeTaskSms(homeTaskId)
+  const { tenant, subscription } = await getSmsBrandContext(effectiveCompanyId)
 
   const message = buildScheduledSms({
     tenant,
@@ -165,14 +177,14 @@ export async function sendConfirmationSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskRow?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
         messageType: "scheduled",
-        homeId: taskRow?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: homeTaskId,
         confirmationCode: confirmationCode,
       },
@@ -194,14 +206,14 @@ export async function sendConfirmationSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskRow?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
         messageType: "scheduled",
-        homeId: taskRow?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: homeTaskId,
         confirmationCode: confirmationCode,
       },
@@ -243,11 +255,8 @@ export async function sendCancellationSMS(
     }
   }
 
-  const taskForSender = await prisma.homeTask.findUnique({
-    where: { id: homeTaskId },
-    select: { companyId: true, homeId: true },
-  })
-  const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
+  const { effectiveCompanyId, homeId } = await resolveCompanyIdForHomeTaskSms(homeTaskId)
+  const { tenant, subscription } = await getSmsBrandContext(effectiveCompanyId)
 
   const message = buildCancelledSms({
     tenant,
@@ -268,14 +277,14 @@ export async function sendCancellationSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskForSender?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
         messageType: "cancelled",
-        homeId: taskForSender?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: homeTaskId,
       },
     })
@@ -285,14 +294,14 @@ export async function sendCancellationSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskForSender?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
         messageType: "cancelled",
-        homeId: taskForSender?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: homeTaskId,
       },
     })
@@ -565,11 +574,8 @@ export async function sendPunchListSMS(
     }
   }
 
-  const taskForSender = await prisma.homeTask.findUnique({
-    where: { id: taskId },
-    select: { companyId: true, homeId: true },
-  })
-  const { tenant, subscription } = await getSmsBrandContext(taskForSender?.companyId ?? null)
+  const { effectiveCompanyId, homeId } = await resolveCompanyIdForHomeTaskSms(taskId)
+  const { tenant, subscription } = await getSmsBrandContext(effectiveCompanyId)
 
   const now = new Date()
   const dueDates = punchItems
@@ -597,14 +603,14 @@ export async function sendPunchListSMS(
     // Store outbound SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskForSender?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Sent",
         messageType: "punchlist",
-        homeId: taskForSender?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: taskId,
       },
     })
@@ -614,14 +620,14 @@ export async function sendPunchListSMS(
     // Store failed SMS
     await prisma.smsMessage.create({
       data: {
-        companyId: taskForSender?.companyId ?? undefined,
+        companyId: effectiveCompanyId ?? undefined,
         direction: "Outbound",
         to: normalizedTo,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: message,
         status: "Failed",
         messageType: "punchlist",
-        homeId: taskForSender?.homeId ?? undefined,
+        homeId: homeId ?? undefined,
         homeTaskId: taskId,
       },
     })
