@@ -5,7 +5,8 @@
  */
 
 export type WorkTemplateDisplaySortKey = {
-  sequenceOrder: number | null
+  /** Omitted on older API payloads until refreshed; treat like null for ordering. */
+  sequenceOrder?: number | null
   optionalCategory: string | null
   sortOrder: number
   name: string
