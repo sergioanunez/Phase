@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/flow-push",
-      "schedule": "15 * * * *"
+      "schedule": "15 13 * * *"
     }
   ]
 }
