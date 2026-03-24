@@ -5,8 +5,12 @@ import { Bell, BellOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/** VAPID key for PushManager; must use a real ArrayBuffer for TS DOM typings (BufferSource). */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+/**
+ * Decodes VAPID public key for PushManager.subscribe.
+ * DOM lib types require BufferSource with ArrayBuffer backing; TS still widens to ArrayBufferLike
+ * on some versions — assert for compatibility with strict PushSubscriptionOptions typing.
+ */
+function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
   const rawData = window.atob(base64)
@@ -15,7 +19,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i)
   }
-  return outputArray
+  return outputArray as BufferSource
 }
 
 function supportsWebPush(): boolean {
