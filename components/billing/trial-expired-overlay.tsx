@@ -53,8 +53,9 @@ export function TrialExpiredOverlay() {
       setBilling(null)
       return
     }
-    if (status !== "authenticated") return
-    if (!session?.user || (session.user as { role?: string }).role === "SUPER_ADMIN") return
+    if (status !== "authenticated" || !session?.user) return
+    const role = (session.user as { role?: string }).role
+    if (role === "SUPER_ADMIN" || role === "Subcontractor") return
 
     fetch("/api/billing/status", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : null))
@@ -96,7 +97,8 @@ export function TrialExpiredOverlay() {
     dismissed ||
     billing.subscriptionStatus === "active" ||
     !session?.user ||
-    (session.user as { role?: string }).role === "SUPER_ADMIN"
+    (session.user as { role?: string }).role === "SUPER_ADMIN" ||
+    (session.user as { role?: string }).role === "Subcontractor"
   ) {
     return null
   }

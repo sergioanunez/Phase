@@ -8,11 +8,15 @@ import { useBillingStatus } from "@/lib/billing/useBillingStatus"
 import { getTrialBannerMiddleText } from "@/lib/billing/trial-copy"
 
 export function TrialBanner() {
-  const { data: session, status } = useSession()
+  const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
   const { billing, error: billingError } = useBillingStatus()
   const [hidden, setHidden] = useState(false)
+
+  const userRole = (session?.user as { role?: string } | undefined)?.role
+  /** Builders pay / manage trial; subcontractors are guests of the tenant. */
+  const showTenantBillingBanners = userRole !== "SUPER_ADMIN" && userRole !== "Subcontractor"
 
   useEffect(() => {
     if (!billing?.tenantId) return
@@ -30,7 +34,7 @@ export function TrialBanner() {
   const showRestoreTrial =
     pathname &&
     !pathname.startsWith("/super-admin") &&
-    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    showTenantBillingBanners &&
     !hidden &&
     billing &&
     billing.canRestoreTrial
@@ -38,7 +42,7 @@ export function TrialBanner() {
   const showBillingError =
     pathname &&
     !pathname.startsWith("/super-admin") &&
-    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    showTenantBillingBanners &&
     !hidden &&
     billingError &&
     !billing
@@ -46,7 +50,7 @@ export function TrialBanner() {
   const showTrialBanner =
     pathname &&
     !pathname.startsWith("/super-admin") &&
-    (session?.user as { role?: string } | undefined)?.role !== "SUPER_ADMIN" &&
+    showTenantBillingBanners &&
     !hidden &&
     billing &&
     ((billing.isTrialing && !billing.trialExpired) || (billing.trialExpired && !billing.subscriptionActive))
