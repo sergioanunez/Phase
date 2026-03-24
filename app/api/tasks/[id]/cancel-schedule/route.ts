@@ -125,6 +125,9 @@ export async function POST(
         scheduledDate: null,
         contractorId: null,
         status: "Unscheduled",
+        confirmedAt: null,
+        confirmedByUserId: null,
+        confirmationSource: null,
       },
       include: {
         contractor: true,

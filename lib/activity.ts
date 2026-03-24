@@ -90,6 +90,25 @@ export async function createTaskStartedEvent(params: {
   })
 }
 
+export async function createTaskManuallyConfirmedEvent(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  actorName?: string | null
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "task_manually_confirmed",
+    title: "Task manually confirmed",
+    description: params.taskName,
+    actorName: params.actorName,
+    metadata: { confirmationSource: "manual" },
+  })
+}
+
 export async function createSmsSentEvent(params: {
   companyId: string
   homeId: string

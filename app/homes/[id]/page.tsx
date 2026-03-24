@@ -30,6 +30,8 @@ interface HomeTask {
   status: TaskStatus
   scheduledDate: string | null
   completedAt: string | null
+  /** Populated when status is Confirmed (manual vs SMS). */
+  confirmationSource?: "Manual" | "Sms" | null
   contractorId: string | null
   contractor: {
     id: string

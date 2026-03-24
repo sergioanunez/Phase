@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,8 @@ function formatDisplayDate(iso: string): string {
   return format(new Date(iso + "T12:00:00"), "MMM d, yyyy")
 }
 
+const BUILDER_ROLES_MANUAL_CONFIRM = new Set(["Admin", "Manager", "Superintendent"])
+
 export interface TaskActionSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -43,11 +46,14 @@ export function TaskActionSheet({
   flowAction,
   onSuccess,
 }: TaskActionSheetProps) {
+  const { data: session } = useSession()
+  const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
   const [task, setTask] = useState<TaskData | null>(null)
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [scheduledDate, setScheduledDate] = useState("")
   const [contractorId, setContractorId] = useState("")
+  const [markConfirmedManual, setMarkConfirmedManual] = useState(false)
   const [contractors, setContractors] = useState<Array<{ id: string; companyName: string }>>([])
 
   useEffect(() => {
@@ -132,6 +138,7 @@ export function TaskActionSheet({
       if (res.ok) {
         const updated = await res.json()
         setTask(updated)
+        setMarkConfirmedManual(false)
         onSuccess()
       } else {
         const data = await res.json()
@@ -315,6 +322,36 @@ export function TaskActionSheet({
                       ))}
                     </select>
                   </div>
+                  {canManualConfirm &&
+                    (scheduledDate || task.scheduledDate) &&
+                    task.status !== "Completed" &&
+                    task.status !== "Canceled" && (
+                      <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+                        {task.status === "Confirmed" ? (
+                          <p className="text-xs text-foreground">
+                            {task.confirmationSource === "Manual" && "Confirmed manually"}
+                            {task.confirmationSource === "Sms" && "Confirmed via SMS"}
+                            {task.confirmationSource == null && "Confirmed"}
+                          </p>
+                        ) : (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 rounded border-input"
+                              checked={markConfirmedManual}
+                              onChange={(e) => setMarkConfirmedManual(e.target.checked)}
+                              disabled={!!actionLoading}
+                            />
+                            <span>
+                              <span className="text-xs font-medium">Mark as confirmed</span>
+                              <span className="block text-[11px] text-muted-foreground mt-0.5">
+                                Use this if the trade already confirmed outside the system.
+                              </span>
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                    )}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -334,7 +371,12 @@ export function TaskActionSheet({
                         size="sm"
                         variant="outline"
                         onClick={handleSendConfirmation}
-                        disabled={!!actionLoading}
+                        disabled={!!actionLoading || markConfirmedManual}
+                        title={
+                          markConfirmedManual
+                            ? "Uncheck Mark as confirmed to send an SMS request instead."
+                            : undefined
+                        }
                       >
                         {actionLoading === "confirm" ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

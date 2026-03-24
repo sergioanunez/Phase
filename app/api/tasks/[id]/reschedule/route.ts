@@ -103,6 +103,9 @@ export async function POST(
     // If task was Confirmed, change status to Scheduled so they can send a new confirmation
     if (before.status === "Confirmed") {
       updateData.status = "Scheduled"
+      updateData.confirmedAt = null
+      updateData.confirmedByUserId = null
+      updateData.confirmationSource = null
     }
 
     // Update contractor if provided

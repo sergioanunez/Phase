@@ -105,12 +105,16 @@ export async function GET(request: NextRequest) {
           const beforeStatus = before.status
           const afterStatus = after.status
 
-          if (beforeStatus !== afterStatus) {
+            if (beforeStatus !== afterStatus) {
             if (afterStatus === "Scheduled" && beforeStatus === "Unscheduled") {
               action = "Scheduled"
               actionType = "scheduled"
-            } else if (afterStatus === "Confirmed" && beforeStatus === "PendingConfirm") {
-              action = "Confirmed"
+            } else if (afterStatus === "Confirmed") {
+              if (after.confirmationSource === "Manual") {
+                action = "Confirmed manually"
+              } else {
+                action = "Confirmed"
+              }
               actionType = "confirmed"
             } else if (afterStatus === "Completed") {
               action = "Completed"

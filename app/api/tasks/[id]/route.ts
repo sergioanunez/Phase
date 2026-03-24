@@ -26,11 +26,13 @@ const updateTaskSchema = z.object({
   contractorId: z.string().optional().nullable(),
   status: z.nativeEnum(TaskStatus).optional(),
   notes: z.string().optional().nullable(),
+  /** When true (with scheduled date), set status to Confirmed and record manual confirmation metadata. */
+  confirmManually: z.boolean().optional(),
 })
 
 const validTransitions: Record<TaskStatus, TaskStatus[]> = {
   Unscheduled: ["Scheduled", "Canceled"],
-  Scheduled: ["PendingConfirm", "Unscheduled", "Canceled", "Completed"],
+  Scheduled: ["PendingConfirm", "Confirmed", "Unscheduled", "Canceled", "Completed"],
   PendingConfirm: ["Confirmed", "Declined", "Unscheduled", "Canceled", "Completed"],
   Confirmed: ["InProgress", "Completed", "Unscheduled", "Canceled"],
   Declined: ["Unscheduled", "Canceled"],
@@ -305,6 +307,9 @@ export async function PATCH(
       // Auto-set status to Unscheduled if date is cleared
       if (!data.scheduledDate && before.scheduledDate && isValidTransition(before.status, "Unscheduled")) {
         updateData.status = "Unscheduled"
+        updateData.confirmedAt = null
+        updateData.confirmedByUserId = null
+        updateData.confirmationSource = null
       }
     }
     
@@ -315,6 +320,9 @@ export async function PATCH(
     if (finalScheduledDate === null && before.status === "Scheduled" && !updateData.status) {
       if (isValidTransition(before.status, "Unscheduled")) {
         updateData.status = "Unscheduled"
+        updateData.confirmedAt = null
+        updateData.confirmedByUserId = null
+        updateData.confirmationSource = null
       }
     }
     if (data.contractorId !== undefined) {
@@ -360,6 +368,16 @@ export async function PATCH(
       }
       updateData.status = data.status
 
+      if (
+        before.status === "Confirmed" &&
+        data.status !== "Confirmed" &&
+        (data.status === "Unscheduled" || data.status === "Canceled")
+      ) {
+        updateData.confirmedAt = null
+        updateData.confirmedByUserId = null
+        updateData.confirmationSource = null
+      }
+
       // Set startedAt when entering InProgress (if not already set)
       if (data.status === "InProgress" && !before.startedAt) {
         updateData.startedAt = new Date()
@@ -371,6 +389,49 @@ export async function PATCH(
       // Clear completedAt if status is changed from Completed to something else
       if (before.status === "Completed" && data.status !== "Completed") {
         updateData.completedAt = null
+      }
+    }
+
+    let shouldLogManualConfirm = false
+    if (data.confirmManually === true) {
+      if (data.status !== undefined) {
+        return NextResponse.json(
+          { error: "Cannot combine confirmManually with status in the same request." },
+          { status: 400 }
+        )
+      }
+      const finalScheduledForConfirm =
+        updateData.scheduledDate !== undefined ? updateData.scheduledDate : before.scheduledDate
+      if (!finalScheduledForConfirm) {
+        return NextResponse.json(
+          { error: "Scheduled date is required to mark confirmed" },
+          { status: 400 }
+        )
+      }
+      if (updateData.scheduledDate === null) {
+        return NextResponse.json(
+          { error: "Cannot mark confirmed while removing the scheduled date" },
+          { status: 400 }
+        )
+      }
+
+      if (before.status === "Confirmed") {
+        // Idempotent: keep existing confirmation (e.g. SMS); do not overwrite source or re-log.
+      } else if (
+        before.status === "Unscheduled" ||
+        before.status === "Scheduled" ||
+        before.status === "PendingConfirm"
+      ) {
+        updateData.status = "Confirmed"
+        updateData.confirmedAt = new Date()
+        updateData.confirmedByUserId = ctx.userId
+        updateData.confirmationSource = "Manual"
+        shouldLogManualConfirm = true
+      } else {
+        return NextResponse.json(
+          { error: `Cannot mark confirmed from status ${before.status}` },
+          { status: 400 }
+        )
       }
     }
 
@@ -410,6 +471,25 @@ export async function PATCH(
     }
 
     await createAuditLog(ctx.userId, "HomeTask", params.id, "UPDATE", before, after, ctx.companyId)
+
+    if (shouldLogManualConfirm) {
+      const logCompanyId = after.companyId ?? ctx.companyId
+      if (logCompanyId) {
+        const actor = await prisma.user.findUnique({
+          where: { id: ctx.userId },
+          select: { name: true },
+        })
+        const { createTaskManuallyConfirmedEvent } = await import("@/lib/activity")
+        await createTaskManuallyConfirmedEvent({
+          companyId: logCompanyId,
+          homeId: after.homeId,
+          taskId: params.id,
+          taskName: after.nameSnapshot,
+          actorName: actor?.name ?? null,
+        })
+      }
+    }
+
     // #region agent log
     debugLog(logPayload("afterAudit"))
     fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logPayload("afterAudit")) }).catch(() => {})

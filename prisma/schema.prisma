@@ -45,6 +45,12 @@ enum TaskStatus {
   Canceled
 }
 
+/// How a task reached Confirmed status (manual builder action vs contractor SMS).
+enum TaskConfirmationSource {
+  Manual
+  Sms
+}
+
 enum SmsDirection {
   Inbound
   Outbound
@@ -319,6 +325,7 @@ model User {
   invites             UserInvite[]     @relation("UserInvites")
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
   importBatchesCreated ImportBatch[]  @relation("ImportBatchesCreatedBy")
+  tasksManuallyConfirmed HomeTask[]    @relation("TaskManualConfirm")
 
   @@index([companyId])
   @@index([email])
@@ -519,6 +526,11 @@ model HomeTask {
   contractor           Contractor?      @relation(fields: [contractorId], references: [id])
   status               TaskStatus       @default(Unscheduled)
   lastConfirmationAt   DateTime?
+  /// Set when status becomes Confirmed (SMS or manual).
+  confirmedAt          DateTime?
+  confirmedByUserId    String?
+  confirmedBy          User?            @relation("TaskManualConfirm", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmationSource   TaskConfirmationSource?
   /// When work on this task actually started (field execution).
   startedAt            DateTime?
   completedAt          DateTime?
@@ -547,6 +559,7 @@ model HomeTask {
   @@index([scheduledDate])
   @@index([templateItemId])
   @@index([hasOpenPunch])
+  @@index([confirmedByUserId])
 }
 
 /// Template-level dependencies between work items (DAG).

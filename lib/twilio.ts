@@ -487,7 +487,12 @@ export async function handleInboundSMS(
   if (isYes) {
     await prisma.homeTask.update({
       where: { id: homeTask.id },
-      data: { status: "Confirmed" },
+      data: {
+        status: "Confirmed",
+        confirmedAt: new Date(),
+        confirmedByUserId: null,
+        confirmationSource: "Sms",
+      },
     })
     if (process.env.NODE_ENV !== "test") {
       console.log("[sms] task confirmed", { taskId: homeTask.id, from: fromDigits10 })

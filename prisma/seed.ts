@@ -354,6 +354,8 @@ async function main() {
         status: "Confirmed",
         scheduledDate: new Date(),
         contractorId: contractor1.id,
+        confirmedAt: new Date(),
+        confirmationSource: "Sms",
       },
     })
 

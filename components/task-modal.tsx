@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ interface Task {
     companyName: string
   } | null
   notes: string | null
+  confirmationSource?: "Manual" | "Sms" | null
 }
 
 interface TaskModalProps {
@@ -41,13 +43,18 @@ interface TaskModalProps {
   onUpdate: () => void
 }
 
+const BUILDER_ROLES_MANUAL_CONFIRM = new Set(["Admin", "Manager", "Superintendent"])
+
 export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps) {
+  const { data: session } = useSession()
+  const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [scheduledDate, setScheduledDate] = useState(
     task.scheduledDate ? format(new Date(task.scheduledDate), "yyyy-MM-dd") : ""
   )
   const [contractorId, setContractorId] = useState(task.contractorId || "")
   const [notes, setNotes] = useState(task.notes || "")
+  const [markConfirmedManual, setMarkConfirmedManual] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sendingSMS, setSendingSMS] = useState(false)
   const [currentTask, setCurrentTask] = useState(task)
@@ -130,6 +137,14 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
       if (notes !== undefined) {
         updateData.notes = notes
       }
+      if (
+        canManualConfirm &&
+        markConfirmedManual &&
+        currentTask.status !== "Confirmed" &&
+        currentTask.status !== "Completed"
+      ) {
+        updateData.confirmManually = true
+      }
 
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
@@ -185,14 +200,23 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
         (currentTask.contractorId || "") !== effectiveContractorId
 
       if (needsSave) {
+        const patchBody: Record<string, unknown> = {
+          scheduledDate: new Date(effectiveScheduledDate).toISOString(),
+          contractorId: effectiveContractorId,
+          notes: notes !== undefined ? notes : currentTask.notes,
+        }
+        if (
+          canManualConfirm &&
+          markConfirmedManual &&
+          currentTask.status !== "Confirmed" &&
+          currentTask.status !== "Completed"
+        ) {
+          patchBody.confirmManually = true
+        }
         const patchRes = await fetch(`/api/tasks/${currentTask.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            scheduledDate: new Date(effectiveScheduledDate).toISOString(),
-            contractorId: effectiveContractorId,
-            notes: notes !== undefined ? notes : currentTask.notes,
-          }),
+          body: JSON.stringify(patchBody),
         })
         if (!patchRes.ok) {
           const data = await patchRes.json()
@@ -310,8 +334,17 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{currentTask.nameSnapshot}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="flex flex-col items-start gap-1">
             <Badge>{currentTask.status}</Badge>
+            {currentTask.status === "Confirmed" &&
+              (currentTask.confirmationSource === "Manual" ||
+                currentTask.confirmationSource === "Sms") && (
+                <span className="text-xs text-muted-foreground font-normal">
+                  {currentTask.confirmationSource === "Manual"
+                    ? "Confirmed manually"
+                    : "Confirmed via SMS"}
+                </span>
+              )}
           </DialogDescription>
         </DialogHeader>
 
@@ -356,17 +389,53 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
             />
           </div>
 
+          {canManualConfirm &&
+            (scheduledDate || currentTask.scheduledDate) &&
+            currentTask.status !== "Completed" &&
+            currentTask.status !== "Canceled" && (
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-2">
+                {currentTask.status === "Confirmed" ? (
+                  <p className="text-sm text-foreground">
+                    {currentTask.confirmationSource === "Manual" && "Confirmed manually"}
+                    {currentTask.confirmationSource === "Sms" && "Confirmed via SMS"}
+                    {currentTask.confirmationSource == null &&
+                      "Confirmed"}
+                  </p>
+                ) : (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-1 rounded border-input"
+                      checked={markConfirmedManual}
+                      onChange={(e) => setMarkConfirmedManual(e.target.checked)}
+                      disabled={loading}
+                    />
+                    <span>
+                      <span className="text-sm font-medium">Mark as confirmed</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Use this if the trade already confirmed outside the system.
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+
           {/* Request confirmation: show as soon as date + contractor are set (form or saved) */}
           {(scheduledDate || currentTask.scheduledDate) && (contractorId || currentTask.contractorId) && (
             <div>
               <Button
                 type="button"
                 onClick={handleSendConfirmation}
-                disabled={sendingSMS}
+                disabled={sendingSMS || markConfirmedManual}
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                title="Save schedule and send a text to the vendor’s default contact"
+                title={
+                  markConfirmedManual
+                    ? "Uncheck Mark as confirmed to send an SMS request instead."
+                    : "Save schedule and send a text to the vendor’s default contact"
+                }
               >
                 {sendingSMS ? (
                   <Loader2 className="h-4 w-4 animate-spin shrink-0" />
