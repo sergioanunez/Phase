@@ -25,6 +25,7 @@ type TaskData = {
   contractor: { id: string; companyName: string } | null
   notes: string | null
   orderedAt?: string | null
+  confirmationSource?: "Manual" | "Sms" | null
 }
 
 function formatDisplayDate(iso: string): string {
