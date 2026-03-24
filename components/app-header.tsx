@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Bell, ArrowLeft } from "lucide-react"
 import logoImage from "../public/logo.png"
 import { UserMenu } from "@/components/user-menu"
@@ -22,12 +23,17 @@ type Branding = {
 
 export function AppHeader() {
   const pathname = usePathname()
+  const { data: session } = useSession()
   const [branding, setBranding] = useState<Branding>(null)
   const [notificationCount, setNotificationCount] = useState<number>(0)
 
-  // Contractor (subcontractor) dashboard should use Phase branding,
-  // regardless of tenant white-label settings.
-  const isContractorScheduleRoute = pathname?.startsWith("/my-schedule")
+  // Subcontractor experience: Phase branding only; never builder white-label logo.
+  const isSubcontractor =
+    session?.user?.role === "Subcontractor"
+  // Contractor schedule / my-week routes also skip tenant branding (pathname guard before session hydrates).
+  const isContractorScheduleRoute =
+    pathname?.startsWith("/my-schedule") || pathname?.startsWith("/my-week")
+  const usePhaseBrandingOnly = isSubcontractor || isContractorScheduleRoute
 
   useEffect(() => {
     if (
@@ -37,7 +43,7 @@ export function AppHeader() {
       pathname === "/founders10" ||
       pathname?.startsWith("/super-admin") ||
       pathname?.startsWith("/punchlist") ||
-      isContractorScheduleRoute
+      usePhaseBrandingOnly
     )
       return
     fetch("/api/company/branding")
@@ -57,7 +63,7 @@ export function AppHeader() {
           })
       )
       .catch(() => setBranding(null))
-  }, [pathname, isContractorScheduleRoute])
+  }, [pathname, usePhaseBrandingOnly])
 
   useEffect(() => {
     if (
@@ -87,11 +93,15 @@ export function AppHeader() {
   }
 
   const useCustomLogo =
-    !isContractorScheduleRoute && branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
+    !usePhaseBrandingOnly && branding?.pricingTier === "WHITE_LABEL" && branding?.logoUrl
   const logoAlt = useCustomLogo && branding?.brandAppName ? branding.brandAppName : "Phase"
-  const logoHref = pathname === "/start-trial" ? "/" : "/homes"
+  const logoHref = isSubcontractor
+    ? "/my-schedule"
+    : pathname === "/start-trial"
+      ? "/"
+      : "/homes"
 
-  const beltColor = isContractorScheduleRoute
+  const beltColor = usePhaseBrandingOnly
     ? "#ffffff"
     : getTenantBrandColor({
         whiteLabelEnabled: branding?.whiteLabelExperienceEnabled,
