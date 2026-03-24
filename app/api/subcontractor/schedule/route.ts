@@ -102,19 +102,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Load all subcontractor memberships for this user
-    const memberships = await prisma.companyMembership.findMany({
-      where: {
-        userId: user.id,
-        role: "Subcontractor",
-        contractorId: { not: null },
-      },
-      include: {
-        company: { select: { id: true, name: true } },
-      },
-    })
+    const { listSubcontractorTenantsForUser } = await import(
+      "@/lib/subcontractor-tenants"
+    )
+    const tenantRows = await listSubcontractorTenantsForUser(user.id)
 
-    if (memberships.length === 0) {
+    if (tenantRows.length === 0) {
       return NextResponse.json(
         { error: "No subcontractor memberships configured" },
         { status: 400 }
@@ -122,19 +115,17 @@ export async function GET(request: NextRequest) {
     }
 
     const companyFilter = searchParams.get("companyId")
-    const effectiveMemberships =
+    const effectiveTenants =
       companyFilter && companyFilter !== "all"
-        ? memberships.filter((m) => m.company.id === companyFilter)
-        : memberships
+        ? tenantRows.filter((t) => t.companyId === companyFilter)
+        : tenantRows
 
-    if (effectiveMemberships.length === 0) {
+    if (effectiveTenants.length === 0) {
       return NextResponse.json({ events: [], contractorCompanyName: null })
     }
 
-    const companyIds = effectiveMemberships.map((m) => m.company.id)
-    const contractorIds = effectiveMemberships
-      .map((m) => m.contractorId)
-      .filter((id): id is string => !!id)
+    const companyIds = effectiveTenants.map((t) => t.companyId)
+    const contractorIds = effectiveTenants.map((t) => t.contractorId)
 
     const tasks = await prisma.homeTask.findMany({
       where: {

@@ -9,30 +9,14 @@ export const fetchCache = "force-no-store"
 export async function GET(_req: NextRequest) {
   try {
     if (isBuildTime) return buildGuardResponse()
-    const { prisma } = await import("@/lib/prisma")
     const { requireRole } = await import("@/lib/rbac")
 
     const user = await requireRole("Subcontractor")
 
-    const memberships = await prisma.companyMembership.findMany({
-      where: {
-        userId: user.id,
-        role: "Subcontractor",
-        contractorId: { not: null },
-      },
-      include: {
-        company: { select: { id: true, name: true } },
-        contractor: { select: { id: true, companyName: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    })
-
-    const tenants = memberships.map((m) => ({
-      companyId: m.company.id,
-      companyName: m.company.name,
-      contractorId: m.contractor?.id ?? null,
-      contractorName: m.contractor?.companyName ?? null,
-    }))
+    const { listSubcontractorTenantsForUser } = await import(
+      "@/lib/subcontractor-tenants"
+    )
+    const tenants = await listSubcontractorTenantsForUser(user.id)
 
     return NextResponse.json({ tenants })
   } catch (error: any) {
