@@ -33,9 +33,8 @@ const BUILDER_ROLES = ["Admin", "Manager", "Superintendent"]
 export async function GET(request: NextRequest) {
   if (isBuildTime) return buildGuardResponse()
   try {
-    const { requireTenantContext } = await import("@/lib/tenant")
+    const { requireTenantContext, getAssignedHomeIdsForContractor } = await import("@/lib/tenant")
     const { prisma } = await import("@/lib/prisma")
-    const { handleApiError } = await import("@/lib/api-response")
     const { listNotificationsForUser, toNotificationTargetRole } = await import("@/lib/notifications")
 
     const ctx = await requireTenantContext()
@@ -56,28 +55,21 @@ export async function GET(request: NextRequest) {
     }
 
     const since = getRecentSince()
-    // Resolve which home IDs this user should see notifications for (activity feed for non-builders)
-    let allowedHomeIds: string[] | null = null // null = all homes in tenant
-    if (ctx.role === "Superintendent") {
-      const assignments = await prisma.homeAssignment.findMany({
-        where: { superintendentUserId: ctx.userId, companyId: ctx.companyId },
-        select: { homeId: true },
-      })
-      allowedHomeIds = assignments.map((a) => a.homeId)
-      if (allowedHomeIds.length === 0) {
-        return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
-      }
-    } else if (ctx.role === "Subcontractor" && ctx.contractorId) {
-      const assignments = await prisma.contractorAssignment.findMany({
-        where: { contractorId: ctx.contractorId, companyId: ctx.companyId },
-        select: { homeId: true },
-      })
-      allowedHomeIds = assignments.map((a) => a.homeId)
-      if (allowedHomeIds.length === 0) {
-        return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
-      }
+    /**
+     * Activity feed is only for subcontractors. Builder roles already returned hierarchy notifications above.
+     * If subcontractor has no contractorId, we must not fall through with allowedHomeIds = null (that showed every tenant home).
+     */
+    if (ctx.role !== "Subcontractor") {
+      return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
     }
-    // Manager, Admin, or other: allowedHomeIds stays null => all homes
+    if (!ctx.contractorId) {
+      return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
+    }
+    const subContractorId = ctx.contractorId
+    const allowedHomeIds = await getAssignedHomeIdsForContractor(ctx.companyId, subContractorId)
+    if (allowedHomeIds.length === 0) {
+      return NextResponse.json({ kind: "activity", notifications: [], count: 0 })
+    }
 
     const [taskLogs, punchLogs] = await Promise.all([
       prisma.auditLog.findMany({
@@ -117,7 +109,10 @@ export async function GET(request: NextRequest) {
       punchIds.length > 0
         ? prisma.punchItem.findMany({
             where: { id: { in: punchIds } },
-            include: { relatedHomeTask: { select: { nameSnapshot: true } }, home: { select: { id: true, addressOrLot: true } } },
+            include: {
+              relatedHomeTask: { select: { nameSnapshot: true, contractorId: true } },
+              home: { select: { id: true, addressOrLot: true } },
+            },
           })
         : [],
     ])
@@ -187,7 +182,12 @@ export async function GET(request: NextRequest) {
     for (const log of punchLogs) {
       const punch = log.entityId ? punchMap.get(log.entityId) : undefined
       if (!punch || !punch.home) continue
-      if (allowedHomeIds !== null && !allowedHomeIds.includes(punch.homeId)) continue
+      if (!allowedHomeIds.includes(punch.homeId)) continue
+      const onTheirTask = punch.relatedHomeTask?.contractorId === subContractorId
+      const assignedToThem = punch.assignedContractorId === subContractorId
+      const unassignedOnTheirTask =
+        punch.assignedContractorId == null && onTheirTask
+      if (!assignedToThem && !unassignedOnTheirTask) continue
 
       notifications.push({
         id: `punch-${log.id}`,
