@@ -239,3 +239,33 @@ export async function createAssistantCreatedMaterialRequestEvent(params: {
     },
   })
 }
+
+export async function createTaskRescheduledEvent(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  previousScheduledDate: Date
+  newScheduledDate: Date
+  reason: string
+  note?: string | null
+  actorName?: string | null
+  smsResent: boolean
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "task_rescheduled",
+    title: `${params.taskName} rescheduled`,
+    description: `${params.previousScheduledDate.toLocaleDateString()} → ${params.newScheduledDate.toLocaleDateString()}`,
+    actorName: params.actorName,
+    metadata: {
+      reason: params.reason,
+      note: params.note ?? undefined,
+      previousScheduledDate: params.previousScheduledDate.toISOString(),
+      newScheduledDate: params.newScheduledDate.toISOString(),
+      smsResent: params.smsResent,
+    },
+  })
+}

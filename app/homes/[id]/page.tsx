@@ -20,6 +20,8 @@ import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/
 import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
 import { HomeActivityTimeline } from "@/components/home-activity-timeline"
+import { HomeRescheduleHistory } from "@/components/home-reschedule-history"
+import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
@@ -53,6 +55,12 @@ interface HomeTask {
     gateName?: string | null
   }
   schedulingBlockedReason?: string | null
+  lastRescheduleReason?: TaskRescheduleReason | null
+  lastRescheduleNote?: string | null
+  lastRescheduledAt?: string | null
+  lastPreviousScheduledDate?: string | null
+  rescheduleCount?: number
+  lastRescheduledBy?: { id: string; name: string | null } | null
 }
 
 interface Home {
@@ -94,6 +102,7 @@ export default function HomeDetailPage() {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
+  const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
 
   useEffect(() => {
     if (!params.id) return
@@ -218,6 +227,7 @@ export default function HomeDetailPage() {
           console.error("Failed to fetch gate statuses:", err)
         })
     }
+    setRescheduleHistoryRefresh((n) => n + 1)
     setModalOpen(false)
   }
 
@@ -645,7 +655,8 @@ export default function HomeDetailPage() {
 
         {/* Activity Timeline */}
         {session?.user && (session.user as any).role !== "Subcontractor" && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-4">
+            <HomeRescheduleHistory homeId={home.id} refreshKey={rescheduleHistoryRefresh} />
             <HomeActivityTimeline homeId={home.id} initialLimit={5} />
           </div>
         )}
@@ -850,6 +861,7 @@ export default function HomeDetailPage() {
           open={modalOpen}
           onOpenChange={setModalOpen}
           onUpdate={handleTaskUpdate}
+          homeLabel={home.addressOrLot}
         />
       )}
 

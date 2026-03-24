@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { format } from "date-fns"
+import {
+  sendTaskConfirmationInternal,
+  formatSendConfirmationError,
+} from "@/lib/send-task-confirmation-internal"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -18,295 +20,28 @@ export async function POST(
     const { requirePermission } = await import("@/lib/rbac")
     const user = await requirePermission("sms:send")
 
-    const task = await prisma.homeTask.findUnique({
-      where: { id: params.id },
-      include: {
-        contractor: true,
-        home: {
-          include: {
-            subdivision: true,
-          },
-        },
-      },
+    const result = await sendTaskConfirmationInternal(prisma, params.id, {
+      id: user.id,
+      name: user.name ?? null,
     })
 
-    if (!task) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
-    }
-
-    if (!task.contractorId || !task.contractor) {
-      return NextResponse.json(
-        { error: "Task must have a contractor assigned" },
-        { status: 400 }
-      )
-    }
-
-    if (!task.scheduledDate) {
-      return NextResponse.json(
-        { error: "Task must have a scheduled date" },
-        { status: 400 }
-      )
-    }
-
-    if (task.status !== "Scheduled" && task.status !== "PendingConfirm") {
-      return NextResponse.json(
-        { error: "Task must be Scheduled or PendingConfirm to send confirmation" },
-        { status: 400 }
-      )
-    }
-
-    // Check gate blocking (for ScheduleAndConfirm mode)
-    const taskWithTemplate = await prisma.homeTask.findUnique({
-      where: { id: params.id },
-      include: {
-        templateItem: {
-          select: {
-            isCriticalGate: true,
-            gateBlockMode: true,
-            optionalCategory: true,
-          },
-        },
-      },
-    })
-
-    // Get all tasks for category-based blocking check
-    const allTasks = await prisma.homeTask.findMany({
-      where: { homeId: task.homeId },
-      include: {
-        templateItem: {
-          select: {
-            isCriticalGate: true,
-            gateScope: true,
-            gateBlockMode: true,
-            gateName: true,
-            optionalCategory: true,
-          },
-        },
-      },
-      orderBy: [...homeTaskOrderByTemplateSequence()],
-    })
-
-    // Category-based blocking: all tasks in previous categories must be completed
-    const currentTaskCategory = taskWithTemplate?.templateItem?.optionalCategory || "Uncategorized"
-    const currentTaskIndex = allTasks.findIndex((t) => t.id === task.id)
-
-    // Category order (same as in UI)
-    const categoryOrder = [
-      "Preliminary work",
-      "Foundation",
-      "Structural",
-      "Interior finishes / exterior rough work",
-      "Finals punches and inspections.",
-      "Pre-sale completion package",
-    ]
-
-    // Get the index of the current category in the order
-    const getCategoryIndex = (category: string | null): number => {
-      const normalized = (category || "Uncategorized").toLowerCase().trim().replace("prelliminary", "preliminary")
-      const index = categoryOrder.findIndex(
-        (orderCat) => orderCat.toLowerCase().trim() === normalized
-      )
-      return index !== -1 ? index : 999 // Uncategorized goes last
-    }
-
-    const currentCategoryIndex = getCategoryIndex(currentTaskCategory)
-
-    const companyId = task.home?.companyId ?? null
-    const categoryGates = await prisma.categoryGate.findMany({
-      where: companyId != null ? { companyId } : { companyId: null },
-    })
-    const normalizeCategory = (c: string | null) =>
-      (c || "Uncategorized").toLowerCase().trim().replace(/prelliminary/gi, "preliminary")
-
-    for (const categoryGate of categoryGates) {
-      const gateCategoryIndex = getCategoryIndex(categoryGate.categoryName)
-      
-      // Only check gates for categories before the current task's category
-      if (gateCategoryIndex >= currentCategoryIndex) {
-        continue
-      }
-
-      // Check if this gate applies
-      let gateApplies = false
-
-      if (categoryGate.gateScope === "AllScheduling") {
-        gateApplies = true
-      } else if (categoryGate.gateScope === "DownstreamOnly") {
-        // Gate applies to tasks after this category
-        gateApplies = currentCategoryIndex > gateCategoryIndex
-      }
-
-      if (gateApplies) {
-        const gateCategoryNorm = normalizeCategory(categoryGate.categoryName)
-        const gatedCategoryTasks = allTasks.filter(
-          (t) => normalizeCategory(t.templateItem?.optionalCategory ?? null) === gateCategoryNorm
-        )
-
-        const incompleteGatedTasks = gatedCategoryTasks.filter(
-          (t) => t.status !== "Completed" && t.status !== "Canceled"
-        )
-
-        if (incompleteGatedTasks.length > 0) {
-          const gateName = categoryGate.gateName || `${categoryGate.categoryName.replace(/Prelliminary/gi, "Preliminary")} Gate`
-          const taskNames = incompleteGatedTasks.map((t) => t.nameSnapshot).join(", ")
-          return NextResponse.json(
-            {
-              error: `Cannot send confirmation. All tasks in "${gateName}" must be completed first: ${taskNames}`,
-              categoryBlocked: true,
-            },
-            { status: 400 }
-          )
-        }
-      }
-    }
-
-
-    // Check if any gate with ScheduleAndConfirm mode is blocking
-
-    const gateTasks = allTasks.filter(
-      (t) => t.templateItem?.isCriticalGate && t.templateItem?.gateBlockMode === "ScheduleAndConfirm"
-    )
-
-    for (const gateTask of gateTasks) {
-      const gateScope = gateTask.templateItem?.gateScope || "DownstreamOnly"
-      let gateApplies = false
-
-      if (gateScope === "AllScheduling") {
-        gateApplies = true
-      } else if (gateScope === "DownstreamOnly") {
-        gateApplies = task.sortOrderSnapshot > gateTask.sortOrderSnapshot
-      }
-
-      if (gateApplies) {
-        const openPunchCount = await prisma.punchItem.count({
-          where: {
-            relatedHomeTaskId: gateTask.id,
-            status: {
-              in: ["Open", "ReadyForReview"],
-            },
-          },
-        })
-
-        if (openPunchCount > 0) {
-          const gateName = gateTask.templateItem?.gateName || "Critical Gate"
-          return NextResponse.json(
-            {
-              error: `Cannot send confirmation. Scheduling blocked until "${gateName}" punchlist is cleared. ${openPunchCount} open punch item(s) remaining.`,
-              gateBlocked: true,
-              blockingGateName: gateName,
-              openPunchCount,
-            },
-            { status: 409 }
-          )
-        }
-      }
-    }
-
-    // Validate Twilio configuration
-    const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim()
-    if (!accountSid || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-      return NextResponse.json(
-        { error: "Twilio is not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables." },
-        { status: 500 }
-      )
-    }
-    if (!accountSid.startsWith("AC")) {
+    if (!result.ok) {
       return NextResponse.json(
         {
-          error:
-            "Invalid TWILIO_ACCOUNT_SID: it must start with AC (from your Twilio console). Check your environment variables.",
+          error: result.error,
+          categoryBlocked: result.categoryBlocked,
+          gateBlocked: result.gateBlocked,
+          blockingGateName: result.blockingGateName,
+          openPunchCount: result.openPunchCount,
         },
-        { status: 500 }
+        { status: result.status }
       )
-    }
-
-    // Send only to the vendor's default contact (or first eligible contact) who opted in to SMS — never the office number.
-    const { getSmsRecipientForContractor, logSmsBlocked } = await import("@/lib/sms-guard")
-    const recipient = await getSmsRecipientForContractor(task.contractor.id)
-    if (!recipient.allowed) {
-      logSmsBlocked(task.contractor.id, recipient.reason, { taskId: task.id, action: "send_confirmation" })
-      const message =
-        recipient.reason === "no_contact"
-          ? "No contact has opted in to SMS for this vendor. Invite a contact from the Vendors tab and have them accept the invite with SMS consent."
-          : recipient.reason === "no_phone"
-            ? "This contact has not added a phone number yet."
-            : recipient.reason === "no_consent"
-              ? "This contact has not opted in to SMS yet."
-              : "This contact has unsubscribed from SMS."
-      return NextResponse.json({ error: message }, { status: 400 })
-    }
-
-    const { sendConfirmationSMS } = await import("@/lib/twilio")
-    await sendConfirmationSMS(
-      task.id,
-      recipient.phoneE164,
-      task.home.addressOrLot,
-      task.nameSnapshot,
-      new Date(task.scheduledDate)
-    )
-
-    const activityCompanyId = task.companyId ?? task.home.companyId
-    if (activityCompanyId) {
-      const { createTaskScheduledEvent, createSmsSentEvent } = await import("@/lib/activity")
-      createTaskScheduledEvent({
-        companyId: activityCompanyId,
-        homeId: task.homeId,
-        taskId: task.id,
-        taskName: task.nameSnapshot,
-        scheduledDate: new Date(task.scheduledDate!),
-        recipientName: task.contractor?.companyName ?? undefined,
-        actorName: user.name,
-      }).catch(() => {})
-      createSmsSentEvent({
-        companyId: activityCompanyId,
-        homeId: task.homeId,
-        taskId: task.id,
-        messageType: "scheduled",
-        taskName: task.nameSnapshot,
-        recipientName: task.contractor?.companyName ?? undefined,
-      }).catch(() => {})
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to send confirmation:", error)
-
-    // Provide more specific error messages
-    let errorMessage = "Failed to send confirmation SMS"
-    if (error?.message?.includes("accountSid must start with AC")) {
-      errorMessage =
-        "Invalid TWILIO_ACCOUNT_SID: it must start with AC (from your Twilio console). Check your environment variables."
-    } else if (error.message) {
-      errorMessage = error.message
-    } else if (error.code) {
-      // Twilio-specific error codes
-      switch (error.code) {
-        case 21211:
-          errorMessage = "Invalid phone number format. Please use E.164 format (e.g., +1234567890)"
-          break
-        case 21212:
-          errorMessage = "Invalid 'to' phone number"
-          break
-        case 21214:
-          errorMessage = "Invalid 'from' phone number"
-          break
-        case 21608:
-          errorMessage = "Unverified phone number. Please verify the number in Twilio console"
-          break
-        case 21614:
-          errorMessage = "Unsubscribed recipient. The phone number has opted out"
-          break
-        case 30007:
-          errorMessage = "Invalid destination phone number"
-          break
-        default:
-          errorMessage = `Twilio error (${error.code}): ${error.message || "Unknown error"}`
-      }
-    }
-    
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    )
+    const { message, status } = formatSendConfirmationError(error)
+    return NextResponse.json({ error: message }, { status })
   }
 }

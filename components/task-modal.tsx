@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { TaskStatus } from "@prisma/client"
 import { format } from "date-fns"
 import { MessageCircle, CalendarX, Loader2, CheckCircle, PlayCircle } from "lucide-react"
+import { RescheduleTaskDialog } from "@/components/reschedule-task-dialog"
+import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
+import type { TaskRescheduleReason } from "@prisma/client"
 
 interface Contractor {
   id: string
@@ -34,6 +37,12 @@ interface Task {
   } | null
   notes: string | null
   confirmationSource?: "Manual" | "Sms" | null
+  lastRescheduleReason?: TaskRescheduleReason | null
+  lastRescheduleNote?: string | null
+  lastRescheduledAt?: string | null
+  lastPreviousScheduledDate?: string | null
+  rescheduleCount?: number
+  lastRescheduledBy?: { id: string; name: string | null } | null
 }
 
 interface TaskModalProps {
@@ -41,11 +50,13 @@ interface TaskModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: () => void
+  /** Home address for reschedule confirmation context */
+  homeLabel?: string
 }
 
 const BUILDER_ROLES_MANUAL_CONFIRM = new Set(["Admin", "Manager", "Superintendent"])
 
-export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps) {
+export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }: TaskModalProps) {
   const { data: session } = useSession()
   const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -58,6 +69,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
   const [loading, setLoading] = useState(false)
   const [sendingSMS, setSendingSMS] = useState(false)
   const [currentTask, setCurrentTask] = useState(task)
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false)
 
   useEffect(() => {
     fetch("/api/contractors")
@@ -280,56 +292,8 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
     }
   }
 
-  const handleReschedule = async () => {
-    const effectiveScheduledDate = scheduledDate || (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "")
-    const effectiveContractorId = contractorId || currentTask.contractorId || ""
-    
-    if (!effectiveScheduledDate) {
-      alert("Please select a new scheduled date")
-      return
-    }
-
-    // Check if date actually changed
-    const currentDateStr = currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : ""
-    if (effectiveScheduledDate === currentDateStr) {
-      alert("Please select a different date to reschedule")
-      return
-    }
-
-    if (!confirm(`Reschedule task to ${effectiveScheduledDate}?${currentTask.status === "Confirmed" ? " The task status will change to Scheduled and you can send a new confirmation SMS." : ""}`)) {
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/tasks/${currentTask.id}/reschedule`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduledDate: new Date(effectiveScheduledDate).toISOString(),
-          contractorId: effectiveContractorId || null,
-        }),
-      })
-
-      if (res.ok) {
-        const updatedTask = await res.json()
-        setCurrentTask(updatedTask)
-        setScheduledDate(effectiveScheduledDate)
-        onUpdate()
-        alert("Task rescheduled successfully!")
-      } else {
-        const data = await res.json()
-        alert(data.error || "Failed to reschedule task")
-      }
-    } catch (error) {
-      console.error("Failed to reschedule task:", error)
-      alert("Failed to reschedule task")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -388,6 +352,39 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
               className="w-full px-3 py-2 border rounded-md"
             />
           </div>
+
+          {currentTask.lastRescheduledAt && currentTask.lastRescheduleReason && (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-xs space-y-1">
+              <p className="font-medium text-foreground">Last reschedule</p>
+              {currentTask.lastPreviousScheduledDate && currentTask.scheduledDate && (
+                <p>
+                  <span className="text-muted-foreground">From:</span>{" "}
+                  {format(new Date(currentTask.lastPreviousScheduledDate), "MMM d")}
+                  <span className="text-muted-foreground"> → To:</span>{" "}
+                  {format(new Date(currentTask.scheduledDate), "MMM d")}
+                </p>
+              )}
+              <p>
+                <span className="text-muted-foreground">Reason:</span>{" "}
+                {labelForRescheduleReason(currentTask.lastRescheduleReason)}
+                {currentTask.lastRescheduleReason === "other" && currentTask.lastRescheduleNote
+                  ? ` — ${currentTask.lastRescheduleNote}`
+                  : ""}
+              </p>
+              {(currentTask.lastRescheduledBy?.name || currentTask.lastRescheduledAt) && (
+                <p className="text-muted-foreground">
+                  {currentTask.lastRescheduledBy?.name && (
+                    <>
+                      <span>By {currentTask.lastRescheduledBy.name}</span>
+                      {currentTask.lastRescheduledAt ? " · " : ""}
+                    </>
+                  )}
+                  {currentTask.lastRescheduledAt &&
+                    format(new Date(currentTask.lastRescheduledAt), "MMM d, h:mm a")}
+                </p>
+              )}
+            </div>
+          )}
 
           {canManualConfirm &&
             (scheduledDate || currentTask.scheduledDate) &&
@@ -467,13 +464,13 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
                   {scheduledDate &&
                     scheduledDate !== (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "") && (
                     <Button
-                      onClick={handleReschedule}
+                      onClick={() => setRescheduleDialogOpen(true)}
                       disabled={loading}
                       variant="outline"
                       size="sm"
                       title="Reschedule task to a new date"
                     >
-                      {loading ? "Rescheduling..." : "Reschedule"}
+                      Reschedule
                     </Button>
                   )}
                 </>
@@ -543,5 +540,32 @@ export function TaskModal({ task, open, onOpenChange, onUpdate }: TaskModalProps
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <RescheduleTaskDialog
+      open={rescheduleDialogOpen}
+      onOpenChange={setRescheduleDialogOpen}
+      task={currentTask}
+      homeLabel={homeLabel || "Home"}
+      newDateStr={
+        scheduledDate ||
+        (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "")
+      }
+      contractorId={contractorId || currentTask.contractorId}
+      onSuccess={({ task: updated, smsResent, warnings, reasonLabel }) => {
+        const t = updated as Task
+        setCurrentTask(t)
+        const nextDate =
+          t.scheduledDate != null ? format(new Date(t.scheduledDate), "yyyy-MM-dd") : ""
+        if (nextDate) setScheduledDate(nextDate)
+        const dateShown =
+          t.scheduledDate != null ? format(new Date(t.scheduledDate), "MMM d") : nextDate
+        let msg = `${t.nameSnapshot} rescheduled to ${dateShown}. Reason: ${reasonLabel}.`
+        msg += smsResent ? " Confirmation resent." : ""
+        if (warnings.length) msg += "\n\n" + warnings.join("\n")
+        alert(msg)
+        onUpdate()
+      }}
+    />
+    </>
   )
 }

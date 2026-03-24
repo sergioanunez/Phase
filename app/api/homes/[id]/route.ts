@@ -44,6 +44,7 @@ export async function GET(
         tasks: {
           include: {
             contractor: true,
+            lastRescheduledBy: { select: { id: true, name: true } },
             templateItem: {
               select: {
                 id: true,
@@ -81,6 +82,7 @@ export async function GET(
           tasks: {
             include: {
               contractor: true,
+              lastRescheduledBy: { select: { id: true, name: true } },
               templateItem: {
                 select: {
                   id: true,
