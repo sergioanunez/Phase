@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const { dispatchWebPushFlowAttention } = await import("@/lib/web-push-dispatch")
     dispatchWebPushFlowAttention({
       companyId: ctx.companyId,
+      targetUserId: ctx.userId,
       attentionTaskIds: attention.map((a) => a.taskId),
       attentionHomeCount: attentionHomeIds.size,
     }).catch((err) => console.error("[push] flow attention:", err))

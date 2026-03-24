@@ -98,6 +98,43 @@ async function sendToCompanyBuilders(
   }
 }
 
+/** Send to one builder’s active subscriptions only (Flow is scoped per user / home assignments). */
+async function sendToUserBuilderDevices(
+  companyId: string,
+  targetUserId: string,
+  category: Category,
+  payload: WebPushNotificationPayload
+): Promise<void> {
+  if (!isWebPushConfigured()) return
+  if (!(await prefsAllow(targetUserId, companyId, category))) return
+
+  const subs = await prisma.webPushSubscription.findMany({
+    where: {
+      companyId,
+      userId: targetUserId,
+      isActive: true,
+      user: {
+        companyId,
+        isActive: true,
+        role: { in: [...BUILDER_ROLES] },
+        status: "ACTIVE",
+      },
+    },
+    select: {
+      id: true,
+      endpoint: true,
+      p256dh: true,
+      auth: true,
+      userId: true,
+    },
+  })
+
+  const url = absoluteUrl(payload.url)
+  for (const sub of subs) {
+    await sendWebPushToSubscription(sub, { ...payload, url })
+  }
+}
+
 /** After subcontractor SMS Y/N (deduped per task + outcome in a short window). */
 export async function dispatchWebPushSubcontractorReply(params: {
   companyId: string
@@ -126,18 +163,23 @@ export async function dispatchWebPushSubcontractorReply(params: {
   })
 }
 
-/** Flow needs attention today (company-wide dedup by fingerprint, 4h). */
+/**
+ * Flow needs attention today for this user’s view (Superintendent = assigned homes only;
+ * Admin/Manager = company-wide). Dedup per user + fingerprint, 4h.
+ */
 export async function dispatchWebPushFlowAttention(params: {
   companyId: string
+  /** Recipient: only their subscriptions receive the push. */
+  targetUserId: string
   attentionTaskIds: string[]
   attentionHomeCount: number
 }): Promise<void> {
-  const { companyId, attentionTaskIds, attentionHomeCount } = params
+  const { companyId, targetUserId, attentionTaskIds, attentionHomeCount } = params
   if (attentionTaskIds.length === 0 || attentionHomeCount < 1) return
 
   const sorted = [...attentionTaskIds].sort()
   const fp = createHash("sha256").update(sorted.join(",")).digest("hex").slice(0, 24)
-  const dedupKey = `flow:${companyId}:${fp}`
+  const dedupKey = `flow:${companyId}:${targetUserId}:${fp}`
   if (await shouldDedup(dedupKey, DEDUP_FLOW_MS)) return
 
   const n = attentionHomeCount
@@ -146,12 +188,12 @@ export async function dispatchWebPushFlowAttention(params: {
       ? "1 home needs action on Flow today."
       : `${n} homes need action on Flow today.`
 
-  await sendToCompanyBuilders(companyId, "flow_attention", {
+  await sendToUserBuilderDevices(companyId, targetUserId, "flow_attention", {
     title: "Flow needs attention",
     body,
     type: "flow_attention",
     url: "/flow",
-    tag: `flow-${companyId}-${fp.slice(0, 8)}`,
+    tag: `flow-${companyId}-${targetUserId.slice(0, 8)}-${fp.slice(0, 8)}`,
     metadata: { homeCount: String(n) },
   })
 }

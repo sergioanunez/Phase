@@ -329,20 +329,27 @@ export function PushNotificationSettings({ className }: { className?: string }) 
             disabled={!subscribed || !prefs.enabled}
           />
         </label>
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="text-sm">Flow needs attention (today)</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
-            checked={prefs.notifyFlowAlerts}
-            onChange={(e) => {
-              const c = e.target.checked
-              setPrefs((p) => ({ ...p, notifyFlowAlerts: c }))
-              savePrefs({ notifyFlowAlerts: c })
-            }}
-            disabled={!subscribed || !prefs.enabled}
-          />
-        </label>
+        <div className="space-y-1">
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-sm">Flow needs attention (today)</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-input shrink-0"
+              checked={prefs.notifyFlowAlerts}
+              onChange={(e) => {
+                const c = e.target.checked
+                setPrefs((p) => ({ ...p, notifyFlowAlerts: c }))
+                savePrefs({ notifyFlowAlerts: c })
+              }}
+              disabled={!subscribed || !prefs.enabled}
+            />
+          </label>
+          <p className="text-xs text-muted-foreground pl-0 pr-10">
+            Superintendents only get alerts for homes assigned to them. If your deployment sets{" "}
+            <code className="text-[11px]">CRON_SECRET</code> and a schedule (e.g. Vercel cron), Flow checks
+            run without opening the Flow page.
+          </p>
+        </div>
         <label className="flex items-center justify-between gap-4 cursor-pointer">
           <span className="text-sm">Punchlist updates</span>
           <input
