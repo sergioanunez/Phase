@@ -7,6 +7,7 @@ import {
   pickNextExecutionTask,
   type FlowTaskForSelection,
 } from "./selection"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import type { FlowAction, ComputeFlowInput, ComputeFlowResult } from "./types"
 
 const COMPLETED = "Completed"
@@ -131,7 +132,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           },
           contractor: { select: { companyName: true } },
         },
-        orderBy: { sortOrderSnapshot: "asc" },
+        orderBy: [...homeTaskOrderByTemplateSequence()],
       },
     },
   })
@@ -239,6 +240,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       scheduledDate: t.scheduledDate,
       forecastStart: forecastStart[t.id],
       sortOrderSnapshot: t.sortOrderSnapshot,
+      templateSequenceOrder: t.templateItem?.sequenceOrder ?? null,
     }))
     const taskMap = buildTaskMap(selectionTasks)
     const getDependencyIds = (taskId: string) => predecessors[taskId] ?? []
@@ -325,6 +327,13 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
     const duePrepCandidate = duePrepCandidates.sort((a, b) => {
       const dateCmp = a.prepStartStr.localeCompare(b.prepStartStr)
       if (dateCmp !== 0) return dateCmp
+      const sa = a.template.sequenceOrder
+      const sb = b.template.sequenceOrder
+      const aHas = sa != null
+      const bHas = sb != null
+      if (aHas && bHas && sa !== sb) return sa - sb
+      if (aHas && !bHas) return -1
+      if (!aHas && bHas) return 1
       if (a.task.sortOrderSnapshot !== b.task.sortOrderSnapshot) return a.task.sortOrderSnapshot - b.task.sortOrderSnapshot
       return a.task.nameSnapshot.localeCompare(b.task.nameSnapshot)
     })[0]
@@ -357,6 +366,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         isOverdue: prepStartStr < today,
         slackWorkingDays,
         sortOrderSnapshot: task.sortOrderSnapshot,
+        templateSequenceOrder: template.sequenceOrder ?? null,
         dependencyStatus,
         state: executionEligible ? "READY" : "WAITING",
         actionLabel: executionEligible ? `Get ready: ${task.nameSnapshot}` : `Schedule now: ${task.nameSnapshot}`,
@@ -421,6 +431,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           isOverdue: actionDate < today,
           slackWorkingDays,
           sortOrderSnapshot: task.sortOrderSnapshot,
+          templateSequenceOrder: template.sequenceOrder ?? null,
           dependencyStatus,
           state: "IN_PROGRESS",
           actionLabel: `In progress: ${task.nameSnapshot}`,
@@ -458,6 +469,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           isOverdue: actionDate < today,
           slackWorkingDays,
           sortOrderSnapshot: task.sortOrderSnapshot,
+          templateSequenceOrder: template.sequenceOrder ?? null,
           dependencyStatus,
           state: "READY",
           actionLabel: `Get ready: ${task.nameSnapshot}`,
@@ -486,6 +498,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           isOverdue: actionDate < today,
           slackWorkingDays,
           sortOrderSnapshot: task.sortOrderSnapshot,
+          templateSequenceOrder: template.sequenceOrder ?? null,
           dependencyStatus,
           state: "READY",
           actionLabel: `Start work: ${task.nameSnapshot}`,
@@ -573,6 +586,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         isOverdue: actionDate < today,
         slackWorkingDays,
         sortOrderSnapshot: task.sortOrderSnapshot,
+        templateSequenceOrder: template.sequenceOrder ?? null,
         dependencyStatus,
         state: isBlockingInProgress ? "IN_PROGRESS" : "WAITING",
         actionLabel: isBlockingInProgress
@@ -614,6 +628,13 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
     const slackA = a.slackWorkingDays ?? 999999
     const slackB = b.slackWorkingDays ?? 999999
     if (slackA !== slackB) return slackA - slackB
+    const sa = a.templateSequenceOrder
+    const sb = b.templateSequenceOrder
+    const aHas = sa != null
+    const bHas = sb != null
+    if (aHas && bHas && sa !== sb) return sa - sb
+    if (aHas && !bHas) return -1
+    if (!aHas && bHas) return 1
     if (a.sortOrderSnapshot !== b.sortOrderSnapshot) return a.sortOrderSnapshot - b.sortOrderSnapshot
     return a.taskName.localeCompare(b.taskName)
   })

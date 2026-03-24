@@ -465,6 +465,8 @@ model WorkTemplateItem {
   /// Default duration in WORKING DAYS (Mon–Fri).
   defaultDurationDays Int
   sortOrder           Int
+  /// Manual display / Flow tie-break order within the tenant (gaps of 100). Null = fallback to category + sortOrder + name.
+  sequenceOrder       Int?
   optionalCategory    String?
   isDependency        Boolean       @default(false)
   isCriticalGate      Boolean       @default(false)
@@ -494,6 +496,7 @@ model WorkTemplateItem {
 
   @@index([companyId])
   @@index([companyId, sortOrder])
+  @@index([companyId, sequenceOrder])
   @@index([sortOrder])
   @@index([isCriticalGate])
   @@index([contractorId])

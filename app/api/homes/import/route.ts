@@ -167,9 +167,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get template items for this tenant to create tasks for each home
+    const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
     const templateItems = await prisma.workTemplateItem.findMany({
       where: ctx.companyId ? { companyId: ctx.companyId } : undefined,
-      orderBy: { sortOrder: "asc" },
+      orderBy: [...workTemplatePrismaOrderBy()],
     })
 
     // Process each row

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { format } from "date-fns"
 
@@ -82,9 +83,7 @@ export async function POST(
           },
         },
       },
-      orderBy: {
-        sortOrderSnapshot: "asc",
-      },
+      orderBy: [...homeTaskOrderByTemplateSequence()],
     })
 
     // Category-based blocking: all tasks in previous categories must be completed

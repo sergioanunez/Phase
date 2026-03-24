@@ -34,9 +34,10 @@ export async function GET(request: NextRequest) {
       projectStartDate = addWorkingDays(today, 1)
     }
 
+    const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
     const items = await prisma.workTemplateItem.findMany({
       where: { companyId: ctx.companyId },
-      orderBy: [{ optionalCategory: "asc" }, { sortOrder: "asc" }],
+      orderBy: [...workTemplatePrismaOrderBy()],
       include: {
         dependencies: { select: { dependsOnItemId: true } },
       },
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       category: item.optionalCategory ?? null,
       durationDays: Math.max(0, item.defaultDurationDays),
       dependencyIds: item.dependencies.map((d) => d.dependsOnItemId),
-      sequenceOrder: item.sortOrder,
+      sequenceOrder: item.sequenceOrder ?? item.sortOrder,
     }))
 
     const result = computeTemplateSchedule(tasks, projectStartDate)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { z } from "zod"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -50,12 +51,12 @@ export async function GET(
                 optionalCategory: true,
                 isCriticalGate: true,
                 gateName: true,
+                sequenceOrder: true,
+                sortOrder: true,
               },
             },
           },
-          orderBy: {
-            sortOrderSnapshot: "asc",
-          },
+          orderBy: [...homeTaskOrderByTemplateSequence()],
         },
         assignments: {
           include: {
@@ -87,10 +88,12 @@ export async function GET(
                   optionalCategory: true,
                   isCriticalGate: true,
                   gateName: true,
+                  sequenceOrder: true,
+                  sortOrder: true,
                 },
               },
             },
-            orderBy: { sortOrderSnapshot: "asc" },
+            orderBy: [...homeTaskOrderByTemplateSequence()],
           },
           assignments: {
             include: {
@@ -147,9 +150,7 @@ export async function GET(
               contractor: true,
               templateItem: true,
             },
-            orderBy: {
-              sortOrderSnapshot: "asc",
-            },
+            orderBy: [...homeTaskOrderByTemplateSequence()],
           },
           assignments: {
             include: {

@@ -1,4 +1,5 @@
 import { PrismaClient, GateScope, GateBlockMode } from "@prisma/client"
+import { homeTaskOrderByTemplateSequence } from "../lib/work-template-display-order"
 import bcrypt from "bcryptjs"
 
 // Force seed to use DATABASE_URL (pooler) only, so it never uses DIRECT_URL (5432) which may be unreachable.
@@ -342,7 +343,7 @@ async function main() {
   // Schedule some tasks for home1
   const home1Tasks = await prisma.homeTask.findMany({
     where: { homeId: home1.id },
-    orderBy: { sortOrderSnapshot: "asc" },
+    orderBy: [...homeTaskOrderByTemplateSequence()],
   })
 
   if (home1Tasks.length >= 3) {

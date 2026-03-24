@@ -9,6 +9,22 @@ export type FlowTaskForSelection = {
   scheduledDate?: Date | null
   forecastStart?: Date | null
   sortOrderSnapshot: number
+  /** From WorkTemplateItem.sequenceOrder; nulls sort after set values in tie-breaks. */
+  templateSequenceOrder?: number | null
+}
+
+function compareSequenceTieBreak(
+  a: FlowTaskForSelection,
+  b: FlowTaskForSelection
+): number {
+  const sa = a.templateSequenceOrder
+  const sb = b.templateSequenceOrder
+  const aHas = sa != null
+  const bHas = sb != null
+  if (aHas && bHas && sa !== sb) return sa - sb
+  if (aHas && !bHas) return -1
+  if (!aHas && bHas) return 1
+  return a.sortOrderSnapshot - b.sortOrderSnapshot
 }
 
 const COMPLETED = "Completed"
@@ -84,7 +100,7 @@ export function computeBlockingFocusTask<T extends FlowTaskForSelection>(
     if (depthA !== depthB) return depthA - depthB
     const dateA = a.scheduledDate ?? a.forecastStart ?? forecastStartByTaskId[a.id]
     const dateB = b.scheduledDate ?? b.forecastStart ?? forecastStartByTaskId[b.id]
-    if (!dateA && !dateB) return a.sortOrderSnapshot - b.sortOrderSnapshot
+    if (!dateA && !dateB) return compareSequenceTieBreak(a, b)
     if (!dateA) return 1
     if (!dateB) return -1
     return dateA.getTime() - dateB.getTime()
@@ -104,7 +120,7 @@ export function pickNextExecutionTask<T extends FlowTaskForSelection>(
   const sorted = [...frontierTasks].sort((a, b) => {
     const dateA = a.scheduledDate ?? a.forecastStart ?? forecastStartByTaskId[a.id]
     const dateB = b.scheduledDate ?? b.forecastStart ?? forecastStartByTaskId[b.id]
-    if (!dateA && !dateB) return a.sortOrderSnapshot - b.sortOrderSnapshot
+    if (!dateA && !dateB) return compareSequenceTieBreak(a, b)
     if (!dateA) return 1
     if (!dateB) return -1
     return dateA.getTime() - dateB.getTime()

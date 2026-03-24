@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -101,9 +102,12 @@ export async function GET(request: NextRequest) {
               select: {
                 optionalCategory: true,
                 sortOrder: true,
+                sequenceOrder: true,
+                name: true,
               },
             },
           },
+          orderBy: [...homeTaskOrderByTemplateSequence()],
         },
       },
       orderBy: {
@@ -148,6 +152,7 @@ export async function GET(request: NextRequest) {
             name: t.nameSnapshot,
             optionalCategory: t.templateItem?.optionalCategory ?? null,
             sortOrder: t.templateItem?.sortOrder ?? 0,
+            sequenceOrder: t.templateItem?.sequenceOrder ?? null,
           },
         })),
       }))
@@ -298,9 +303,10 @@ export async function POST(request: NextRequest) {
     await createAuditLog(ctx.userId, "Home", home.id, "CREATE", null, home, ctx.companyId)
 
     // Generate tasks from template (tenant-scoped)
+    const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
     const templateItems = await prisma.workTemplateItem.findMany({
       where: { companyId: ctx.companyId },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [...workTemplatePrismaOrderBy()],
     })
 
     await Promise.all(

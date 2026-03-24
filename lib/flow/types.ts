@@ -30,6 +30,8 @@ export type FlowAction = {
   /** For sorting: slack in working days (target - forecast completion); smaller = higher priority */
   slackWorkingDays?: number
   sortOrderSnapshot: number
+  /** Template manual sequence (null = legacy fallback); used as Flow list tie-breaker. */
+  templateSequenceOrder?: number | null
   /** For Details: dependency task names and completion status */
   dependencyStatus?: Array<{ name: string; complete: boolean }>
   /** Card state: READY = actionable, WAITING = blocked on prior task, IN_PROGRESS = task in progress */

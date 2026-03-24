@@ -135,6 +135,12 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
+    const seqAgg = await prisma.workTemplateItem.aggregate({
+      where: { companyId: ctx.companyId },
+      _max: { sequenceOrder: true },
+    })
+    let sequenceCursor = seqAgg._max.sequenceOrder ?? 0
+
     // Process each row
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as any
@@ -155,12 +161,14 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        sequenceCursor += 100
         const template = await prisma.workTemplateItem.create({
           data: {
             companyId: ctx.companyId,
             name: validated.name,
             defaultDurationDays: validated.defaultDurationDays,
             sortOrder: validated.sortOrder,
+            sequenceOrder: sequenceCursor,
             optionalCategory: validated.optionalCategory || null,
           },
         })

@@ -4,6 +4,7 @@ import { join } from "path"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { computeHomeForecastAndPersist } from "@/lib/forecast"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 
 function debugLog(payload: Record<string, unknown>) {
   try {
@@ -91,7 +92,7 @@ export async function GET(
               },
             },
           },
-          orderBy: { sortOrderSnapshot: "asc" },
+          orderBy: [...homeTaskOrderByTemplateSequence()],
         },
         assignments: {
           include: {

@@ -36,19 +36,19 @@ describe("phaseDistribution - computeCurrentPhaseForHome", () => {
           id: "t1",
           status: "Completed",
           scheduledDate: new Date("2026-03-02"),
-          templateItem: { name: "Footings", optionalCategory: "Foundation", sortOrder: 1 },
+          templateItem: { name: "Footings", optionalCategory: "Foundation", sortOrder: 1, sequenceOrder: null },
         },
         {
           id: "t2",
           status: "InProgress",
           scheduledDate: new Date("2026-03-05"),
-          templateItem: { name: "Framing", optionalCategory: "Framing", sortOrder: 2 },
+          templateItem: { name: "Framing", optionalCategory: "Framing", sortOrder: 2, sequenceOrder: null },
         },
         {
           id: "t3",
           status: "Unscheduled",
           scheduledDate: null,
-          templateItem: { name: "Trim", optionalCategory: "Trim", sortOrder: 3 },
+          templateItem: { name: "Trim", optionalCategory: "Trim", sortOrder: 3, sequenceOrder: null },
         },
       ],
     })
@@ -68,13 +68,13 @@ describe("phaseDistribution - computeCurrentPhaseForHome", () => {
           id: "t1",
           status: "Completed",
           scheduledDate: new Date("2026-03-02"),
-          templateItem: { name: "Footings", optionalCategory: "Foundation", sortOrder: 1 },
+          templateItem: { name: "Footings", optionalCategory: "Foundation", sortOrder: 1, sequenceOrder: null },
         },
         {
           id: "t2",
           status: "Completed",
           scheduledDate: new Date("2026-03-05"),
-          templateItem: { name: "Framing", optionalCategory: "Framing", sortOrder: 2 },
+          templateItem: { name: "Framing", optionalCategory: "Framing", sortOrder: 2, sequenceOrder: null },
         },
       ],
     })

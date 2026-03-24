@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import { appendFileSync } from "fs"
 import { join } from "path"
 import { handleApiError } from "@/lib/api-response"
@@ -186,9 +187,7 @@ export async function PATCH(
             },
           },
         },
-        orderBy: {
-          sortOrderSnapshot: "asc",
-        },
+        orderBy: [...homeTaskOrderByTemplateSequence()],
       })
 
       const currentTask = allTasks.find((t) => t.id === params.id)

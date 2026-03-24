@@ -3,6 +3,7 @@ import OpenAI from "openai"
 import { TaskStatus } from "@prisma/client"
 import type { PrismaClient } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -61,7 +62,7 @@ async function getHomeDetails(
           contractor: true,
           templateItem: true,
         },
-        orderBy: { sortOrderSnapshot: "asc" },
+        orderBy: [...homeTaskOrderByTemplateSequence()],
       },
     },
   })
@@ -274,7 +275,7 @@ export async function POST(request: NextRequest) {
     ]
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-minimage.png",
       messages: [
         {
           role: "system",

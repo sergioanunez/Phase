@@ -1,3 +1,6 @@
+import { compareWorkTemplatesForDisplay, type WorkTemplateDisplaySortKey } from "@/lib/work-template-display-order"
+import { workingDaysBetween } from "@/lib/forecast"
+
 export const NOT_STARTED_PHASE_KEY = "not_started"
 export const COMPLETE_PHASE_KEY = "complete"
 
@@ -9,6 +12,7 @@ export type DashboardTaskForPhase = {
     name: string
     optionalCategory: string | null
     sortOrder: number
+    sequenceOrder: number | null
   }
 }
 
@@ -46,35 +50,32 @@ export function makeCategoryPhaseKey(name: string): string {
   return `category:${name}`
 }
 
-import { workingDaysBetween } from "@/lib/forecast"
-
 /**
  * Derive ordered phase categories from template items used by the tenant.
- * Uses the minimum sortOrder of items in each category as the ordering key.
+ * Category order follows the earliest work template in that category by display order (sequenceOrder, then sortOrder/name).
  */
 export function deriveOrderedCategories(homes: DashboardHomeForPhase[]): PhaseCategory[] {
-  const categoryMeta = new Map<
-    string,
-    {
-      name: string
-      firstSortOrder: number
-    }
-  >()
+  const categoryMeta = new Map<string, { name: string; representative: WorkTemplateDisplaySortKey }>()
 
   for (const home of homes) {
     for (const task of home.tasks) {
       const rawName = (task.templateItem.optionalCategory || "").trim()
       if (!rawName) continue
-      const sort = task.templateItem.sortOrder
+      const rep: WorkTemplateDisplaySortKey = {
+        sequenceOrder: task.templateItem.sequenceOrder,
+        optionalCategory: task.templateItem.optionalCategory,
+        sortOrder: task.templateItem.sortOrder,
+        name: task.templateItem.name,
+      }
       const existing = categoryMeta.get(rawName)
-      if (!existing || sort < existing.firstSortOrder) {
-        categoryMeta.set(rawName, { name: rawName, firstSortOrder: sort })
+      if (!existing || compareWorkTemplatesForDisplay(rep, existing.representative) < 0) {
+        categoryMeta.set(rawName, { name: rawName, representative: rep })
       }
     }
   }
 
   return Array.from(categoryMeta.values())
-    .sort((a, b) => a.firstSortOrder - b.firstSortOrder)
+    .sort((a, b) => compareWorkTemplatesForDisplay(a.representative, b.representative))
     .map((c) => ({ key: makeCategoryPhaseKey(c.name), name: c.name }))
 }
 

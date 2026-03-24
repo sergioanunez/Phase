@@ -1,5 +1,6 @@
 import { prisma } from "./prisma"
 import { checkGateBlocking } from "./gates"
+import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
 
 const CATEGORY_ORDER = [
   "Preliminary work",
@@ -151,7 +152,7 @@ export async function getTaskSchedulingBlockReasonsBatch(
           },
         },
       },
-      orderBy: { sortOrderSnapshot: "asc" },
+      orderBy: [...homeTaskOrderByTemplateSequence()],
     }),
   ])
 

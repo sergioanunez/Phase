@@ -208,6 +208,7 @@ export function computeHomeForecast(
 // --- Persistence: load from DB, compute, write back ---
 
 import { prisma } from "./prisma"
+import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
 
 type HomeTaskRow = {
   id: string
@@ -283,7 +284,7 @@ export async function computeHomeForecastAndPersist(homeId: string): Promise<voi
   const home = await prisma.home.findUnique({
     where: { id: homeId },
     include: {
-      tasks: { orderBy: { sortOrderSnapshot: "asc" } },
+      tasks: { orderBy: [...homeTaskOrderByTemplateSequence()] },
     },
   })
 

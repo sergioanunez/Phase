@@ -1,5 +1,6 @@
 import { addDays } from "date-fns"
 import type { PrismaClient } from "@prisma/client"
+import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
 
 /** Transaction type for Prisma client inside $transaction callback */
 type Transaction = Omit<
@@ -115,7 +116,7 @@ export async function seedTrialCompany(
 
   const firstTask = await tx.homeTask.findFirst({
     where: { homeId: home.id },
-    orderBy: { sortOrderSnapshot: "asc" },
+    orderBy: [...homeTaskOrderByTemplateSequence()],
   })
   if (firstTask) {
     await tx.punchItem.create({

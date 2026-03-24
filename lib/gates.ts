@@ -1,5 +1,6 @@
 import { prisma } from "./prisma"
 import { GateScope } from "@prisma/client"
+import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
 
 export interface GateCheckResult {
   isBlocked: boolean
@@ -33,9 +34,7 @@ export async function checkGateBlocking(
         },
       },
     },
-    orderBy: {
-      sortOrderSnapshot: "asc",
-    },
+    orderBy: [...homeTaskOrderByTemplateSequence()],
   })
 
   // Find gate tasks (tasks where templateItem.isCriticalGate = true)
@@ -185,9 +184,7 @@ export async function getHomeGateStatus(homeId: string) {
         },
       },
     },
-    orderBy: {
-      sortOrderSnapshot: "asc",
-    },
+    orderBy: [...homeTaskOrderByTemplateSequence()],
   })
 
   const gateTasks = tasks.filter((task) => task.templateItem?.isCriticalGate)

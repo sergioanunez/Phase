@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma"
+import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 
 export type ResolveContext = {
   companyId: string
@@ -163,7 +164,7 @@ export async function resolvePunchlistTask(
     include: {
       templateItem: { select: { name: true, isCriticalGate: true } },
     },
-    orderBy: { sortOrderSnapshot: "asc" },
+    orderBy: [...homeTaskOrderByTemplateSequence()],
   })
   const punchLike = tasks.find(
     (t) =>

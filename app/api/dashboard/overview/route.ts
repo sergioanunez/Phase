@@ -113,9 +113,12 @@ export async function GET(request: NextRequest) {
 
     // Compute template-based critical path duration by category, then derive
     // remaining working days to completion per phase (template-based, not per-home).
+    const { workTemplatePrismaOrderBy, sortWorkTemplatesForDisplay } = await import(
+      "@/lib/work-template-display-order"
+    )
     const templates = await prisma.workTemplateItem.findMany({
       where: { companyId: ctx.companyId },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [...workTemplatePrismaOrderBy()],
       include: {
         dependencies: {
           select: { dependsOnItemId: true },
@@ -135,7 +138,6 @@ export async function GET(request: NextRequest) {
           dependencies?: Array<{ dependsOnItemId: string }>
         }>
       > = {}
-      const categoryMeta = new Map<string, { name: string; firstSortOrder: number }>()
 
       for (const t of templates) {
         const categoryName = (t.optionalCategory || "Uncategorized").trim()
@@ -145,15 +147,17 @@ export async function GET(request: NextRequest) {
           defaultDurationDays: t.defaultDurationDays ?? undefined,
           dependencies: t.dependencies.map((d) => ({ dependsOnItemId: d.dependsOnItemId })),
         })
-        const existing = categoryMeta.get(categoryName)
-        if (!existing || t.sortOrder < existing.firstSortOrder) {
-          categoryMeta.set(categoryName, { name: categoryName, firstSortOrder: t.sortOrder })
-        }
       }
 
-      const orderedTemplateCategories = Array.from(categoryMeta.values())
-        .sort((a, b) => a.firstSortOrder - b.firstSortOrder)
-        .map((c) => c.name)
+      const sortedForCategoryOrder = sortWorkTemplatesForDisplay(templates)
+      const orderedTemplateCategories: string[] = []
+      const seenCat = new Set<string>()
+      for (const t of sortedForCategoryOrder) {
+        const categoryName = (t.optionalCategory || "Uncategorized").trim()
+        if (seenCat.has(categoryName)) continue
+        seenCat.add(categoryName)
+        orderedTemplateCategories.push(categoryName)
+      }
 
       const categoryDurations = new Map<string, number>()
       for (const [name, templatesInCat] of Object.entries(byCat)) {

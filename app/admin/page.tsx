@@ -25,6 +25,8 @@ import { format } from "date-fns"
 import { useRef, useMemo } from "react"
 import { sanitizeUrl } from "@/lib/url"
 import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
+import { sortWorkTemplatesForDisplay } from "@/lib/work-template-display-order"
+import { WorkTemplatesReorderList } from "@/components/work-templates-reorder-list"
 
 interface Subdivision {
   id: string
@@ -59,6 +61,7 @@ interface WorkTemplateItem {
   name: string
   defaultDurationDays: number
   sortOrder: number
+  sequenceOrder?: number | null
   optionalCategory: string | null
   isDependency: boolean
   isCriticalGate: boolean
@@ -243,6 +246,24 @@ export default function AdminPage() {
   const [impersonationChecked, setImpersonationChecked] = useState(false)
   const [workTemplatesSearchQuery, setWorkTemplatesSearchQuery] = useState("")
   const [criticalTemplateIds, setCriticalTemplateIds] = useState<string[]>([])
+  const [templatesReorderMode, setTemplatesReorderMode] = useState(false)
+  const [templatesReorderIds, setTemplatesReorderIds] = useState<string[]>([])
+  const [templatesReorderSaving, setTemplatesReorderSaving] = useState(false)
+  const [workTemplatesReorderMessage, setWorkTemplatesReorderMessage] = useState<string | null>(null)
+
+  const workTemplateItemsById = useMemo(() => new Map(templates.map((t) => [t.id, t])), [templates])
+
+  useEffect(() => {
+    if (!templatesReorderMode) return
+    setTemplatesReorderIds((prev) => {
+      const knownIds = new Set(templates.map((t) => t.id))
+      const kept = prev.filter((id) => knownIds.has(id))
+      const keptSet = new Set(kept)
+      const newOnes = sortWorkTemplatesForDisplay(templates.filter((t) => !keptSet.has(t.id))).map((t) => t.id)
+      if (newOnes.length === 0 && kept.length === prev.length) return prev
+      return [...kept, ...newOnes]
+    })
+  }, [templates, templatesReorderMode])
 
   async function handleSubSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -471,6 +492,72 @@ export default function AdminPage() {
         setUsers([])
         setCategoryGates([])
       })
+  }
+
+  const refreshTemplatesOnly = async () => {
+    const res = await fetch("/api/templates")
+    const data = await res.json()
+    if (Array.isArray(data)) setTemplates(data)
+  }
+
+  const enterTemplatesReorderMode = () => {
+    setWorkTemplatesReorderMessage(null)
+    setTemplatesReorderIds(sortWorkTemplatesForDisplay(templates).map((t) => t.id))
+    setTemplatesReorderMode(true)
+  }
+
+  const exitTemplatesReorderMode = (opts?: { clearMessage?: boolean }) => {
+    setTemplatesReorderMode(false)
+    setTemplatesReorderIds([])
+    if (opts?.clearMessage) setWorkTemplatesReorderMessage(null)
+  }
+
+  const saveTemplatesOrder = async () => {
+    setTemplatesReorderSaving(true)
+    setWorkTemplatesReorderMessage(null)
+    try {
+      const res = await fetch("/api/settings/work-items/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedTemplateIds: templatesReorderIds }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          typeof data?.error === "string"
+            ? data.error
+            : "Failed to save order"
+        setWorkTemplatesReorderMessage(msg)
+        return
+      }
+      setWorkTemplatesReorderMessage("Order saved.")
+      await refreshTemplatesOnly()
+      exitTemplatesReorderMode()
+    } finally {
+      setTemplatesReorderSaving(false)
+    }
+  }
+
+  const resetTemplatesOrder = async () => {
+    setTemplatesReorderSaving(true)
+    setWorkTemplatesReorderMessage(null)
+    try {
+      const res = await fetch("/api/settings/work-items/order/reset", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          typeof data?.error === "string"
+            ? data.error
+            : "Failed to reset order"
+        setWorkTemplatesReorderMessage(msg)
+        return
+      }
+      setWorkTemplatesReorderMessage("Order reset to default.")
+      await refreshTemplatesOnly()
+      exitTemplatesReorderMode()
+    } finally {
+      setTemplatesReorderSaving(false)
+    }
   }
 
   const handleSaveBranding = async () => {
@@ -1788,20 +1875,33 @@ export default function AdminPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 These are the work items that will be automatically created for each new home.
               </p>
-              <div className="relative mb-4 w-full">
-                <Search
-                  className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground opacity-90 pointer-events-none"
-                  aria-hidden
-                />
-                <input
-                  type="search"
-                  placeholder="Search work items or category"
-                  value={workTemplatesSearchQuery}
-                  onChange={(e) => setWorkTemplatesSearchQuery(e.target.value)}
-                  className="w-full h-[50px] rounded-lg border border-border bg-white py-3 pl-11 pr-4 text-base shadow-sm placeholder:text-muted-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
-                  aria-label="Search work items or category"
-                />
-              </div>
+              {workTemplatesReorderMessage && (
+                <p
+                  className={`text-sm mb-3 ${
+                    workTemplatesReorderMessage.toLowerCase().includes("fail")
+                      ? "text-destructive"
+                      : "text-green-700 dark:text-green-400"
+                  }`}
+                >
+                  {workTemplatesReorderMessage}
+                </p>
+              )}
+              {!templatesReorderMode && (
+                <div className="relative mb-4 w-full">
+                  <Search
+                    className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground opacity-90 pointer-events-none"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    placeholder="Search work items or category"
+                    value={workTemplatesSearchQuery}
+                    onChange={(e) => setWorkTemplatesSearchQuery(e.target.value)}
+                    className="w-full h-[50px] rounded-lg border border-border bg-white py-3 pl-11 pr-4 text-base shadow-sm placeholder:text-muted-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
+                    aria-label="Search work items or category"
+                  />
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mb-6">
                 <Button
                   onClick={() => setCreateTemplateOpen(true)}
@@ -1827,9 +1927,56 @@ export default function AdminPage() {
                   <GanttChart className="h-4 w-4 mr-1" />
                   View Gantt
                 </Button>
+                {!templatesReorderMode ? (
+                  <Button variant="outline" size="sm" type="button" onClick={enterTemplatesReorderMode}>
+                    Reorder
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={saveTemplatesOrder}
+                      disabled={templatesReorderSaving}
+                    >
+                      Save order
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={resetTemplatesOrder}
+                      disabled={templatesReorderSaving}
+                    >
+                      Reset order
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      onClick={() => exitTemplatesReorderMode({ clearMessage: true })}
+                      disabled={templatesReorderSaving}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </div>
 
-              {(() => {
+              {templatesReorderMode ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Drag by the handle to set a single global order for templates (lists, schedule, Flow tie-breakers).
+                    New items appear at the end until you save.
+                  </p>
+                  <WorkTemplatesReorderList
+                    itemsById={workTemplateItemsById}
+                    orderedIds={templatesReorderIds}
+                    onOrderedIdsChange={setTemplatesReorderIds}
+                  />
+                </div>
+              ) : (
+                (() => {
                 const q = workTemplatesSearchQuery.trim().toLowerCase()
                 // Group templates by category
                 const templatesByCategory = templates.reduce((acc, template) => {
@@ -1921,7 +2068,7 @@ export default function AdminPage() {
                     {sortedCategories.map((category) => {
                       const categoryTemplates = filteredByCategory[category]
                       // Sort templates within category by sortOrder
-                      const sortedTemplates = [...categoryTemplates].sort((a, b) => a.sortOrder - b.sortOrder)
+                      const sortedTemplates = sortWorkTemplatesForDisplay(categoryTemplates)
                       const durationDays = categoryDurations[category]
                       const durationLabel = durationDays === null ? "—" : `${durationDays} working days`
 
@@ -2131,7 +2278,10 @@ export default function AdminPage() {
                           {editingTemplateId !== template.id && (
                             <div className="flex gap-4 mt-2 text-sm text-muted-foreground items-center flex-wrap">
                               <span>Duration: {template.defaultDurationDays} days</span>
-                              <span>Order: {template.sortOrder}</span>
+                              <span>Sort order: {template.sortOrder}</span>
+                              {template.sequenceOrder != null && (
+                                <span>Display order: {template.sequenceOrder}</span>
+                              )}
                               {template.optionalCategory && (
                                 <span>Category: {template.optionalCategory}</span>
                               )}
@@ -2179,10 +2329,8 @@ export default function AdminPage() {
                                 item can be scheduled. Dependencies are managed in Settings only.
                               </p>
                               <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-                                {templates
-                                  .filter((t) => t.id !== template.id)
-                                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                                  .map((t) => (
+                                {sortWorkTemplatesForDisplay(templates.filter((t) => t.id !== template.id)).map(
+                                  (t) => (
                                     <label
                                       key={t.id}
                                       className="flex items-center gap-2 text-sm cursor-pointer"
@@ -2357,7 +2505,8 @@ export default function AdminPage() {
                   />
                   </>
                 )
-              })()}
+                })()
+              )}
             </div>
           </TabsContent>
 

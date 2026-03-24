@@ -110,6 +110,35 @@ export async function requireTenantPermission(permission: Permission): Promise<T
   return ctx
 }
 
+/** Tenant company Admin only (not Superintendent/Manager). For settings that must not be delegated. */
+export async function requireTenantAdmin(): Promise<TenantContext> {
+  const ctx = await requireTenantContext()
+  if (ctx.role !== "Admin") {
+    const err = new Error("Forbidden") as Error & { statusCode?: number }
+    err.statusCode = 403
+    throw err
+  }
+  const { checkSubscriptionGuard } = await import("@/lib/billing/subscriptionGuard")
+  const { prisma } = await import("@/lib/prisma")
+  const result = await checkSubscriptionGuard(prisma, ctx.companyId)
+  if (!result.allowed && result.trialExpired) {
+    const err = new Error("Payment required") as Error & {
+      statusCode?: number
+      payload?: unknown
+    }
+    err.statusCode = 402
+    err.payload = {
+      error: "Trial expired or subscription inactive",
+      code: "TRIAL_EXPIRED",
+      subscriptionStatus: result.subscriptionStatus,
+      activeHomesCount: result.activeHomesCount,
+      recommendedPlan: result.recommendedPlan,
+    }
+    throw err
+  }
+  return ctx
+}
+
 /** @deprecated Use requireTenantPermission for API routes (enforces company + permission). */
 export async function requirePermission(permission: Permission) {
   const session = await getServerSession(authOptions)

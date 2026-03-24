@@ -28,9 +28,10 @@ export async function GET(request: NextRequest) {
     const { requireTenantPermission } = await import("@/lib/rbac")
     const ctx = await requireTenantPermission("templates:read")
 
+    const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
     const templates = await prisma.workTemplateItem.findMany({
       where: { companyId: ctx.companyId },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [...workTemplatePrismaOrderBy()],
       include: {
         dependencies: {
           include: {
@@ -57,12 +58,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createTemplateSchema.parse(body)
 
+    const maxSeq = await prisma.workTemplateItem.aggregate({
+      where: { companyId: ctx.companyId },
+      _max: { sequenceOrder: true },
+    })
+    const nextSequenceOrder = (maxSeq._max.sequenceOrder ?? 0) + 100
+
     const template = await prisma.workTemplateItem.create({
       data: {
         companyId: ctx.companyId,
         name: data.name,
         defaultDurationDays: data.defaultDurationDays,
         sortOrder: data.sortOrder,
+        sequenceOrder: nextSequenceOrder,
         optionalCategory: data.optionalCategory,
         isDependency: data.isDependency || false,
         isCriticalGate: data.isCriticalGate || false,
