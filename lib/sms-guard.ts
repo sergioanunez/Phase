@@ -46,6 +46,30 @@ export async function canSendSmsToContact(contactId: string): Promise<CanSendSms
  * 2) Else first eligible contact (phone + consent, not opted out).
  * Never uses vendor/contractor office phone.
  */
+type ContactRow = {
+  id: string
+  phoneE164: string | null
+  smsConsent: boolean
+  smsOptOutAt: Date | null
+}
+
+function mergeContractorContacts(
+  directUsers: ContactRow[],
+  membershipRows: { user: ContactRow | null }[]
+): ContactRow[] {
+  const byId = new Map<string, ContactRow>()
+  for (const u of directUsers) {
+    byId.set(u.id, u)
+  }
+  for (const m of membershipRows) {
+    const u = m.user
+    if (u && !byId.has(u.id)) {
+      byId.set(u.id, u)
+    }
+  }
+  return Array.from(byId.values())
+}
+
 export async function getSmsRecipientForContractor(
   contractorId: string
 ): Promise<SmsRecipientResult> {
@@ -61,6 +85,18 @@ export async function getSmsRecipientForContractor(
           smsOptOutAt: true,
         },
       },
+      memberships: {
+        select: {
+          user: {
+            select: {
+              id: true,
+              phoneE164: true,
+              smsConsent: true,
+              smsOptOutAt: true,
+            },
+          },
+        },
+      },
     },
   })
 
@@ -68,7 +104,9 @@ export async function getSmsRecipientForContractor(
     return { allowed: false, reason: "no_contact" }
   }
 
-  const eligible = contractor.users.filter(
+  const contacts = mergeContractorContacts(contractor.users, contractor.memberships)
+
+  const eligible = contacts.filter(
     (u) =>
       u.phoneE164 &&
       u.smsConsent === true &&
@@ -77,7 +115,7 @@ export async function getSmsRecipientForContractor(
 
   // Prefer default contact if set and eligible
   if (contractor.defaultContactId) {
-    const defaultUser = contractor.users.find((u) => u.id === contractor.defaultContactId)
+    const defaultUser = contacts.find((u) => u.id === contractor.defaultContactId)
     if (defaultUser && defaultUser.phoneE164 && defaultUser.smsConsent && !defaultUser.smsOptOutAt) {
       return {
         allowed: true,
@@ -97,10 +135,10 @@ export async function getSmsRecipientForContractor(
   }
 
   // No eligible contact
-  if (contractor.users.length === 0) {
+  if (contacts.length === 0) {
     return { allowed: false, reason: "no_contact" }
   }
-  const first = contractor.users[0]
+  const first = contacts[0]
   if (!first.phoneE164) return { allowed: false, reason: "no_phone" }
   if (!first.smsConsent) return { allowed: false, reason: "no_consent" }
   if (first.smsOptOutAt) return { allowed: false, reason: "opted_out" }

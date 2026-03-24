@@ -1365,7 +1365,12 @@ export default function AdminPage() {
         setInviteContactName("")
         setInviteContactEmail("")
         handleRefresh()
-        alert("Invite sent. Contact will receive an email to set up their account and opt in to SMS.")
+        alert(
+          data.linkedExisting
+            ? (data.message as string) ||
+                "Contact linked to this vendor. SMS works after they have a phone on file and SMS opt-in."
+            : "Invite sent. Contact will receive an email to set up their account and opt in to SMS."
+        )
       } else {
         setInviteContactError(data.error || "Failed to invite contact")
       }

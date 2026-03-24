@@ -137,6 +137,16 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      if (user.companyId === ctx.companyId) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            contractorId: contractor.id,
+            role: "Subcontractor",
+          },
+        })
+      }
+
       // Fire-and-forget email; don't block response on failures
       if (user.email) {
         sendSubcontractorLinkedEmail({

@@ -37,13 +37,6 @@ export async function POST(
 
     const ctx = await requireTenantPermission("users:write")
     const { canCreateUser } = await import("@/lib/entitlements")
-    const createResult = await canCreateUser(prisma, ctx.companyId!)
-    if (!createResult.allowed) {
-      return NextResponse.json(
-        { error: createResult.error, upgradeHint: createResult.upgradeHint ?? "/admin/billing" },
-        { status: 403 }
-      )
-    }
 
     const contractor = await prisma.contractor.findFirst({
       where: { id: contractorId, companyId: ctx.companyId },
@@ -54,14 +47,147 @@ export async function POST(
 
     const body = await request.json()
     const data = inviteContactSchema.parse(body)
+    const emailLower = data.email.trim().toLowerCase()
 
     const existing = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: emailLower },
     })
     if (existing) {
+      const staffRoles = ["Admin", "Manager", "Superintendent"] as const
+      if (staffRoles.includes(existing.role as (typeof staffRoles)[number])) {
+        return NextResponse.json(
+          {
+            error:
+              "This email is already used by a builder team member. Use a different contact email for this vendor.",
+          },
+          { status: 400 }
+        )
+      }
+
+      await prisma.companyMembership.upsert({
+        where: {
+          companyId_userId: { companyId: ctx.companyId!, userId: existing.id },
+        },
+        create: {
+          companyId: ctx.companyId!,
+          userId: existing.id,
+          role: "Subcontractor",
+          contractorId: contractor.id,
+        },
+        update: {
+          role: "Subcontractor",
+          contractorId: contractor.id,
+        },
+      })
+
+      if (existing.companyId === ctx.companyId) {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            name: data.name.trim(),
+            contractorId: contractor.id,
+            role: "Subcontractor",
+          },
+        })
+      }
+
+      const cDefault = await prisma.contractor.findUnique({
+        where: { id: contractor.id },
+        select: { defaultContactId: true },
+      })
+      if (cDefault && !cDefault.defaultContactId) {
+        await prisma.contractor.update({
+          where: { id: contractor.id },
+          data: { defaultContactId: existing.id },
+        })
+      }
+
+      let linkMessage =
+        "This contact already has a Phase account. They are linked to this vendor as the default contact. SMS still requires a saved phone number and opt-in on their account."
+
+      const wantsInvite = !existing.passwordHash && existing.status === "INVITED"
+      if (wantsInvite) {
+        const token = generateInviteToken()
+        const tokenHash = hashInviteToken(token)
+        const expiresAt = getInviteExpiresAt()
+        const latestInvite = await prisma.userInvite.findFirst({
+          where: { userId: existing.id, companyId: ctx.companyId },
+          orderBy: { createdAt: "desc" },
+        })
+        if (latestInvite && !latestInvite.usedAt) {
+          await prisma.userInvite.update({
+            where: { id: latestInvite.id },
+            data: {
+              tokenHash,
+              expiresAt,
+              resendCount: { increment: 1 },
+            },
+          })
+        } else {
+          await prisma.userInvite.create({
+            data: {
+              companyId: ctx.companyId,
+              userId: existing.id,
+              email: emailLower,
+              tokenHash,
+              expiresAt,
+              createdByUserId: ctx.userId,
+            },
+          })
+        }
+        const { getBaseUrl, ensureAbsoluteInviteUrl } = await import("@/lib/url")
+        const inviteLink = ensureAbsoluteInviteUrl(buildInviteLink(getBaseUrl(), token))
+        const idempotencyKey = `invite:link-existing:${ctx.companyId ?? ""}:${existing.id}:${Date.now()}`
+        const emailResult = await sendInviteEmailWithIdempotency(prisma, {
+          idempotencyKey,
+          companyId: ctx.companyId,
+          userId: existing.id,
+          email: emailLower,
+          to: emailLower,
+          name: data.name.trim(),
+          inviteLink,
+          expiresAt,
+          invitingCompanyName: ctx.companyName,
+        })
+        linkMessage = emailResult.ok
+          ? "Invite email sent. After they accept and opt in to SMS, confirmation texts will work for this vendor."
+          : `Linked to vendor but email failed: ${emailResult.error ?? "unknown error"}. Share this link manually: ${inviteLink}`
+      } else {
+        const { sendSubcontractorLinkedEmail } = await import("@/lib/email/subcontractorLinked")
+        if (existing.email) {
+          sendSubcontractorLinkedEmail({
+            to: existing.email,
+            name: data.name.trim(),
+            tenantName: ctx.companyName ?? "your builder",
+            appUrl: process.env.NEXTAUTH_URL || process.env.APP_URL || "",
+          }).catch((err) => console.warn("sendSubcontractorLinkedEmail failed:", err))
+        }
+      }
+
+      await createAuditLog(ctx.userId, "Contractor", contractor.id, "UPDATE", null, {
+        linkedUserId: existing.id,
+        email: emailLower,
+      }, ctx.companyId)
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: existing.id },
+        include: { contractor: { select: { id: true, companyName: true } } },
+      })
+      if (!updatedUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
+      }
+      const { passwordHash: _, ...safeUser } = updatedUser
       return NextResponse.json(
-        { error: "A user with this email already exists" },
-        { status: 400 }
+        { ...safeUser, linkedExisting: true, message: linkMessage },
+        { status: 200 }
+      )
+    }
+
+    const createResult = await canCreateUser(prisma, ctx.companyId!)
+    if (!createResult.allowed) {
+      return NextResponse.json(
+        { error: createResult.error, upgradeHint: createResult.upgradeHint ?? "/admin/billing" },
+        { status: 403 }
       )
     }
 
@@ -72,8 +198,8 @@ export async function POST(
     const newUser = await prisma.user.create({
       data: {
         companyId: ctx.companyId,
-        name: data.name,
-        email: data.email,
+        name: data.name.trim(),
+        email: emailLower,
         passwordHash: null,
         role: "Subcontractor",
         status: "INVITED",
@@ -89,7 +215,7 @@ export async function POST(
       data: {
         companyId: ctx.companyId,
         userId: newUser.id,
-        email: data.email,
+        email: emailLower,
         tokenHash,
         expiresAt,
         createdByUserId: ctx.userId,
@@ -104,9 +230,9 @@ export async function POST(
       idempotencyKey,
       companyId: ctx.companyId,
       userId: newUser.id,
-      email: data.email,
-      to: data.email,
-      name: data.name,
+      email: emailLower,
+      to: emailLower,
+      name: data.name.trim(),
       inviteLink,
       expiresAt,
       invitingCompanyName: ctx.companyName,
@@ -115,7 +241,7 @@ export async function POST(
     if (emailResult.rateLimit) {
       await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
         userId: newUser.id,
-        email: data.email,
+        email: emailLower,
         emailError: emailResult.error,
       }, ctx.companyId)
       return NextResponse.json(
@@ -127,7 +253,7 @@ export async function POST(
     if (!emailResult.ok) {
       await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
         userId: newUser.id,
-        email: data.email,
+        email: emailLower,
         emailError: emailResult.error,
       }, ctx.companyId)
       return NextResponse.json(
@@ -149,7 +275,7 @@ export async function POST(
 
     await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
       userId: newUser.id,
-      email: data.email,
+      email: emailLower,
     }, ctx.companyId)
 
     const { passwordHash: _, ...safeUser } = newUser
