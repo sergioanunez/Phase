@@ -112,9 +112,11 @@ export function JobDetailSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-hidden flex flex-col rounded-2xl border-[#E6E8EF] p-0">
-        <DialogHeader className="border-b border-[#E6E8EF] px-4 py-3 flex flex-row items-center justify-between gap-2">
-          <DialogTitle className="text-lg font-semibold">{event.title}</DialogTitle>
-          <div className="flex shrink-0 gap-1.5">
+        <DialogHeader className="border-b border-[#E6E8EF] px-4 py-3 pr-14 sm:pr-16 flex flex-row items-start sm:items-center justify-between gap-2">
+          <DialogTitle className="text-lg font-semibold min-w-0 flex-1 pr-2 text-left leading-snug">
+            {event.title}
+          </DialogTitle>
+          <div className="flex shrink-0 gap-1.5 pt-0.5 sm:pt-0">
             <Button
               type="button"
               variant="outline"
