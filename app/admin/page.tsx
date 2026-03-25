@@ -475,8 +475,24 @@ export default function AdminPage() {
 
   const categoryBlocks = useMemo(() => {
     const q = workTemplatesSearchQuery.trim().toLowerCase()
+    /** Settings API rows are canonical; also merge rows from template payloads so items still render if categories GET fails or drifts. */
+    const rowById = new Map<string, WorkTemplateCategoryRow>()
+    for (const c of templateCategoryRows) {
+      rowById.set(c.id, c)
+    }
+    for (const t of templates) {
+      const wc = t.workTemplateCategory
+      if (wc && !rowById.has(wc.id)) {
+        rowById.set(wc.id, {
+          id: wc.id,
+          name: wc.name,
+          categoryPosition: wc.categoryPosition,
+          itemCount: 0,
+        })
+      }
+    }
     const byCatId = new Map(
-      templateCategoryRows.map((c) => [
+      Array.from(rowById.values()).map((c) => [
         c.id,
         {
           row: c,
@@ -503,7 +519,11 @@ export default function AdminPage() {
       }))
       .sort((a, b) => a.row.categoryPosition - b.row.categoryPosition)
 
-    const orphans = templates.filter((t) => !t.workTemplateCategoryId)
+    const orphans = templates.filter((t) => {
+      const cid = t.workTemplateCategoryId
+      if (!cid) return true
+      return !byCatId.has(cid)
+    })
     if (orphans.length > 0) {
       blocks.push({
         id: "__orphan__",
