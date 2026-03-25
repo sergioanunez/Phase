@@ -19,6 +19,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "fix:preliminary-typo": "tsx scripts/fix-preliminary-typo.ts",
+    "normalize:template-sequence": "tsx scripts/normalize-work-template-sequence-order.ts",
+    "backfill:template-categories": "tsx scripts/backfill-work-template-categories.ts",
     "validate:url": "tsx scripts/validate-url.ts",
     "test": "vitest run",
     "test:watch": "vitest"

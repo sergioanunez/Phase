@@ -135,11 +135,8 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
-    const seqAgg = await prisma.workTemplateItem.aggregate({
-      where: { companyId: ctx.companyId },
-      _max: { sequenceOrder: true },
-    })
-    let sequenceCursor = seqAgg._max.sequenceOrder ?? 0
+    const { ensureWorkTemplateCategoryByName, nextItemPosition, recomputeGlobalSequenceForCompany } =
+      await import("@/lib/work-template-sequence")
 
     // Process each row
     for (let i = 0; i < rows.length; i++) {
@@ -161,15 +158,22 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        sequenceCursor += 100
+        const cat = await ensureWorkTemplateCategoryByName(
+          prisma,
+          ctx.companyId,
+          validated.optionalCategory
+        )
+        const ip = await nextItemPosition(prisma, cat.id)
         const template = await prisma.workTemplateItem.create({
           data: {
             companyId: ctx.companyId,
             name: validated.name,
             defaultDurationDays: validated.defaultDurationDays,
             sortOrder: validated.sortOrder,
-            sequenceOrder: sequenceCursor,
-            optionalCategory: validated.optionalCategory || null,
+            sequenceOrder: null,
+            workTemplateCategoryId: cat.id,
+            itemPosition: ip,
+            optionalCategory: cat.name,
           },
         })
 
@@ -181,8 +185,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create audit log
     if (results.success.length > 0) {
+      await recomputeGlobalSequenceForCompany(prisma, ctx.companyId)
       await createAuditLog(
         ctx.userId,
         "WorkTemplateItem",

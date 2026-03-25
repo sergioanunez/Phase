@@ -14,6 +14,7 @@ const createTemplateSchema = z.object({
   defaultDurationDays: z.number().int().positive(),
   sortOrder: z.number().int(),
   optionalCategory: z.string().optional().nullable(),
+  workTemplateCategoryId: z.string().optional().nullable(),
   isDependency: z.boolean().optional(),
   isCriticalGate: z.boolean().optional(),
   gateScope: z.nativeEnum(GateScope).optional(),
@@ -39,6 +40,9 @@ export async function GET(request: NextRequest) {
           },
         },
         contractor: { select: { id: true, companyName: true, trade: true, leadDays: true } },
+        workTemplateCategory: {
+          select: { id: true, name: true, categoryPosition: true },
+        },
       },
     })
 
@@ -58,11 +62,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createTemplateSchema.parse(body)
 
-    const maxSeq = await prisma.workTemplateItem.aggregate({
-      where: { companyId: ctx.companyId },
-      _max: { sequenceOrder: true },
-    })
-    const nextSequenceOrder = (maxSeq._max.sequenceOrder ?? 0) + 100
+    const {
+      ensureWorkTemplateCategoryByName,
+      nextItemPosition,
+      recomputeGlobalSequenceForCompany,
+    } = await import("@/lib/work-template-sequence")
+
+    let workTemplateCategoryId = data.workTemplateCategoryId?.trim() || null
+    let categoryNameForItem: string
+
+    if (workTemplateCategoryId) {
+      const cat = await prisma.workTemplateCategory.findFirst({
+        where: { id: workTemplateCategoryId, companyId: ctx.companyId },
+      })
+      if (!cat) {
+        return NextResponse.json({ error: "Category not found" }, { status: 400 })
+      }
+      categoryNameForItem = cat.name
+    } else {
+      const cat = await ensureWorkTemplateCategoryByName(
+        prisma,
+        ctx.companyId,
+        data.optionalCategory
+      )
+      workTemplateCategoryId = cat.id
+      categoryNameForItem = cat.name
+    }
+
+    const itemPosition = await nextItemPosition(prisma, workTemplateCategoryId)
 
     const template = await prisma.workTemplateItem.create({
       data: {
@@ -70,8 +97,10 @@ export async function POST(request: NextRequest) {
         name: data.name,
         defaultDurationDays: data.defaultDurationDays,
         sortOrder: data.sortOrder,
-        sequenceOrder: nextSequenceOrder,
-        optionalCategory: data.optionalCategory,
+        sequenceOrder: null,
+        optionalCategory: categoryNameForItem,
+        workTemplateCategoryId,
+        itemPosition,
         isDependency: data.isDependency || false,
         isCriticalGate: data.isCriticalGate || false,
         gateScope: data.gateScope ?? GateScope.DownstreamOnly,
@@ -80,9 +109,34 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    await createAuditLog(ctx.userId, "WorkTemplateItem", template.id, "CREATE", null, template, ctx.companyId)
+    await recomputeGlobalSequenceForCompany(prisma, ctx.companyId)
 
-    return NextResponse.json(template, { status: 201 })
+    const withRelations = await prisma.workTemplateItem.findFirst({
+      where: { id: template.id },
+      include: {
+        dependencies: {
+          include: {
+            dependsOnItem: { select: { id: true, name: true } },
+          },
+        },
+        contractor: { select: { id: true, companyName: true, trade: true, leadDays: true } },
+        workTemplateCategory: {
+          select: { id: true, name: true, categoryPosition: true },
+        },
+      },
+    })
+
+    await createAuditLog(
+      ctx.userId,
+      "WorkTemplateItem",
+      template.id,
+      "CREATE",
+      null,
+      withRelations ?? template,
+      ctx.companyId
+    )
+
+    return NextResponse.json(withRelations ?? template, { status: 201 })
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })

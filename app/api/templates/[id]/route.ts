@@ -14,6 +14,7 @@ const updateTemplateSchema = z.object({
   defaultDurationDays: z.number().int().min(0).optional(),
   sortOrder: z.number().int().optional(),
   optionalCategory: z.string().optional().nullable(),
+  workTemplateCategoryId: z.string().optional().nullable(),
   isDependency: z.boolean().optional(),
   isCriticalGate: z.boolean().optional(),
   gateScope: z.nativeEnum(GateScope).optional(),
@@ -86,11 +87,13 @@ export async function PATCH(
       }
     }
 
+    const { ensureWorkTemplateCategoryByName, nextItemPosition, recomputeGlobalSequenceForCompany } =
+      await import("@/lib/work-template-sequence")
+
     const updateData: any = {}
     if (data.name !== undefined) updateData.name = data.name
     if (data.defaultDurationDays !== undefined) updateData.defaultDurationDays = data.defaultDurationDays
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder
-    if (data.optionalCategory !== undefined) updateData.optionalCategory = data.optionalCategory
     if (data.isDependency !== undefined) updateData.isDependency = data.isDependency
     if (data.isCriticalGate !== undefined) updateData.isCriticalGate = data.isCriticalGate
     if (data.gateScope !== undefined) updateData.gateScope = data.gateScope
@@ -102,12 +105,30 @@ export async function PATCH(
     if (data.contractorId !== undefined) updateData.contractorId = data.contractorId
     if (data.contractorLeadOverrideDays !== undefined) updateData.contractorLeadOverrideDays = data.contractorLeadOverrideDays
 
-    // Ensure at least one field is being updated
+    if (data.workTemplateCategoryId !== undefined && data.workTemplateCategoryId) {
+      const cat = await prisma.workTemplateCategory.findFirst({
+        where: { id: data.workTemplateCategoryId, companyId: ctx.companyId },
+      })
+      if (!cat) {
+        return NextResponse.json({ error: "Category not found" }, { status: 400 })
+      }
+      updateData.workTemplateCategoryId = cat.id
+      updateData.optionalCategory = cat.name
+      updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+    } else if (data.workTemplateCategoryId !== undefined && !data.workTemplateCategoryId) {
+      updateData.workTemplateCategoryId = null
+      if (data.optionalCategory !== undefined) {
+        updateData.optionalCategory = data.optionalCategory
+      }
+    } else if (data.optionalCategory !== undefined) {
+      const cat = await ensureWorkTemplateCategoryByName(prisma, ctx.companyId, data.optionalCategory)
+      updateData.workTemplateCategoryId = cat.id
+      updateData.optionalCategory = cat.name
+      updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+    }
+
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: "No fields to update" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
     const after = await prisma.workTemplateItem.update({
@@ -115,9 +136,34 @@ export async function PATCH(
       data: updateData,
     })
 
-    await createAuditLog(ctx.userId, "WorkTemplateItem", params.id, "UPDATE", before, after, ctx.companyId)
+    await recomputeGlobalSequenceForCompany(prisma, ctx.companyId)
 
-    return NextResponse.json(after)
+    const enriched = await prisma.workTemplateItem.findFirst({
+      where: { id: params.id },
+      include: {
+        dependencies: {
+          include: {
+            dependsOnItem: { select: { id: true, name: true } },
+          },
+        },
+        contractor: { select: { id: true, companyName: true, trade: true, leadDays: true } },
+        workTemplateCategory: {
+          select: { id: true, name: true, categoryPosition: true },
+        },
+      },
+    })
+
+    await createAuditLog(
+      ctx.userId,
+      "WorkTemplateItem",
+      params.id,
+      "UPDATE",
+      before,
+      enriched ?? after,
+      ctx.companyId
+    )
+
+    return NextResponse.json(enriched ?? after)
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })

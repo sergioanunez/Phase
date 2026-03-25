@@ -418,14 +418,15 @@ export function PunchItemsList({
                     <Copy className="h-4 w-4 mr-1" />
                     Copy link
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(publicLink, "_blank", "noopener")}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open public view
+                  <Button variant="outline" size="sm" asChild>
+                    <a
+                      href={publicLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Open public view
+                    </a>
                   </Button>
                 </div>
               </div>

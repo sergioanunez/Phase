@@ -1,5 +1,6 @@
 import { PrismaClient, GateScope, GateBlockMode } from "@prisma/client"
 import { homeTaskOrderByTemplateSequence } from "../lib/work-template-display-order"
+import { recomputeGlobalSequenceForCompany } from "../lib/work-template-sequence"
 import bcrypt from "bcryptjs"
 
 // Force seed to use DATABASE_URL (pooler) only, so it never uses DIRECT_URL (5432) which may be unreachable.
@@ -246,7 +247,12 @@ async function main() {
     { name: "Final Inspection", defaultDurationDays: 1, sortOrder: 11 },
   ]
 
+  const demoCategory = await prisma.workTemplateCategory.create({
+    data: { companyId, name: "Demo schedule", categoryPosition: 100 },
+  })
+
   const createdTemplates = []
+  let itemPos = 100
   for (const item of templateItems) {
     const template = await prisma.workTemplateItem.create({
       data: {
@@ -254,14 +260,21 @@ async function main() {
         name: item.name,
         defaultDurationDays: item.defaultDurationDays,
         sortOrder: item.sortOrder,
+        workTemplateCategoryId: demoCategory.id,
+        itemPosition: itemPos,
+        optionalCategory: demoCategory.name,
+        sequenceOrder: null,
         isCriticalGate: item.isCriticalGate || false,
         gateName: item.gateName || null,
         gateScope: (item.gateScope as GateScope) ?? GateScope.DownstreamOnly,
         gateBlockMode: (item.gateBlockMode as GateBlockMode) ?? GateBlockMode.ScheduleOnly,
       },
     })
+    itemPos += 100
     createdTemplates.push(template)
   }
+
+  await recomputeGlobalSequenceForCompany(prisma, companyId)
 
   console.log("Created template items")
 

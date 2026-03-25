@@ -250,7 +250,8 @@ model Company {
   homeAssignments HomeAssignment[]
   userInvites   UserInvite[]
   inviteEmailLogs InviteEmailLog[]
-  categoryGates CategoryGate[]
+  categoryGates          CategoryGate[]
+  workTemplateCategories WorkTemplateCategory[]
   smsMessages   SmsMessage[]
   smsMessageLogs SmsMessageLog[]
   notifications Notification[]
@@ -486,6 +487,22 @@ model Home {
   @@index([startDate])
 }
 
+/// Builder-defined phase bucket; ordered by categoryPosition. Work items belong to one category.
+model WorkTemplateCategory {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name             String
+  /// Sort key for major build phases (gaps of 100).
+  categoryPosition Int                @default(100)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  templateItems    WorkTemplateItem[]
+
+  @@unique([companyId, name])
+  @@index([companyId, categoryPosition])
+}
+
 model WorkTemplateItem {
   id                  String        @id @default(cuid())
   companyId           String?
@@ -494,9 +511,13 @@ model WorkTemplateItem {
   /// Default duration in WORKING DAYS (Mon–Fri).
   defaultDurationDays Int
   sortOrder           Int
-  /// Manual display / Flow tie-break order within the tenant (gaps of 100). Null = fallback to category + sortOrder + name.
+  /// Manual display / Flow tie-break order within the tenant (gaps of 100). Synced from category + item order.
   sequenceOrder       Int?
   optionalCategory    String?
+  workTemplateCategoryId String?
+  workTemplateCategory   WorkTemplateCategory? @relation(fields: [workTemplateCategoryId], references: [id], onDelete: Restrict)
+  /// Order within the category (gaps of 100). Primary sort with categoryPosition defines global sequence.
+  itemPosition        Int                @default(100)
   isDependency        Boolean       @default(false)
   isCriticalGate      Boolean       @default(false)
   gateScope           GateScope     @default(DownstreamOnly)
@@ -526,6 +547,7 @@ model WorkTemplateItem {
   @@index([companyId])
   @@index([companyId, sortOrder])
   @@index([companyId, sequenceOrder])
+  @@index([companyId, workTemplateCategoryId, itemPosition])
   @@index([sortOrder])
   @@index([isCriticalGate])
   @@index([contractorId])

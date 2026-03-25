@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CreateHomeDialog } from "@/components/create-home-dialog"
 import { CreateSubdivisionDialog } from "@/components/create-subdivision-dialog"
 import { CreateTemplateDialog } from "@/components/create-template-dialog"
@@ -26,7 +26,12 @@ import { useRef, useMemo } from "react"
 import { sanitizeUrl } from "@/lib/url"
 import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
 import { sortWorkTemplatesForDisplay } from "@/lib/work-template-display-order"
-import { WorkTemplatesReorderList } from "@/components/work-templates-reorder-list"
+import {
+  WorkTemplateCategorySortableCard,
+  WorkTemplateCategorySortableSection,
+  WorkTemplateItemsDndContext,
+  WorkTemplateItemSortableRow,
+} from "@/components/work-template-dnd"
 
 interface Subdivision {
   id: string
@@ -56,6 +61,15 @@ interface Home {
   }
 }
 
+interface WorkTemplateCategoryRow {
+  id: string
+  name: string
+  categoryPosition: number
+  itemCount: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 interface WorkTemplateItem {
   id: string
   name: string
@@ -63,6 +77,9 @@ interface WorkTemplateItem {
   sortOrder: number
   sequenceOrder?: number | null
   optionalCategory: string | null
+  workTemplateCategoryId?: string | null
+  itemPosition?: number | null
+  workTemplateCategory?: { id: string; name: string; categoryPosition: number } | null
   isDependency: boolean
   isCriticalGate: boolean
   gateScope: "DownstreamOnly" | "AllScheduling"
@@ -246,24 +263,14 @@ export default function AdminPage() {
   const [impersonationChecked, setImpersonationChecked] = useState(false)
   const [workTemplatesSearchQuery, setWorkTemplatesSearchQuery] = useState("")
   const [criticalTemplateIds, setCriticalTemplateIds] = useState<string[]>([])
-  const [templatesReorderMode, setTemplatesReorderMode] = useState(false)
-  const [templatesReorderIds, setTemplatesReorderIds] = useState<string[]>([])
-  const [templatesReorderSaving, setTemplatesReorderSaving] = useState(false)
-  const [workTemplatesReorderMessage, setWorkTemplatesReorderMessage] = useState<string | null>(null)
-
-  const workTemplateItemsById = useMemo(() => new Map(templates.map((t) => [t.id, t])), [templates])
-
-  useEffect(() => {
-    if (!templatesReorderMode) return
-    setTemplatesReorderIds((prev) => {
-      const knownIds = new Set(templates.map((t) => t.id))
-      const kept = prev.filter((id) => knownIds.has(id))
-      const keptSet = new Set(kept)
-      const newOnes = sortWorkTemplatesForDisplay(templates.filter((t) => !keptSet.has(t.id))).map((t) => t.id)
-      if (newOnes.length === 0 && kept.length === prev.length) return prev
-      return [...kept, ...newOnes]
-    })
-  }, [templates, templatesReorderMode])
+  const [templateCategoryRows, setTemplateCategoryRows] = useState<WorkTemplateCategoryRow[]>([])
+  const [createTemplateCategoryId, setCreateTemplateCategoryId] = useState<string | null>(null)
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategorySaving, setNewCategorySaving] = useState(false)
+  const [editCategoryRow, setEditCategoryRow] = useState<WorkTemplateCategoryRow | null>(null)
+  const [editCategoryName, setEditCategoryName] = useState("")
+  const [editCategorySaving, setEditCategorySaving] = useState(false)
 
   async function handleSubSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -394,14 +401,37 @@ export default function AdminPage() {
         }
         return data
       }),
+      fetch("/api/category-gates").then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) return []
+        return Array.isArray(data) ? data : []
+      }),
+      fetch("/api/settings/work-template-categories").then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) return []
+        return Array.isArray(data) ? data : []
+      }),
     ])
-      .then(([subs, homesData, templatesData, contractorsData, usersData, branding, ganttData]) => {
+      .then(
+        ([
+          subs,
+          homesData,
+          templatesData,
+          contractorsData,
+          usersData,
+          branding,
+          ganttData,
+          gatesData,
+          templateCategoriesData,
+        ]) => {
         setSubdivisions(subs)
         setHomes(homesData)
         setTemplates(templatesData)
         setContractors(contractorsData)
         setUsers(usersData)
         setCompanyBranding(branding ?? null)
+        setCategoryGates(Array.isArray(gatesData) ? gatesData : [])
+        setTemplateCategoryRows(Array.isArray(templateCategoriesData) ? templateCategoriesData : [])
         if (branding) {
           setBrandForm({
             brandAppName: branding.brandAppName ?? "",
@@ -443,6 +473,61 @@ export default function AdminPage() {
     return d
   }, [templates])
 
+  const categoryBlocks = useMemo(() => {
+    const q = workTemplatesSearchQuery.trim().toLowerCase()
+    const byCatId = new Map(
+      templateCategoryRows.map((c) => [
+        c.id,
+        {
+          row: c,
+          items: [] as WorkTemplateItem[],
+        },
+      ])
+    )
+    for (const t of templates) {
+      const cid = t.workTemplateCategoryId
+      if (cid && byCatId.has(cid)) {
+        byCatId.get(cid)!.items.push(t)
+      }
+    }
+    let blocks = Array.from(byCatId.entries())
+      .map(([id, { row, items }]) => ({
+        id,
+        row,
+        items: [...items].sort((a, b) => {
+          const dp = (a.itemPosition ?? 0) - (b.itemPosition ?? 0)
+          if (dp !== 0) return dp
+          if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+          return a.name.localeCompare(b.name)
+        }),
+      }))
+      .sort((a, b) => a.row.categoryPosition - b.row.categoryPosition)
+
+    const orphans = templates.filter((t) => !t.workTemplateCategoryId)
+    if (orphans.length > 0) {
+      blocks.push({
+        id: "__orphan__",
+        row: {
+          id: "__orphan__",
+          name: "Uncategorized (assign items to a category)",
+          categoryPosition: 999_999,
+          itemCount: orphans.length,
+        },
+        items: [...orphans].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+      })
+    }
+
+    if (!q) return blocks
+
+    return blocks
+      .map((b) => {
+        const catMatch = b.row.name.toLowerCase().includes(q)
+        const filt = catMatch ? b.items : b.items.filter((t) => t.name.toLowerCase().includes(q))
+        return { ...b, items: filt }
+      })
+      .filter((b) => b.items.length > 0 || b.row.name.toLowerCase().includes(q))
+  }, [templateCategoryRows, templates, workTemplatesSearchQuery])
+
   /** Duration for one item: use editing value when this item is being edited, else template value. */
   const durationFor = (t: WorkTemplateItem): number => {
     if (editingTemplateId === t.id) {
@@ -465,15 +550,17 @@ export default function AdminPage() {
       fetch("/api/contractors").then((res) => res.json()),
       fetch("/api/users").then((res) => res.json()),
       fetch("/api/category-gates").then((res) => res.json()),
+      fetch("/api/settings/work-template-categories").then((res) => res.json()),
       fetch("/api/company/branding").then(async (res) => (res.ok ? res.json() : null)),
     ])
-      .then(([subs, homesData, templatesData, contractorsData, usersData, gatesData, branding]) => {
+      .then(([subs, homesData, templatesData, contractorsData, usersData, gatesData, templateCategoriesData, branding]) => {
         setSubdivisions(Array.isArray(subs) ? subs : [])
         setHomes(Array.isArray(homesData) ? homesData : [])
         setTemplates(Array.isArray(templatesData) ? templatesData : [])
         setContractors(Array.isArray(contractorsData) ? contractorsData : [])
         setUsers(Array.isArray(usersData) ? usersData : [])
         setCategoryGates(Array.isArray(gatesData) ? gatesData : [])
+        setTemplateCategoryRows(Array.isArray(templateCategoriesData) ? templateCategoriesData : [])
         setCompanyBranding(branding ?? null)
         if (branding) {
           setBrandForm({
@@ -495,69 +582,14 @@ export default function AdminPage() {
   }
 
   const refreshTemplatesOnly = async () => {
-    const res = await fetch("/api/templates")
-    const data = await res.json()
-    if (Array.isArray(data)) setTemplates(data)
-  }
-
-  const enterTemplatesReorderMode = () => {
-    setWorkTemplatesReorderMessage(null)
-    setTemplatesReorderIds(sortWorkTemplatesForDisplay(templates).map((t) => t.id))
-    setTemplatesReorderMode(true)
-  }
-
-  const exitTemplatesReorderMode = (opts?: { clearMessage?: boolean }) => {
-    setTemplatesReorderMode(false)
-    setTemplatesReorderIds([])
-    if (opts?.clearMessage) setWorkTemplatesReorderMessage(null)
-  }
-
-  const saveTemplatesOrder = async () => {
-    setTemplatesReorderSaving(true)
-    setWorkTemplatesReorderMessage(null)
-    try {
-      const res = await fetch("/api/settings/work-items/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedTemplateIds: templatesReorderIds }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        const msg =
-          typeof data?.error === "string"
-            ? data.error
-            : "Failed to save order"
-        setWorkTemplatesReorderMessage(msg)
-        return
-      }
-      setWorkTemplatesReorderMessage("Order saved.")
-      await refreshTemplatesOnly()
-      exitTemplatesReorderMode()
-    } finally {
-      setTemplatesReorderSaving(false)
-    }
-  }
-
-  const resetTemplatesOrder = async () => {
-    setTemplatesReorderSaving(true)
-    setWorkTemplatesReorderMessage(null)
-    try {
-      const res = await fetch("/api/settings/work-items/order/reset", { method: "POST" })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        const msg =
-          typeof data?.error === "string"
-            ? data.error
-            : "Failed to reset order"
-        setWorkTemplatesReorderMessage(msg)
-        return
-      }
-      setWorkTemplatesReorderMessage("Order reset to default.")
-      await refreshTemplatesOnly()
-      exitTemplatesReorderMode()
-    } finally {
-      setTemplatesReorderSaving(false)
-    }
+    const [tRes, cRes] = await Promise.all([
+      fetch("/api/templates"),
+      fetch("/api/settings/work-template-categories"),
+    ])
+    const tData = await tRes.json().catch(() => [])
+    const cData = await cRes.json().catch(() => [])
+    if (Array.isArray(tData)) setTemplates(tData)
+    if (Array.isArray(cData)) setTemplateCategoryRows(cData)
   }
 
   const handleSaveBranding = async () => {
@@ -626,6 +658,93 @@ export default function AdminPage() {
       console.error("Failed to toggle category gate:", err)
       alert("Failed to toggle category gate")
     }
+  }
+
+  const persistWorkItemOrderInCategory = async (categoryId: string, orderedTemplateIds: string[]) => {
+    const res = await fetch("/api/settings/work-template-items/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryId, orderedTemplateIds }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(typeof data?.error === "string" ? data.error : "Failed to save item order")
+      return
+    }
+    await refreshTemplatesOnly()
+  }
+
+  const persistCategoryOrder = async (orderedCategoryIds: string[]) => {
+    const res = await fetch("/api/settings/work-template-categories/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedCategoryIds }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(typeof data?.error === "string" ? data.error : "Failed to save category order")
+      return
+    }
+    await refreshTemplatesOnly()
+  }
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim()
+    if (!name) return
+    setNewCategorySaving(true)
+    try {
+      const res = await fetch("/api/settings/work-template-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(typeof data?.error === "string" ? data.error : "Failed to create category")
+        return
+      }
+      setNewCategoryName("")
+      setNewCategoryOpen(false)
+      await refreshTemplatesOnly()
+    } finally {
+      setNewCategorySaving(false)
+    }
+  }
+
+  const handleSaveEditCategory = async () => {
+    if (!editCategoryRow) return
+    const name = editCategoryName.trim()
+    if (!name) return
+    setEditCategorySaving(true)
+    try {
+      const res = await fetch(`/api/settings/work-template-categories/${editCategoryRow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(typeof data?.error === "string" ? data.error : "Failed to update category")
+        return
+      }
+      setEditCategoryRow(null)
+      await refreshTemplatesOnly()
+      const gRes = await fetch("/api/category-gates").then((r) => r.json())
+      if (Array.isArray(gRes)) setCategoryGates(gRes)
+    } finally {
+      setEditCategorySaving(false)
+    }
+  }
+
+  const handleDeleteCategoryRow = async (row: WorkTemplateCategoryRow) => {
+    if (!confirm(`Delete category "${row.name}"? It must have no work items.`)) return
+    const res = await fetch(`/api/settings/work-template-categories/${row.id}`, { method: "DELETE" })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(typeof data?.error === "string" ? data.error : "Failed to delete category")
+      return
+    }
+    await refreshTemplatesOnly()
   }
 
   const handleDeleteSubdivision = async (id: string, name: string) => {
@@ -1878,43 +1997,47 @@ export default function AdminPage() {
             <div className="mx-auto max-w-3xl px-4 sm:px-6 pt-1">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Work Items Template</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                These are the work items that will be automatically created for each new home.
+                Organize work by build phase: create categories first, add items inside each category, and drag to
+                order. Flow and schedules use the same sequence. Use the branch icon to edit dependencies (
+                unchanged).
               </p>
-              {workTemplatesReorderMessage && (
-                <p
-                  className={`text-sm mb-3 ${
-                    workTemplatesReorderMessage.toLowerCase().includes("fail")
-                      ? "text-destructive"
-                      : "text-green-700 dark:text-green-400"
-                  }`}
-                >
-                  {workTemplatesReorderMessage}
-                </p>
-              )}
-              {!templatesReorderMode && (
-                <div className="relative mb-4 w-full">
-                  <Search
-                    className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground opacity-90 pointer-events-none"
-                    aria-hidden
-                  />
-                  <input
-                    type="search"
-                    placeholder="Search work items or category"
-                    value={workTemplatesSearchQuery}
-                    onChange={(e) => setWorkTemplatesSearchQuery(e.target.value)}
-                    className="w-full h-[50px] rounded-lg border border-border bg-white py-3 pl-11 pr-4 text-base shadow-sm placeholder:text-muted-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
-                    aria-label="Search work items or category"
-                  />
-                </div>
-              )}
+              <div className="relative mb-4 w-full">
+                <Search
+                  className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground opacity-90 pointer-events-none"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  placeholder="Search work items or category"
+                  value={workTemplatesSearchQuery}
+                  onChange={(e) => setWorkTemplatesSearchQuery(e.target.value)}
+                  className="w-full h-[50px] rounded-lg border border-border bg-white py-3 pl-11 pr-4 text-base shadow-sm placeholder:text-muted-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
+                  aria-label="Search work items or category"
+                />
+              </div>
               <div className="flex flex-wrap gap-2 mb-6">
                 <Button
-                  onClick={() => setCreateTemplateOpen(true)}
+                  onClick={() => {
+                    setCreateTemplateCategoryId(null)
+                    setCreateTemplateOpen(true)
+                  }}
                   variant="default"
                   size="sm"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   New Work Item
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setNewCategoryName("")
+                    setNewCategoryOpen(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Category
                 </Button>
                 <Button
                   onClick={() => setImportTemplatesOpen(true)}
@@ -1932,134 +2055,79 @@ export default function AdminPage() {
                   <GanttChart className="h-4 w-4 mr-1" />
                   View Gantt
                 </Button>
-                {!templatesReorderMode ? (
-                  <Button variant="outline" size="sm" type="button" onClick={enterTemplatesReorderMode}>
-                    Reorder
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      type="button"
-                      onClick={saveTemplatesOrder}
-                      disabled={templatesReorderSaving}
-                    >
-                      Save order
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={resetTemplatesOrder}
-                      disabled={templatesReorderSaving}
-                    >
-                      Reset order
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => exitTemplatesReorderMode({ clearMessage: true })}
-                      disabled={templatesReorderSaving}
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                )}
               </div>
 
-              {templatesReorderMode ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Drag by the handle to set a single global order for templates (lists, schedule, Flow tie-breakers).
-                    New items appear at the end until you save.
-                  </p>
-                  <WorkTemplatesReorderList
-                    itemsById={workTemplateItemsById}
-                    orderedIds={templatesReorderIds}
-                    onOrderedIdsChange={setTemplatesReorderIds}
-                  />
-                </div>
-              ) : (
-                (() => {
-                const q = workTemplatesSearchQuery.trim().toLowerCase()
-                // Group templates by category
-                const templatesByCategory = templates.reduce((acc, template) => {
-                  const category = template.optionalCategory || "Uncategorized"
-                  if (!acc[category]) {
-                    acc[category] = []
-                  }
-                  acc[category].push(template)
-                  return acc
-                }, {} as Record<string, WorkTemplateItem[]>)
-                // Apply search filter: per category, keep only templates matching q; then keep only categories with matches (or category name match)
-                const filteredByCategory = q
-                  ? Object.fromEntries(
-                      Object.entries(templatesByCategory)
-                        .map(([cat, items]) => {
-                          const categoryMatches = cat.toLowerCase().includes(q)
-                          const filtered = categoryMatches
-                            ? items
-                            : items.filter((t) => t.name.toLowerCase().includes(q))
-                          return [cat, filtered] as const
-                        })
-                        .filter(([, items]) => items.length > 0)
-                    )
-                  : templatesByCategory
+              <Dialog open={newCategoryOpen} onOpenChange={setNewCategoryOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>New category</DialogTitle>
+                    <DialogDescription>
+                      Add a build phase (e.g. Foundation). Then add work items inside it.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2 py-2">
+                    <label className="text-sm font-medium">Name</label>
+                    <input
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="e.g. Structural"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setNewCategoryOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="button" disabled={newCategorySaving} onClick={handleCreateCategory}>
+                      {newCategorySaving ? "Saving…" : "Create"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
-                // Category order (Preliminary work first)
-                const categoryOrder = [
-                  "Preliminary work",
-                  "Foundation",
-                  "Structural",
-                  "Interior finishes / exterior rough work",
-                  "Finals punches and inspections.",
-                  "Pre-sale completion package",
-                ]
+              <Dialog
+                open={!!editCategoryRow}
+                onOpenChange={(o) => {
+                  if (!o) setEditCategoryRow(null)
+                }}
+              >
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Edit category</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2 py-2">
+                    <label className="text-sm font-medium">Name</label>
+                    <input
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      value={editCategoryName}
+                      onChange={(e) => setEditCategoryName(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setEditCategoryRow(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="button" disabled={editCategorySaving} onClick={handleSaveEditCategory}>
+                      {editCategorySaving ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
-                // Sort categories - Preliminary work always first (use filtered set when searching)
-                const sortedCategories = Object.keys(filteredByCategory).sort((a, b) => {
-                  const aLower = a.toLowerCase().trim()
-                  const bLower = b.toLowerCase().trim()
-                  
-                  // Normalize "prelliminary" typo to "preliminary" for sorting
-                  const aNormalized = aLower.replace("prelliminary", "preliminary")
-                  const bNormalized = bLower.replace("prelliminary", "preliminary")
-                  
-                  // Preliminary always comes FIRST
-                  const aIsPreliminary = aNormalized.includes("preliminary")
-                  const bIsPreliminary = bNormalized.includes("preliminary")
-                  
-                  if (aIsPreliminary && !bIsPreliminary) return -1
-                  if (!aIsPreliminary && bIsPreliminary) return 1
-                  if (aIsPreliminary && bIsPreliminary) {
-                    return a.localeCompare(b)
-                  }
-                  
-                  // Use predefined order
-                  const aIndex = categoryOrder.findIndex(
-                    (orderCat) => orderCat.toLowerCase().trim() === aLower
-                  )
-                  const bIndex = categoryOrder.findIndex(
-                    (orderCat) => orderCat.toLowerCase().trim() === bLower
-                  )
-                  
-                  if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
-                  if (aIndex !== -1) return -1
-                  if (bIndex !== -1) return 1
-                  
-                  return a.localeCompare(b)
-                })
-
-                if (templates.length === 0) {
+              {(() => {
+                const searchTrim = workTemplatesSearchQuery.trim()
+                const disableReorder = searchTrim.length > 0
+                if (templates.length === 0 && templateCategoryRows.length === 0) {
                   return (
                     <p className="text-muted-foreground text-center py-8">
-                      No work items template. Create one to get started.
+                      No work items yet. Create a category, then add work items.
                     </p>
                   )
                 }
-
-                if (sortedCategories.length === 0) {
+                if (categoryBlocks.length === 0) {
+                  return <p className="text-muted-foreground text-center py-8">Loading…</p>
+                }
+                if (categoryBlocks.every((b) => b.items.length === 0) && searchTrim.length > 0) {
                   return (
                     <p className="text-muted-foreground text-center py-8">
                       No work items match your search. Try a different term or clear the search bar.
@@ -2067,20 +2135,34 @@ export default function AdminPage() {
                   )
                 }
 
+                const regularBlocks = categoryBlocks.filter((b) => b.id !== "__orphan__")
+                const orphanBlock = categoryBlocks.find((b) => b.id === "__orphan__")
+                const sortableCategoryIds = regularBlocks.map((b) => b.id)
+
                 return (
                   <>
                   <Accordion type="multiple" className="w-full space-y-3">
-                    {sortedCategories.map((category) => {
-                      const categoryTemplates = filteredByCategory[category]
-                      // Sort templates within category by sortOrder
-                      const sortedTemplates = sortWorkTemplatesForDisplay(categoryTemplates)
-                      const durationDays = categoryDurations[category]
+                    {regularBlocks.length > 0 ? (
+                    <WorkTemplateCategorySortableSection
+                      categoryIds={sortableCategoryIds}
+                      disabled={disableReorder}
+                      onReorder={persistCategoryOrder}
+                    >
+                    {regularBlocks.map((block) => {
+                      const category = block.row.name
+                      const sortedTemplates = block.items
+                      const durationDays =
+                        categoryDurations[category] ??
+                        (sortedTemplates.length > 0
+                          ? computeCategoryCriticalPathDuration(sortedTemplates)
+                          : null)
                       const durationLabel = durationDays === null ? "—" : `${durationDays} working days`
 
                       return (
+                      <WorkTemplateCategorySortableCard key={block.id} id={block.id} disabled={disableReorder}>
                         <AccordionItem
-                          key={category}
-                          value={category}
+                          key={block.id}
+                          value={block.id}
                           className="rounded-md border border-gray-200 border-l-4 border-l-gray-300 bg-white transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/20 dark:hover:bg-gray-900/30 border-b-0"
                         >
                           <AccordionTrigger className="hover:no-underline py-4 px-4 [&>svg]:shrink-0">
@@ -2116,15 +2198,62 @@ export default function AdminPage() {
                                   <Lock className={`h-4 w-4 ${categoryGates.some((gate) => gate.categoryName === category) ? "fill-current" : ""}`} />
                                 </Button>
                                 <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                  {categoryTemplates.length} items · {durationLabel}
+                                  {sortedTemplates.length} items · {durationLabel}
                                 </span>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCreateTemplateCategoryId(block.row.id)
+                                    setCreateTemplateOpen(true)
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Work Item
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 shrink-0"
+                                  title="Edit category name"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditCategoryRow(block.row)
+                                    setEditCategoryName(block.row.name)
+                                  }}
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 shrink-0 text-destructive"
+                                  title="Delete empty category"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteCategoryRow(block.row)
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-3 pt-2">
+                            <WorkTemplateItemsDndContext
+                              itemIds={sortedTemplates.map((t) => t.id)}
+                              disabled={disableReorder}
+                              onReorder={(ids) => persistWorkItemOrderInCategory(block.row.id, ids)}
+                            >
                               {sortedTemplates.map((template) => (
-                                <Card key={template.id}>
+                                <WorkTemplateItemSortableRow key={template.id} id={template.id} disabled={disableReorder}>
+                                <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -2492,26 +2621,90 @@ export default function AdminPage() {
                       </div>
                     </CardHeader>
                   </Card>
+                                </WorkTemplateItemSortableRow>
                               ))}
+                            </WorkTemplateItemsDndContext>
                               <div className="text-right text-sm text-muted-foreground pt-2 mt-2 border-t border-border">
                                 Category total: {sortedTemplates.reduce((s, t) => s + durationFor(t), 0)} days
                               </div>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
+                      </WorkTemplateCategorySortableCard>
                       )
                     })}
+                    </WorkTemplateCategorySortableSection>
+                    ) : null}
+                    {orphanBlock && orphanBlock.items.length > 0 ? (
+                      <AccordionItem
+                        key={orphanBlock.id}
+                        value={orphanBlock.id}
+                        className="rounded-md border border-amber-200/80 border-l-4 border-l-amber-400 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-950/20 border-b-0"
+                      >
+                        <AccordionTrigger className="hover:no-underline py-4 px-4 [&>svg]:shrink-0">
+                          <div className="flex flex-wrap items-center gap-2 w-full pr-2 min-w-0">
+                            <span className="font-semibold text-left break-words">
+                              {orphanBlock.row.name}
+                            </span>
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              {orphanBlock.items.length} items · edit an item to assign a category
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pt-2">
+                            {orphanBlock.items.map((template) => (
+                              <Card key={template.id}>
+                                <CardHeader>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {template.defaultDurationDays} days · assign category via Edit
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleStartEditTemplate(template)}
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleStartEditDependencies(template)}
+                                      >
+                                        <GitBranch className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive"
+                                        onClick={() => handleDeleteTemplate(template.id, template.name)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                              </Card>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ) : null}
                   </Accordion>
                   <TemplateSummaryCard
                     totalWorkingDays={projectTotalDays}
                     totalWorkItems={templates.length}
-                    categoryCount={sortedCategories.length}
+                    categoryCount={categoryBlocks.filter((b) => b.id !== "__orphan__").length}
                     infoTitle="This is the sum of all template task durations. Actual forecast duration may differ based on dependencies."
                   />
                   </>
                 )
-                })()
-              )}
+                })()}
             </div>
           </TabsContent>
 
@@ -3181,8 +3374,12 @@ export default function AdminPage() {
         />
         <CreateTemplateDialog
           open={createTemplateOpen}
-          onOpenChange={setCreateTemplateOpen}
+          onOpenChange={(open) => {
+            setCreateTemplateOpen(open)
+            if (!open) setCreateTemplateCategoryId(null)
+          }}
           onSuccess={handleRefresh}
+          defaultWorkTemplateCategoryId={createTemplateCategoryId}
         />
         <ImportTemplatesDialog
           open={importTemplatesOpen}

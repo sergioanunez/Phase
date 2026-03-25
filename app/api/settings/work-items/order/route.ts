@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { sortWorkTemplatesForDisplay } from "@/lib/work-template-display-order"
+import { flattenWorkTemplatesForAdminExecutionOrder } from "@/lib/work-template-display-order"
+import { syncCategoryStructureFromGlobalOrder } from "@/lib/work-template-sequence"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -15,7 +16,7 @@ const bodySchema = z.object({
 
 /**
  * POST /api/settings/work-items/order
- * Admin-only. Persists sequenceOrder with gaps (100, 200, ...).
+ * Admin-only. Applies a global id order, syncs category/item positions, recomputes sequenceOrder (Flow).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -54,20 +55,19 @@ export async function POST(request: NextRequest) {
 
     const orderedSet = new Set(orderedTemplateIds)
     const missing = all.filter((t) => !orderedSet.has(t.id))
-    const appended = sortWorkTemplatesForDisplay(missing).map((t) => t.id)
+    const appended = flattenWorkTemplatesForAdminExecutionOrder(missing).map((t) => t.id)
     const finalOrder = [...orderedTemplateIds, ...appended]
 
-    const start = 100
-    const increment = 100
+    if (new Set(finalOrder).size !== finalOrder.length) {
+      console.error("[work-items/order] duplicate ids in finalOrder", { companyId: ctx.companyId })
+    }
 
-    await prisma.$transaction(
-      finalOrder.map((id, index) =>
-        prisma.workTemplateItem.update({
-          where: { id },
-          data: { sequenceOrder: start + index * increment },
-        })
-      )
-    )
+    await syncCategoryStructureFromGlobalOrder(prisma, ctx.companyId, finalOrder)
+
+    console.info("[work-items/order] synced category structure + sequence", {
+      companyId: ctx.companyId,
+      count: finalOrder.length,
+    })
 
     return NextResponse.json({ ok: true, updated: finalOrder.length })
   } catch (error: unknown) {

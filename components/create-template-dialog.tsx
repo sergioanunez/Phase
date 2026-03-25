@@ -15,12 +15,15 @@ interface CreateTemplateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  /** When set, item is created in this category (category field hidden). */
+  defaultWorkTemplateCategoryId?: string | null
 }
 
 export function CreateTemplateDialog({
   open,
   onOpenChange,
   onSuccess,
+  defaultWorkTemplateCategoryId = null,
 }: CreateTemplateDialogProps) {
   const [name, setName] = useState("")
   const [defaultDurationDays, setDefaultDurationDays] = useState("")
@@ -72,6 +75,9 @@ export function CreateTemplateDialog({
           <DialogTitle>Create Work Item Template</DialogTitle>
           <DialogDescription>
             Add a new work item to the master template. This will be used when creating new homes.
+            {defaultWorkTemplateCategoryId
+              ? " This item will be placed in the selected category."
+              : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -124,18 +130,20 @@ export function CreateTemplateDialog({
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Category (Optional)
-              </label>
-              <input
-                type="text"
-                value={optionalCategory}
-                onChange={(e) => setOptionalCategory(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-                placeholder="e.g., Structural, Finishing"
-              />
-            </div>
+            {!defaultWorkTemplateCategoryId && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Category (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={optionalCategory}
+                  onChange={(e) => setOptionalCategory(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="e.g., Structural, Finishing"
+                />
+              </div>
+            )}
 
             {error && (
               <div className="text-sm text-destructive">{error}</div>

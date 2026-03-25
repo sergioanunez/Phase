@@ -9,21 +9,21 @@ export const fetchCache = "force-no-store"
 
 /**
  * POST /api/settings/work-items/order/reset
- * Admin-only. Clears sequenceOrder for all tenant templates (fallback ordering applies).
+ * Admin-only. Recomputes sequenceOrder from category + item positions (keeps structure, refreshes Flow order).
  */
 export async function POST() {
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantAdmin } = await import("@/lib/rbac")
+    const { recomputeGlobalSequenceForCompany } = await import("@/lib/work-template-sequence")
     const ctx = await requireTenantAdmin()
 
-    const result = await prisma.workTemplateItem.updateMany({
-      where: { companyId: ctx.companyId },
-      data: { sequenceOrder: null },
-    })
+    await recomputeGlobalSequenceForCompany(prisma, ctx.companyId)
 
-    return NextResponse.json({ ok: true, updated: result.count })
+    const count = await prisma.workTemplateItem.count({ where: { companyId: ctx.companyId } })
+
+    return NextResponse.json({ ok: true, updated: count })
   } catch (error: unknown) {
     return handleApiError(error)
   }
