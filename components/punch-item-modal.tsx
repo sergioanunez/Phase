@@ -216,9 +216,9 @@ export function PunchItemModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="w-full max-w-[min(28rem,calc(100vw-1rem))] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <DialogHeader className="text-left sm:text-left">
+          <DialogTitle className="break-words pr-6 leading-snug">
             {isEditing ? "Edit Punch Item" : "Create Punch Item"}
           </DialogTitle>
           <DialogDescription>

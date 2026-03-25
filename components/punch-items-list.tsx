@@ -306,17 +306,19 @@ export function PunchItemsList({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Punch Items: {taskName}</DialogTitle>
+        <DialogContent className="w-full max-w-[min(42rem,calc(100vw-1rem))] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <DialogHeader className="text-left sm:text-left">
+            <DialogTitle className="break-words pr-6 leading-snug">
+              Punch Items: {taskName}
+            </DialogTitle>
             <DialogDescription>
               Manage QA items for this task
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex gap-2">
+          <div className="min-w-0 space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant={filter === "all" ? "default" : "outline"}
                   size="sm"
@@ -339,7 +341,7 @@ export function PunchItemsList({
                   Closed
                 </Button>
               </div>
-              <div className="flex items-center gap-2 flex-nowrap shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Button
                   size="sm"
                   variant="outline"
@@ -383,12 +385,13 @@ export function PunchItemsList({
                 </Button>
                 <Button
                   size="sm"
+                  className="shrink-0"
                   onClick={() => {
                     setEditingPunchItem(null)
                     setPunchModalOpen(true)
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-4 w-4 mr-1 shrink-0" />
                   Add Punch
                 </Button>
               </div>
@@ -405,7 +408,7 @@ export function PunchItemsList({
                     Sent {format(new Date(publicLinkSentAt), "MMM d, yyyy 'at' h:mm a")}
                   </p>
                 )}
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -443,13 +446,13 @@ export function PunchItemsList({
                 {filteredItems.map((item) => (
                   <div
                     key={item.id}
-                    className="border rounded-lg p-4 space-y-2 hover:bg-accent/50 transition-colors"
+                    className="border rounded-lg p-3 sm:p-4 space-y-2 hover:bg-accent/50 transition-colors min-w-0"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{item.title}</h4>
-                          <Badge variant={getStatusColor(item.status)}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+                          <h4 className="font-medium break-words">{item.title}</h4>
+                          <Badge variant={getStatusColor(item.status)} className="shrink-0">
                             {item.status}
                           </Badge>
                         </div>
@@ -500,7 +503,7 @@ export function PunchItemsList({
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0 self-end sm:self-start">
                         {(item.status === "Open" || item.status === "ReadyForReview") && (
                           <Button
                             variant="ghost"
