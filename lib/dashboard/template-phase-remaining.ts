@@ -1,9 +1,12 @@
 import { compareWorkTemplateCategoryNamesForAdminDisplay } from "@/lib/work-template-display-order"
+import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
 
 export type WorkTemplateItemForRemaining = {
+  id: string
   defaultDurationDays: number
   optionalCategory: string | null
   workTemplateCategory: { name: string } | null
+  dependencies?: Array<{ dependsOnItemId: string }>
 }
 
 export type WorkTemplateCategoryRow = {
@@ -12,12 +15,22 @@ export type WorkTemplateCategoryRow = {
 }
 
 /**
- * Category label used on HomeTask.templateItem / phase detection: category relation name wins, else optionalCategory, else Uncategorized.
+ * Must match `computeCurrentPhaseForHome` / `deriveOrderedCategories` task bucketing
+ * (`templateItem.optionalCategory` snapshot on homes).
  */
-export function effectiveTemplateCategoryName(item: WorkTemplateItemForRemaining): string {
-  const fromRel = item.workTemplateCategory?.name?.trim()
-  if (fromRel) return fromRel
+export function phaseBucketNameForPhaseMatch(item: { optionalCategory: string | null }): string {
   return (item.optionalCategory || "").trim() || "Uncategorized"
+}
+
+export function dedupePreserveOrder(names: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const n of names) {
+    if (seen.has(n)) continue
+    seen.add(n)
+    out.push(n)
+  }
+  return out
 }
 
 /**
@@ -42,7 +55,7 @@ export function buildOrderedTemplateCategoryNames(
 
   const fromItems = new Set<string>()
   for (const it of items) {
-    fromItems.add(effectiveTemplateCategoryName(it))
+    fromItems.add(phaseBucketNameForPhaseMatch(it))
   }
 
   const appendMissing = (base: string[], names: Iterable<string>): string[] => {
@@ -58,13 +71,35 @@ export function buildOrderedTemplateCategoryNames(
   return out
 }
 
-/** Sum defaultDurationDays (working days) per category name. */
-export function categoryDurationByName(items: WorkTemplateItemForRemaining[]): Map<string, number> {
-  const m = new Map<string, number>()
+/**
+ * Per phase bucket: longest in-category dependency chain (same as Admin → Work Items
+ * `computeCategoryCriticalPathDuration`). Parallel tasks do not add their durations together.
+ */
+export function categoryCriticalPathDurationByName(
+  items: WorkTemplateItemForRemaining[]
+): Map<string, number> {
+  const byName = new Map<string, WorkTemplateItemForRemaining[]>()
   for (const it of items) {
-    const name = effectiveTemplateCategoryName(it)
-    const d = Number(it.defaultDurationDays) || 0
-    m.set(name, (m.get(name) ?? 0) + d)
+    const name = phaseBucketNameForPhaseMatch(it)
+    const arr = byName.get(name) ?? []
+    arr.push(it)
+    byName.set(name, arr)
+  }
+  const m = new Map<string, number>()
+  for (const [name, group] of byName) {
+    const cp = computeCategoryCriticalPathDuration(
+      group.map((t) => ({
+        id: t.id,
+        defaultDurationDays: t.defaultDurationDays,
+        dependencies: t.dependencies,
+      }))
+    )
+    if (cp != null) {
+      m.set(name, cp)
+      continue
+    }
+    const sum = group.reduce((s, t) => s + (Number(t.defaultDurationDays) || 0), 0)
+    m.set(name, sum)
   }
   return m
 }
@@ -77,13 +112,14 @@ export function cumulativeRemainingWorkingDaysByCategory(
   orderedNames: string[],
   durationByName: Map<string, number>
 ): { cumulativeByName: Map<string, number>; totalBuildWorkingDays: number } {
-  const durations = orderedNames.map((n) => durationByName.get(n) ?? 0)
+  const uniqueOrder = dedupePreserveOrder(orderedNames)
+  const durations = uniqueOrder.map((n) => durationByName.get(n) ?? 0)
   const totalBuildWorkingDays = durations.reduce((a, b) => a + b, 0)
   const cumulativeByName = new Map<string, number>()
-  for (let i = 0; i < orderedNames.length; i++) {
+  for (let i = 0; i < uniqueOrder.length; i++) {
     let sum = 0
-    for (let j = i; j < orderedNames.length; j++) sum += durations[j]
-    cumulativeByName.set(orderedNames[i], sum)
+    for (let j = i; j < uniqueOrder.length; j++) sum += durations[j]
+    cumulativeByName.set(uniqueOrder[i], sum)
   }
   return { cumulativeByName, totalBuildWorkingDays }
 }

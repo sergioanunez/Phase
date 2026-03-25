@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
     const { computePulseBySubdivision } = await import("@/lib/dashboard/pulse")
     const {
       buildOrderedTemplateCategoryNames,
-      categoryDurationByName,
+      categoryCriticalPathDurationByName,
       cumulativeRemainingWorkingDaysByCategory,
+      dedupePreserveOrder,
     } = await import("@/lib/dashboard/template-phase-remaining")
 
     const ctx = await requireTenantPermission("dashboard:view")
@@ -118,11 +119,10 @@ export async function GET(request: NextRequest) {
     const phaseDistribution = computePhaseDistribution(homesForPhase)
     const orderedCategories = deriveOrderedCategories(homesForPhase)
 
-    // Remaining working days: explicit phase staircase from the work template only.
-    // Per category C: sum(defaultDurationDays) for items in C. Remaining from C onward = sum of those
-    // category totals from C's template position through the last category (NOT dependency/critical-path dates).
-    // Earlier bug: CPM "earliest start per category → project end" often matched projectStart for many
-    // parallel categories, so every phase showed the full build length.
+    // Remaining working days: phase staircase from the work template — same per-category duration math as
+    // Admin → Work Items (`computeCategoryCriticalPathDuration` per phase bucket). Buckets use
+    // optionalCategory (matches home task snapshots / `computeCurrentPhaseForHome`). Parallel tasks in a
+    // phase contribute once (longest chain), not a raw sum of all defaultDurationDays (which ~doubled totals).
     const debugRemaining = process.env.DASHBOARD_PHASE_REMAINING_DEBUG === "1"
 
     const { workTemplateItemWhereForTenant } = await import("@/lib/work-template-tenant-scope")
@@ -136,9 +136,11 @@ export async function GET(request: NextRequest) {
       prisma.workTemplateItem.findMany({
         where: workTemplateItemWhereForTenant(ctx.companyId),
         select: {
+          id: true,
           defaultDurationDays: true,
           optionalCategory: true,
           workTemplateCategory: { select: { name: true } },
+          dependencies: { select: { dependsOnItemId: true } },
         },
       }),
     ])
@@ -149,7 +151,7 @@ export async function GET(request: NextRequest) {
       templateItems,
       extraNamesFromHomes
     )
-    const durationByCategory = categoryDurationByName(templateItems)
+    const durationByCategory = categoryCriticalPathDurationByName(templateItems)
     const { cumulativeByName, totalBuildWorkingDays } = cumulativeRemainingWorkingDaysByCategory(
       orderedTemplateCategoryNames,
       durationByCategory
@@ -213,9 +215,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (debugRemaining) {
-      const durationEntries = orderedTemplateCategoryNames.map((name) => ({
+      const durationEntries = dedupePreserveOrder(orderedTemplateCategoryNames).map((name) => ({
         name,
-        workingDays: durationByCategory.get(name) ?? 0,
+        criticalPathWorkingDays: durationByCategory.get(name) ?? 0,
         remainingFromCategoryOnward: cumulativeByName.get(name) ?? null,
       }))
       const byPhase = new Map<string, { count: number; values: number[] }>()
