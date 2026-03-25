@@ -28,15 +28,28 @@ export async function PATCH(
     if (!ctx.companyId) {
       return NextResponse.json({ error: "No company context" }, { status: 403 })
     }
-    if (!BUILDER_ROLES.includes(ctx.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    if (BUILDER_ROLES.includes(ctx.role)) {
+      const updated = await markNotificationRead(id, ctx.companyId)
+      if (!updated) {
+        return NextResponse.json({ error: "Notification not found" }, { status: 404 })
+      }
+      return NextResponse.json({ success: true })
     }
 
-    const updated = await markNotificationRead(id, ctx.companyId)
-    if (!updated) {
-      return NextResponse.json({ error: "Notification not found" }, { status: 404 })
+    if (ctx.role === "Subcontractor" && ctx.contractorId) {
+      const { fetchSubcontractorActivityNotifications } = await import("@/lib/subcontractor-activity-notifications")
+      const { prisma } = await import("@/lib/prisma")
+      const { markActivityNotificationRead } = await import("@/lib/activity-notification-read")
+      const items = await fetchSubcontractorActivityNotifications(prisma, ctx.companyId, ctx.contractorId)
+      if (!items.some((n) => n.id === id)) {
+        return NextResponse.json({ error: "Notification not found" }, { status: 404 })
+      }
+      await markActivityNotificationRead(ctx.userId, ctx.companyId, id)
+      return NextResponse.json({ success: true })
     }
-    return NextResponse.json({ success: true })
+
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   } catch (error: unknown) {
     console.error("PATCH /api/notifications/[id]/read error:", error)
     return NextResponse.json({ error: "Failed to mark as read" }, { status: 500 })

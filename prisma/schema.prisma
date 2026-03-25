@@ -259,6 +259,7 @@ model Company {
   webPushSubscriptions WebPushSubscription[]
   userWebPushPreferences UserWebPushPreference[]
   taskRescheduleHistory TaskRescheduleHistory[]
+  activityNotificationReads ActivityNotificationRead[]
 
   @@index([pricingTier])
   @@index([status])
@@ -345,6 +346,7 @@ model User {
   taskRescheduleHistory TaskRescheduleHistory[] @relation("RescheduleHistoryActor")
   webPushSubscriptions WebPushSubscription[]
   webPushPrefs         UserWebPushPreference[]
+  activityNotificationReads ActivityNotificationRead[]
 
   @@index([companyId])
   @@index([email])
@@ -969,4 +971,18 @@ model WebPushDedup {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Subcontractor "mark read" for synthetic activity notifications (audit-derived), per user + tenant.
+model ActivityNotificationRead {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  activityKey String
+  readAt      DateTime @default(now())
+
+  @@unique([userId, activityKey])
+  @@index([userId, companyId])
 }

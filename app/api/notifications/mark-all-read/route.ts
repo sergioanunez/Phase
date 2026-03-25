@@ -24,21 +24,34 @@ export async function PATCH() {
     if (!ctx.companyId) {
       return NextResponse.json({ error: "No company context" }, { status: 403 })
     }
-    if (!BUILDER_ROLES.includes(ctx.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (BUILDER_ROLES.includes(ctx.role)) {
+      const targetRole = toNotificationTargetRole(ctx.role)
+      if (!targetRole) {
+        return NextResponse.json({ count: 0 })
+      }
+
+      const result = await markAllNotificationsReadForUser(
+        ctx.userId,
+        targetRole,
+        ctx.companyId
+      )
+      return NextResponse.json({ success: true, count: result.count })
     }
 
-    const targetRole = toNotificationTargetRole(ctx.role)
-    if (!targetRole) {
-      return NextResponse.json({ count: 0 })
+    if (ctx.role === "Subcontractor" && ctx.contractorId) {
+      const { fetchSubcontractorActivityNotifications } = await import("@/lib/subcontractor-activity-notifications")
+      const { prisma } = await import("@/lib/prisma")
+      const { markAllActivityNotificationsRead } = await import("@/lib/activity-notification-read")
+      const items = await fetchSubcontractorActivityNotifications(prisma, ctx.companyId, ctx.contractorId)
+      const result = await markAllActivityNotificationsRead(
+        ctx.userId,
+        ctx.companyId,
+        items.map((i) => i.id)
+      )
+      return NextResponse.json({ success: true, count: result.count })
     }
 
-    const result = await markAllNotificationsReadForUser(
-      ctx.userId,
-      targetRole,
-      ctx.companyId
-    )
-    return NextResponse.json({ success: true, count: result.count })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   } catch (error: unknown) {
     console.error("PATCH /api/notifications/mark-all-read error:", error)
     return NextResponse.json({ error: "Failed to mark all as read" }, { status: 500 })

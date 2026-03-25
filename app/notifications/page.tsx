@@ -157,11 +157,17 @@ export default function NotificationsPage() {
     if (status !== "authenticated") return
     fetch("/api/notifications")
       .then((res) => (res.ok ? res.json() : {}))
-      .then((data: { kind?: "hierarchy" | "activity"; notifications?: HierarchyNotification[] | NotificationItem[] }) => {
+      .then(
+        (data: {
+          kind?: "hierarchy" | "activity"
+          notifications?: HierarchyNotification[] | NotificationItem[]
+          count?: number
+        }) => {
         setKind(data.kind ?? "activity")
         setHierarchyList(data.kind === "hierarchy" ? (data.notifications ?? []) as HierarchyNotification[] : [])
         setActivityList((data.notifications ?? []) as NotificationItem[])
-      })
+      }
+      )
       .catch(() => {
         setHierarchyList([])
         setActivityList([])
@@ -186,6 +192,7 @@ export default function NotificationsPage() {
         setHierarchyList((prev) =>
           prev.map((n) => (n.id === id ? { ...n, reviewedAt: new Date().toISOString() } : n))
         )
+        setActivityList((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
       }
     },
     []
@@ -197,6 +204,7 @@ export default function NotificationsPage() {
       setHierarchyList((prev) =>
         prev.map((n) => ({ ...n, reviewedAt: new Date().toISOString() }))
       )
+      setActivityList((prev) => prev.map((n) => ({ ...n, read: true })))
     }
   }, [])
 
@@ -222,7 +230,8 @@ export default function NotificationsPage() {
   }
 
   const filteredList = filterNotifications(hierarchyList, filter)
-  const unreadCount = hierarchyList.filter((n) => !n.reviewedAt).length
+  const unreadHierarchyCount = hierarchyList.filter((n) => !n.reviewedAt).length
+  const unreadActivityCount = activityList.filter((n) => !n.read).length
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
@@ -246,7 +255,16 @@ export default function NotificationsPage() {
               {isBuilder ? description : "Events on your assigned homes (last 24 hours)."}
             </p>
           </div>
-          {isBuilder && kind === "hierarchy" && unreadCount > 0 && (
+          {isBuilder && kind === "hierarchy" && unreadHierarchyCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              className="text-sm text-muted-foreground hover:underline shrink-0"
+            >
+              Mark all as read
+            </button>
+          )}
+          {!isBuilder && kind === "activity" && unreadActivityCount > 0 && (
             <button
               type="button"
               onClick={handleMarkAllRead}
@@ -310,23 +328,50 @@ export default function NotificationsPage() {
           <ul className="mt-6 space-y-3">
             {activityList.map((n) => (
               <li key={n.id}>
-                <Link
-                  href={`/homes/${n.homeId}`}
-                  className="block rounded-md border border-border bg-white py-3 px-4 shadow-sm transition-colors hover:bg-muted/30"
+                <div
+                  className={cn(
+                    "flex gap-2 rounded-md border border-border bg-white py-3 pl-3 pr-3 shadow-sm sm:pl-4 sm:pr-4",
+                    !n.read && "bg-muted/25"
+                  )}
                 >
-                  <div className="flex flex-col gap-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-foreground">{n.title}</p>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(n.timestamp), "MMM d, h:mm a")}
-                      </span>
+                  <Link
+                    href={`/homes/${n.homeId}`}
+                    className="min-w-0 flex-1 transition-colors hover:bg-muted/20 rounded-md -m-1 p-1"
+                  >
+                    <div className="flex flex-col gap-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p
+                          className={cn(
+                            "text-sm",
+                            n.read ? "font-normal text-foreground" : "font-semibold text-foreground"
+                          )}
+                        >
+                          {n.title}
+                        </p>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {format(new Date(n.timestamp), "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{n.subtitle}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {n.userName} · {formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{n.subtitle}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {n.userName} · {formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}
-                    </p>
-                  </div>
-                </Link>
+                  </Link>
+                  {!n.read && (
+                    <div className="flex shrink-0 items-start pt-0.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs whitespace-nowrap"
+                        onClick={() => handleMarkRead(n.id)}
+                      >
+                        Mark as read
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
