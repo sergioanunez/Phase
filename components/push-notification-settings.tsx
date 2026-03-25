@@ -47,6 +47,9 @@ export function PushNotificationSettings({ className }: { className?: string }) 
     notifyPunchlist: true,
   })
 
+  /** Browser allowed push + this device has an active push subscription saved locally. */
+  const isFullyEnrolled = subscribed && permission === "granted"
+
   const refreshPrefs = useCallback(async () => {
     try {
       const res = await fetch("/api/push/preferences")
@@ -183,10 +186,9 @@ export function PushNotificationSettings({ className }: { className?: string }) 
       if (sub) {
         const endpoint = sub.endpoint
         await sub.unsubscribe()
-        await fetch(
-          `/api/push/subscription?endpoint=${encodeURIComponent(endpoint)}`,
-          { method: "DELETE" }
-        )
+        await fetch(`/api/push/subscription?endpoint=${encodeURIComponent(endpoint)}`, {
+          method: "DELETE",
+        })
       } else {
         await fetch("/api/push/subscription", { method: "DELETE" })
       }
@@ -198,15 +200,93 @@ export function PushNotificationSettings({ className }: { className?: string }) 
     }
   }
 
+  const notifySection = (
+    <div
+      className={cn("space-y-3 border-t border-border", isFullyEnrolled ? "pt-3" : "pt-4")}
+    >
+      <p className="text-sm font-medium text-foreground">What to notify</p>
+      <label className="flex items-center justify-between gap-4 cursor-pointer">
+        <span className="text-sm">Master switch</span>
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-input shrink-0"
+          checked={prefs.enabled}
+          onChange={(e) => {
+            const c = e.target.checked
+            setPrefs((p) => ({ ...p, enabled: c }))
+            savePrefs({ enabled: c })
+          }}
+          disabled={!subscribed}
+        />
+      </label>
+      <label className="flex items-center justify-between gap-4 cursor-pointer">
+        <span className="text-sm">Subcontractor SMS replies (Y/N)</span>
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-input shrink-0"
+          checked={prefs.notifySubcontractorReply}
+          onChange={(e) => {
+            const c = e.target.checked
+            setPrefs((p) => ({ ...p, notifySubcontractorReply: c }))
+            savePrefs({ notifySubcontractorReply: c })
+          }}
+          disabled={!subscribed || !prefs.enabled}
+        />
+      </label>
+      <div className="space-y-1">
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span className="text-sm">Flow needs attention (today)</span>
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-input shrink-0"
+            checked={prefs.notifyFlowAlerts}
+            onChange={(e) => {
+              const c = e.target.checked
+              setPrefs((p) => ({ ...p, notifyFlowAlerts: c }))
+              savePrefs({ notifyFlowAlerts: c })
+            }}
+            disabled={!subscribed || !prefs.enabled}
+          />
+        </label>
+        {!isFullyEnrolled && (
+          <p className="text-xs text-muted-foreground pr-2">
+            Superintendents only get alerts for homes assigned to them. If your deployment sets{" "}
+            <code className="text-[11px]">CRON_SECRET</code> and a schedule (e.g. Vercel cron), Flow checks
+            run without opening the Flow page.
+          </p>
+        )}
+      </div>
+      <label className="flex items-center justify-between gap-4 cursor-pointer">
+        <span className="text-sm">Punchlist updates</span>
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-input shrink-0"
+          checked={prefs.notifyPunchlist}
+          onChange={(e) => {
+            const c = e.target.checked
+            setPrefs((p) => ({ ...p, notifyPunchlist: c }))
+            savePrefs({ notifyPunchlist: c })
+          }}
+          disabled={!subscribed || !prefs.enabled}
+        />
+      </label>
+      {!subscribed && (
+        <p className="text-xs text-muted-foreground">
+          Enable notifications on this device to change category preferences.
+        </p>
+      )}
+    </div>
+  )
+
   if (!supported) {
     return (
       <section
         className={cn(
-          "rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground",
+          "rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground mb-6",
           className
         )}
       >
-        <h2 className="text-base font-semibold text-foreground mb-1">Browser push</h2>
+        <h2 className="text-base font-semibold text-foreground mb-1">Push notifications</h2>
         <p>
           This browser does not support web push (service worker, Push Manager, or Notifications). Try
           Chrome, Edge, or Safari on a supported version with the app installed or pinned.
@@ -218,7 +298,10 @@ export function PushNotificationSettings({ className }: { className?: string }) 
   if (loading) {
     return (
       <section
-        className={cn("rounded-lg border border-border bg-white p-4 flex items-center gap-2", className)}
+        className={cn(
+          "rounded-lg border border-border bg-white p-4 flex items-center gap-2 mb-6",
+          className
+        )}
       >
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-sm text-muted-foreground">Loading push settings…</span>
@@ -226,17 +309,75 @@ export function PushNotificationSettings({ className }: { className?: string }) 
     )
   }
 
+  if (isFullyEnrolled) {
+    return (
+      <section
+        className={cn("rounded-lg border border-border bg-white p-3 space-y-3 mb-4", className)}
+      >
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="rounded-full bg-primary/10 p-1.5 text-primary shrink-0">
+              <Bell className="h-4 w-4" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground leading-tight">
+                Push notifications enabled
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Allowed • Subscribed</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground hover:text-foreground h-8 px-2 self-start sm:self-center"
+            onClick={disablePush}
+            disabled={working}
+          >
+            {working ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                Turning off…
+              </>
+            ) : (
+              "Turn off on this device"
+            )}
+          </Button>
+        </div>
+
+        {vapidConfigured === false && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+            Push is not enabled for this deployment (VAPID keys). Set{" "}
+            <code className="text-[10px]">NEXT_PUBLIC_VAPID_PUBLIC_KEY</code> and{" "}
+            <code className="text-[10px]">VAPID_PRIVATE_KEY</code>.
+          </p>
+        )}
+
+        {permission === "denied" && (
+          <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-2.5 py-1.5">
+            Notifications are blocked for this site. Allow them in your browser settings for Phase, then
+            subscribe again.
+          </p>
+        )}
+
+        {error && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded-md px-2.5 py-1.5">{error}</p>
+        )}
+
+        {notifySection}
+      </section>
+    )
+  }
+
   return (
-    <section
-      className={cn("rounded-lg border border-border bg-white p-4 space-y-4", className)}
-    >
+    <section className={cn("rounded-lg border border-border bg-white p-4 space-y-4 mb-6", className)}>
       <div className="flex items-start gap-3">
-        <div className="rounded-full bg-primary/10 p-2 text-primary">
-          {subscribed ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+        <div className="rounded-full bg-primary/10 p-2 text-primary shrink-0">
+          {subscribed ? <Bell className="h-5 w-5" aria-hidden /> : <BellOff className="h-5 w-5" aria-hidden />}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-base font-semibold text-foreground">Browser push notifications</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h2 className="text-base font-semibold text-foreground">Push notifications</h2>
+          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
             Get operational alerts on this device: subcontractor SMS replies, Flow attention, and punchlist
             updates. We only send these after you enable them here — not on first visit.
           </p>
@@ -286,7 +427,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
                 Turning off…
               </>
             ) : (
-              "Turn off notifications on this device"
+              "Turn off on this device"
             )}
           </Button>
         )}
@@ -305,77 +446,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
         </span>
       </div>
 
-      <div className="border-t border-border pt-4 space-y-3">
-        <p className="text-sm font-medium text-foreground">What to notify</p>
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="text-sm">Master switch (all categories below)</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
-            checked={prefs.enabled}
-            onChange={(e) => {
-              const c = e.target.checked
-              setPrefs((p) => ({ ...p, enabled: c }))
-              savePrefs({ enabled: c })
-            }}
-            disabled={!subscribed}
-          />
-        </label>
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="text-sm">Subcontractor SMS replies (Y/N)</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
-            checked={prefs.notifySubcontractorReply}
-            onChange={(e) => {
-              const c = e.target.checked
-              setPrefs((p) => ({ ...p, notifySubcontractorReply: c }))
-              savePrefs({ notifySubcontractorReply: c })
-            }}
-            disabled={!subscribed || !prefs.enabled}
-          />
-        </label>
-        <div className="space-y-1">
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
-            <span className="text-sm">Flow needs attention (today)</span>
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input shrink-0"
-              checked={prefs.notifyFlowAlerts}
-              onChange={(e) => {
-                const c = e.target.checked
-                setPrefs((p) => ({ ...p, notifyFlowAlerts: c }))
-                savePrefs({ notifyFlowAlerts: c })
-              }}
-              disabled={!subscribed || !prefs.enabled}
-            />
-          </label>
-          <p className="text-xs text-muted-foreground pl-0 pr-10">
-            Superintendents only get alerts for homes assigned to them. If your deployment sets{" "}
-            <code className="text-[11px]">CRON_SECRET</code> and a schedule (e.g. Vercel cron), Flow checks
-            run without opening the Flow page.
-          </p>
-        </div>
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="text-sm">Punchlist updates</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
-            checked={prefs.notifyPunchlist}
-            onChange={(e) => {
-              const c = e.target.checked
-              setPrefs((p) => ({ ...p, notifyPunchlist: c }))
-              savePrefs({ notifyPunchlist: c })
-            }}
-            disabled={!subscribed || !prefs.enabled}
-          />
-        </label>
-        {!subscribed && (
-          <p className="text-xs text-muted-foreground">
-            Enable notifications on this device to change category preferences.
-          </p>
-        )}
-      </div>
+      {notifySection}
     </section>
   )
 }

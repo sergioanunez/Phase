@@ -236,7 +236,7 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
       <div className="app-container mx-auto max-w-2xl px-4 py-6">
-        {isBuilder && <PushNotificationSettings className="mb-6" />}
+        {isBuilder && <PushNotificationSettings />}
 
         <header className="mb-6 flex items-center justify-between">
           <Link
