@@ -366,7 +366,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
             aria-labelledby="push-notification-status-toggle"
             className="space-y-3 border-t border-border pt-3"
           >
-            <div className="space-y-3">{notificationPreferencesFields}</div>
+            <div className="space-y-3">{notifySection}</div>
             <Button
               type="button"
               variant="ghost"
@@ -467,7 +467,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
         </span>
       </div>
 
-      <div className="space-y-3 border-t border-border pt-4">{notificationPreferencesFields}</div>
+      <div className="space-y-3 border-t border-border pt-4">{notifySection}</div>
     </section>
   )
 }
