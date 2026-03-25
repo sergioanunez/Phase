@@ -20,8 +20,11 @@ export async function GET(request: NextRequest) {
       COMPLETE_PHASE_KEY,
     } = await import("@/lib/dashboard/phaseDistribution")
     const { computePulseBySubdivision } = await import("@/lib/dashboard/pulse")
-    const { computeTemplateSchedule } = await import("@/lib/gantt/template-schedule")
-    const { workingDaysBetween } = await import("@/lib/forecast")
+    const {
+      buildOrderedTemplateCategoryNames,
+      categoryDurationByName,
+      cumulativeRemainingWorkingDaysByCategory,
+    } = await import("@/lib/dashboard/template-phase-remaining")
 
     const ctx = await requireTenantPermission("dashboard:view")
 
@@ -115,86 +118,55 @@ export async function GET(request: NextRequest) {
     const phaseDistribution = computePhaseDistribution(homesForPhase)
     const orderedCategories = deriveOrderedCategories(homesForPhase)
 
-    // Remaining working days to final completion:
-    // Deterministic countdown derived from the tenant's template schedule + dependencies,
-    // using each home's current template phase as detected by computeCurrentPhaseForHome.
-    //
-    // We intentionally do NOT use home.forecastCompletionDate here because it can skew phase-level
-    // averages into "phase-local" durations instead of "time remaining to completion".
+    // Remaining working days: explicit phase staircase from the work template only.
+    // Per category C: sum(defaultDurationDays) for items in C. Remaining from C onward = sum of those
+    // category totals from C's template position through the last category (NOT dependency/critical-path dates).
+    // Earlier bug: CPM "earliest start per category → project end" often matched projectStart for many
+    // parallel categories, so every phase showed the full build length.
     const debugRemaining = process.env.DASHBOARD_PHASE_REMAINING_DEBUG === "1"
 
-    const templateTasks = await prisma.workTemplateItem.findMany({
-      where: { companyId: ctx.companyId },
-      select: {
-        id: true,
-        name: true,
-        optionalCategory: true,
-        defaultDurationDays: true,
-      },
-    })
+    const { workTemplateItemWhereForTenant } = await import("@/lib/work-template-tenant-scope")
 
-    const templateTaskIdSet = new Set(templateTasks.map((t) => t.id))
+    const [dbTemplateCategories, templateItems] = await Promise.all([
+      prisma.workTemplateCategory.findMany({
+        where: { companyId: ctx.companyId },
+        orderBy: [{ categoryPosition: "asc" }, { name: "asc" }],
+        select: { name: true, categoryPosition: true },
+      }),
+      prisma.workTemplateItem.findMany({
+        where: workTemplateItemWhereForTenant(ctx.companyId),
+        select: {
+          defaultDurationDays: true,
+          optionalCategory: true,
+          workTemplateCategory: { select: { name: true } },
+        },
+      }),
+    ])
 
-    const templateDeps = await prisma.templateDependency.findMany({
-      where: { OR: [{ companyId: ctx.companyId }, { companyId: null }] },
-      select: { templateItemId: true, dependsOnItemId: true },
-    })
+    const extraNamesFromHomes = orderedCategories.map((c) => c.name)
+    const orderedTemplateCategoryNames = buildOrderedTemplateCategoryNames(
+      dbTemplateCategories,
+      templateItems,
+      extraNamesFromHomes
+    )
+    const durationByCategory = categoryDurationByName(templateItems)
+    const { cumulativeByName, totalBuildWorkingDays } = cumulativeRemainingWorkingDaysByCategory(
+      orderedTemplateCategoryNames,
+      durationByCategory
+    )
 
-    const depsByTemplateItemId = new Map<string, string[]>()
-    for (const d of templateDeps) {
-      if (!templateTaskIdSet.has(d.templateItemId)) continue
-      if (!templateTaskIdSet.has(d.dependsOnItemId)) continue
-      const cur = depsByTemplateItemId.get(d.templateItemId) ?? []
-      cur.push(d.dependsOnItemId)
-      depsByTemplateItemId.set(d.templateItemId, cur)
-    }
-
-    const sanitizedCategory = (raw: string | null): string =>
-      (raw ?? "").trim() || "Uncategorized"
-
-    const templateInputTasks = templateTasks.map((t) => ({
-      id: t.id,
-      name: t.name,
-      category: sanitizedCategory(t.optionalCategory),
-      durationDays: t.defaultDurationDays ?? 0,
-      dependencyIds: depsByTemplateItemId.get(t.id) ?? [],
-    }))
-
-    const projectStart = new Date()
-    projectStart.setHours(0, 0, 0, 0)
-    const templateSchedule = computeTemplateSchedule(templateInputTasks, projectStart)
-
-    const scheduleTasks = templateSchedule.tasks ?? []
-    const projectEnd =
-      scheduleTasks.length > 0
-        ? scheduleTasks.reduce(
-            (max, t) => (t.endDate > max ? t.endDate : max),
-            templateSchedule.projectStartDate
-          )
-        : templateSchedule.projectStartDate
-
-    const totalRemainingWorkingDays =
-      scheduleTasks.length > 0 ? workingDaysBetween(templateSchedule.projectStartDate, projectEnd) : null
-
-    // Earliest template start per category name
-    const earliestStartByCategory = new Map<string, Date>()
-    for (const t of scheduleTasks) {
-      const cat = sanitizedCategory(t.category ?? null)
-      const existing = earliestStartByCategory.get(cat)
-      if (!existing || t.startDate < existing) earliestStartByCategory.set(cat, t.startDate)
-    }
-
-    const remainingByCategoryKey = new Map<string, number | null>()
-    for (const c of orderedCategories) {
-      const start = earliestStartByCategory.get(c.name)
-      remainingByCategoryKey.set(
-        c.key,
-        start && scheduleTasks.length > 0 ? workingDaysBetween(start, projectEnd) : null
-      )
-    }
+    const fullBuildDays =
+      orderedTemplateCategoryNames.length > 0 || templateItems.length > 0
+        ? totalBuildWorkingDays
+        : null
 
     const sumCountByPhase = new Map<string, { sum: number; count: number }>()
-    const debugRows: Array<{ homeId: string; phaseKey: string; remaining: number | null }> = []
+    const debugRows: Array<{
+      homeId: string
+      phaseKey: string
+      phaseName: string
+      remaining: number | null
+    }> = []
 
     for (const home of homesForPhase) {
       const phase = computeCurrentPhaseForHome(home, orderedCategories)
@@ -202,12 +174,22 @@ export async function GET(request: NextRequest) {
       if (phase.key === COMPLETE_PHASE_KEY) {
         remaining = 0
       } else if (phase.key === NOT_STARTED_PHASE_KEY) {
-        remaining = totalRemainingWorkingDays
+        remaining = fullBuildDays
       } else {
-        remaining = remainingByCategoryKey.get(phase.key) ?? null
+        if (orderedTemplateCategoryNames.length === 0 && templateItems.length === 0) {
+          remaining = null
+        } else {
+          remaining = cumulativeByName.get(phase.name) ?? null
+        }
       }
 
-      if (debugRemaining) debugRows.push({ homeId: home.id, phaseKey: phase.key, remaining })
+      if (debugRemaining)
+        debugRows.push({
+          homeId: home.id,
+          phaseKey: phase.key,
+          phaseName: phase.name,
+          remaining,
+        })
 
       if (remaining == null) continue
       const cur = sumCountByPhase.get(phase.key) ?? { sum: 0, count: 0 }
@@ -223,7 +205,7 @@ export async function GET(request: NextRequest) {
         continue
       }
       if (p.key === NOT_STARTED_PHASE_KEY) {
-        avgDaysByPhase.set(p.key, totalRemainingWorkingDays)
+        avgDaysByPhase.set(p.key, fullBuildDays)
         continue
       }
       const agg = sumCountByPhase.get(p.key)
@@ -231,7 +213,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (debugRemaining) {
-      // Minimal, phase-level logging to validate staircase behavior.
+      const durationEntries = orderedTemplateCategoryNames.map((name) => ({
+        name,
+        workingDays: durationByCategory.get(name) ?? 0,
+        remainingFromCategoryOnward: cumulativeByName.get(name) ?? null,
+      }))
       const byPhase = new Map<string, { count: number; values: number[] }>()
       for (const r of debugRows) {
         const cur = byPhase.get(r.phaseKey) ?? { count: 0, values: [] }
@@ -246,7 +232,13 @@ export async function GET(request: NextRequest) {
         min: v.values.length ? Math.min(...v.values) : null,
         max: v.values.length ? Math.max(...v.values) : null,
       }))
-      console.log("[dashboard:phase-remain]", { orderedCategories, logObj })
+      console.log("[dashboard:phase-remain]", {
+        orderedTemplateCategoryNames,
+        durationByCategory: durationEntries,
+        totalBuildWorkingDays,
+        homes: debugRows,
+        aggregatesByPhaseKey: logObj,
+      })
     }
 
     phaseDistribution.phases.forEach((p) => {
