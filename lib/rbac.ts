@@ -143,10 +143,31 @@ export async function requireTenantAdmin(): Promise<TenantContext> {
 export async function requirePermission(permission: Permission) {
   const session = await getServerSession(authOptions)
   if (!session?.user) {
-    throw new Error("Unauthorized")
+    const err = new Error("Unauthorized") as Error & { statusCode?: number }
+    err.statusCode = 401
+    throw err
   }
   if (!hasPermission(session.user.role, permission)) {
-    throw new Error("Forbidden")
+    const err = new Error("Forbidden") as Error & { statusCode?: number }
+    err.statusCode = 403
+    throw err
+  }
+  return session.user
+}
+
+/** Allow if the user has ANY of the listed permissions (useful for flows that span multiple capabilities). */
+export async function requireAnyPermission(...permissions: Permission[]) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    const err = new Error("Unauthorized") as Error & { statusCode?: number }
+    err.statusCode = 401
+    throw err
+  }
+  const ok = permissions.some((p) => hasPermission(session.user.role, p))
+  if (!ok) {
+    const err = new Error("Forbidden") as Error & { statusCode?: number }
+    err.statusCode = 403
+    throw err
   }
   return session.user
 }

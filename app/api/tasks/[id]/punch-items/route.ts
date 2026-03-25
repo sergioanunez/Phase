@@ -121,7 +121,7 @@ export async function POST(
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("homes:write")
+    const user = await requirePermission("tasks:write")
     const body = await request.json()
     const data = createPunchItemSchema.parse(body)
 
@@ -237,6 +237,10 @@ export async function POST(
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
+    }
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
     }
     console.error("Error creating punch item:", error)
     return NextResponse.json(

@@ -828,7 +828,9 @@ export default function HomeDetailPage() {
                               >
                                 <Mail className="h-4 w-4" />
                               </Button>
-                              {(canEdit || session?.user?.role === "Manager") && (
+                              {(canEdit ||
+                                session?.user?.role === "Manager" ||
+                                session?.user?.role === "Superintendent") && (
                                 <Button
                                   variant="outline"
                                   size="sm"

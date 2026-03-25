@@ -14,8 +14,9 @@ export async function POST(
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
-    const user = await requirePermission("homes:write")
+    const { requireAnyPermission } = await import("@/lib/rbac")
+    // Superintendents have sms:send + tasks:write, but not homes:write.
+    const user = await requireAnyPermission("sms:send", "tasks:write")
     
     const task = await prisma.homeTask.findUnique({
       where: { id: params.id },
@@ -181,6 +182,10 @@ export async function POST(
       publicLink: results.length > 0 ? publicLink : undefined,
     })
   } catch (error: any) {
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error sending punch list SMS:", error)
     return NextResponse.json(
       { error: error.message || "Failed to send punch list SMS" },

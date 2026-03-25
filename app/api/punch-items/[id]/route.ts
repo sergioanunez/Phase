@@ -109,7 +109,7 @@ export async function PATCH(
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("homes:write")
+    const user = await requirePermission("tasks:write")
     const body = await request.json()
     const data = updatePunchItemSchema.parse(body)
 
@@ -229,6 +229,10 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
     }
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error updating punch item:", error)
     return NextResponse.json(
       { error: error.message || "Failed to update punch item" },
@@ -247,7 +251,7 @@ export async function DELETE(
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("homes:write")
+    const user = await requirePermission("tasks:write")
 
     const before = await prisma.punchItem.findUnique({
       where: { id: params.id },
@@ -298,6 +302,10 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error deleting punch item:", error)
     return NextResponse.json(
       { error: error.message || "Failed to delete punch item" },

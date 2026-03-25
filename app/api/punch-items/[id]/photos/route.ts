@@ -40,7 +40,7 @@ export async function POST(
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
     const { requirePermission } = await import("@/lib/rbac")
-    await requirePermission("homes:write")
+    await requirePermission("tasks:write")
 
     const punchItem = await prisma.punchItem.findUnique({
       where: { id: params.id },
@@ -103,6 +103,10 @@ export async function POST(
 
     return NextResponse.json({ created })
   } catch (error: any) {
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error uploading punch photos:", error)
     return NextResponse.json(
       { error: error.message || "Failed to upload photos" },
