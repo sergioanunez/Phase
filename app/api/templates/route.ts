@@ -30,8 +30,9 @@ export async function GET(request: NextRequest) {
     const ctx = await requireTenantPermission("templates:read")
 
     const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
+    const { workTemplateItemWhereForTenant } = await import("@/lib/work-template-tenant-scope")
     const templates = await prisma.workTemplateItem.findMany({
-      where: { companyId: ctx.companyId },
+      where: workTemplateItemWhereForTenant(ctx.companyId),
       orderBy: [...workTemplatePrismaOrderBy()],
       include: {
         dependencies: {

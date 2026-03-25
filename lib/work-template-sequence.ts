@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client"
 import { compareWorkTemplateCategoryNamesForAdminDisplay } from "@/lib/work-template-display-order"
+import { workTemplateItemWhereForTenant } from "@/lib/work-template-tenant-scope"
 
 const SEQ_START = 100
 const SEQ_STEP = 100
@@ -122,7 +123,7 @@ export async function syncCategoryStructureFromGlobalOrder(
   if (orderedTemplateIds.length === 0) return
 
   const items = await prisma.workTemplateItem.findMany({
-    where: { companyId },
+    where: workTemplateItemWhereForTenant(companyId),
     select: { id: true, optionalCategory: true },
   })
   const byId = new Map(items.map((t) => [t.id, t]))
@@ -160,6 +161,7 @@ export async function syncCategoryStructureFromGlobalOrder(
     await prisma.workTemplateItem.update({
       where: { id },
       data: {
+        companyId,
         workTemplateCategoryId: catId,
         itemPosition: ip,
         optionalCategory: label,
@@ -178,7 +180,7 @@ export async function backfillWorkTemplateCategoriesForCompany(
   companyId: string
 ): Promise<void> {
   const items = await prisma.workTemplateItem.findMany({
-    where: { companyId },
+    where: workTemplateItemWhereForTenant(companyId),
     select: {
       id: true,
       optionalCategory: true,
@@ -232,6 +234,7 @@ export async function backfillWorkTemplateCategoriesForCompany(
       await prisma.workTemplateItem.update({
         where: { id: t.id },
         data: {
+          companyId,
           workTemplateCategoryId: row.id,
           itemPosition: ip,
           optionalCategory: name,

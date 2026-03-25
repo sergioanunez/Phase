@@ -271,6 +271,8 @@ export default function AdminPage() {
   const [editCategoryRow, setEditCategoryRow] = useState<WorkTemplateCategoryRow | null>(null)
   const [editCategoryName, setEditCategoryName] = useState("")
   const [editCategorySaving, setEditCategorySaving] = useState(false)
+  /** Set when work templates or categories API returns an error (avoids mistaking failures for an empty library). */
+  const [workTemplatesApiError, setWorkTemplatesApiError] = useState<string | null>(null)
 
   async function handleSubSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -347,6 +349,9 @@ export default function AdminPage() {
       return
     }
 
+    let workTemplatesFetchErr: string | null = null
+    let workTemplateCategoriesFetchErr: string | null = null
+
     Promise.all([
       fetch("/api/subdivisions").then(async (res) => {
         const data = await res.json()
@@ -365,9 +370,13 @@ export default function AdminPage() {
         return Array.isArray(data) ? data : []
       }),
       fetch("/api/templates").then(async (res) => {
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           console.error("Templates API error:", data)
+          workTemplatesFetchErr =
+            typeof (data as { error?: unknown })?.error === "string"
+              ? (data as { error: string }).error
+              : `Could not load work templates (HTTP ${res.status}).`
           return []
         }
         return Array.isArray(data) ? data : []
@@ -407,8 +416,14 @@ export default function AdminPage() {
         return Array.isArray(data) ? data : []
       }),
       fetch("/api/settings/work-template-categories").then(async (res) => {
-        const data = await res.json()
-        if (!res.ok) return []
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          workTemplateCategoriesFetchErr =
+            typeof (data as { error?: unknown })?.error === "string"
+              ? (data as { error: string }).error
+              : `Could not load template categories (HTTP ${res.status}).`
+          return []
+        }
         return Array.isArray(data) ? data : []
       }),
     ])
@@ -444,6 +459,9 @@ export default function AdminPage() {
         } else {
           setCriticalTemplateIds([])
         }
+        setWorkTemplatesApiError(
+          [workTemplatesFetchErr, workTemplateCategoriesFetchErr].filter(Boolean).join(" · ") || null
+        )
         setLoading(false)
       })
       .catch((err) => {
@@ -455,6 +473,8 @@ export default function AdminPage() {
         setUsers([])
         setCompanyBranding(null)
         setCategoryGates([])
+        setTemplateCategoryRows([])
+        setWorkTemplatesApiError("Could not load settings. Refresh the page or try again later.")
         setLoading(false)
       })
   }, [session, router, impersonationChecked, impersonationRole])
@@ -606,10 +626,30 @@ export default function AdminPage() {
       fetch("/api/templates"),
       fetch("/api/settings/work-template-categories"),
     ])
-    const tData = await tRes.json().catch(() => [])
-    const cData = await cRes.json().catch(() => [])
-    if (Array.isArray(tData)) setTemplates(tData)
-    if (Array.isArray(cData)) setTemplateCategoryRows(cData)
+    const tData = await tRes.json().catch(() => ({}))
+    const cData = await cRes.json().catch(() => ({}))
+    const errs: string[] = []
+    if (!tRes.ok) {
+      errs.push(
+        typeof (tData as { error?: unknown })?.error === "string"
+          ? (tData as { error: string }).error
+          : `Could not load work templates (HTTP ${tRes.status}).`
+      )
+      setTemplates([])
+    } else {
+      setTemplates(Array.isArray(tData) ? tData : [])
+    }
+    if (!cRes.ok) {
+      errs.push(
+        typeof (cData as { error?: unknown })?.error === "string"
+          ? (cData as { error: string }).error
+          : `Could not load template categories (HTTP ${cRes.status}).`
+      )
+      setTemplateCategoryRows([])
+    } else {
+      setTemplateCategoryRows(Array.isArray(cData) ? cData : [])
+    }
+    setWorkTemplatesApiError(errs.join(" · ") || null)
   }
 
   const handleSaveBranding = async () => {
@@ -2077,6 +2117,15 @@ export default function AdminPage() {
                 </Button>
               </div>
 
+              {workTemplatesApiError ? (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-md border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                >
+                  {workTemplatesApiError}
+                </div>
+              ) : null}
+
               <Dialog open={newCategoryOpen} onOpenChange={setNewCategoryOpen}>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
@@ -2138,6 +2187,7 @@ export default function AdminPage() {
                 const searchTrim = workTemplatesSearchQuery.trim()
                 const disableReorder = searchTrim.length > 0
                 if (templates.length === 0 && templateCategoryRows.length === 0) {
+                  if (workTemplatesApiError) return null
                   return (
                     <p className="text-muted-foreground text-center py-8">
                       No work items yet. Create a category, then add work items.
