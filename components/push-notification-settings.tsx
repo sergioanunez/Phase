@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bell, BellOff, Loader2 } from "lucide-react"
+import { Bell, BellOff, ChevronDown, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -39,6 +39,8 @@ export function PushNotificationSettings({ className }: { className?: string }) 
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** When enrolled: preferences panel starts collapsed; expanded in-session only. */
+  const [enrolledExpanded, setEnrolledExpanded] = useState(false)
 
   const [prefs, setPrefs] = useState({
     enabled: true,
@@ -170,6 +172,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
         return
       }
       setSubscribed(true)
+      setEnrolledExpanded(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.")
     } finally {
@@ -312,38 +315,37 @@ export function PushNotificationSettings({ className }: { className?: string }) 
   if (isFullyEnrolled) {
     return (
       <section
-        className={cn("rounded-lg border border-border bg-white p-3 space-y-3 mb-4", className)}
+        className={cn("rounded-lg border border-border bg-white p-3 space-y-2 mb-4", className)}
       >
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="rounded-full bg-primary/10 p-1.5 text-primary shrink-0">
-              <Bell className="h-4 w-4" aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground leading-tight">
-                Push notifications enabled
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Allowed • Subscribed</p>
-            </div>
+        <button
+          type="button"
+          onClick={() => setEnrolledExpanded((v) => !v)}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-md py-1.5 pl-1 pr-1 text-left outline-none transition-colors",
+            "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          )}
+          aria-expanded={enrolledExpanded}
+          aria-controls="push-notification-preferences-panel"
+          id="push-notification-status-toggle"
+        >
+          <div className="rounded-full bg-primary/10 p-1.5 text-primary shrink-0">
+            <Bell className="h-4 w-4" aria-hidden />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="shrink-0 text-muted-foreground hover:text-foreground h-8 px-2 self-start sm:self-center"
-            onClick={disablePush}
-            disabled={working}
-          >
-            {working ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                Turning off…
-              </>
-            ) : (
-              "Turn off on this device"
-            )}
-          </Button>
-        </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold text-foreground leading-tight">Push notifications ON</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Allowed • Subscribed</p>
+          </div>
+          <span className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted-foreground">
+            Manage
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform",
+                enrolledExpanded && "rotate-180"
+              )}
+              aria-hidden
+            />
+          </span>
+        </button>
 
         {vapidConfigured === false && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
@@ -357,7 +359,33 @@ export function PushNotificationSettings({ className }: { className?: string }) 
           <p className="text-xs text-destructive bg-destructive/10 rounded-md px-2.5 py-1.5">{error}</p>
         )}
 
-        {notifySection}
+        {enrolledExpanded && (
+          <div
+            id="push-notification-preferences-panel"
+            role="region"
+            aria-labelledby="push-notification-status-toggle"
+            className="space-y-3 border-t border-border pt-3"
+          >
+            <div className="space-y-3">{notificationPreferencesFields}</div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground hover:text-foreground"
+              onClick={disablePush}
+              disabled={working}
+            >
+              {working ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Turning off…
+                </>
+              ) : (
+                "Turn off on this device"
+              )}
+            </Button>
+          </div>
+        )}
       </section>
     )
   }
@@ -439,7 +467,7 @@ export function PushNotificationSettings({ className }: { className?: string }) 
         </span>
       </div>
 
-      {notifySection}
+      <div className="space-y-3 border-t border-border pt-4">{notificationPreferencesFields}</div>
     </section>
   )
 }
