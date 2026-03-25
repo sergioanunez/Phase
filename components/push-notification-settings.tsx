@@ -353,13 +353,6 @@ export function PushNotificationSettings({ className }: { className?: string }) 
           </p>
         )}
 
-        {permission === "denied" && (
-          <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-2.5 py-1.5">
-            Notifications are blocked for this site. Allow them in your browser settings for Phase, then
-            subscribe again.
-          </p>
-        )}
-
         {error && (
           <p className="text-xs text-destructive bg-destructive/10 rounded-md px-2.5 py-1.5">{error}</p>
         )}
