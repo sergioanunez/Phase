@@ -183,6 +183,26 @@ export function PunchItemModal({
           const data = await res.json()
           throw new Error(data.error || "Failed to create punch item")
         }
+
+        const created = (await res.json()) as { id?: string }
+        if (selectedFiles.length > 0 && created.id) {
+          const formData = new FormData()
+          for (const file of selectedFiles) {
+            formData.append("files", file)
+          }
+          const upRes = await fetch(`/api/punch-items/${created.id}/photos`, {
+            method: "POST",
+            body: formData,
+          })
+          if (!upRes.ok) {
+            const data = await upRes.json().catch(() => ({}))
+            throw new Error(
+              typeof data?.error === "string"
+                ? data.error
+                : "Punch item was created but photos failed to upload. Try editing the item or re-upload from the office network."
+            )
+          }
+        }
       }
 
       onSuccess()
