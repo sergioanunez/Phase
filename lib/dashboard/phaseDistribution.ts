@@ -59,8 +59,9 @@ export function deriveOrderedCategories(homes: DashboardHomeForPhase[]): PhaseCa
 
   for (const home of homes) {
     for (const task of home.tasks) {
-      const rawName = (task.templateItem.optionalCategory || "").trim()
-      if (!rawName) continue
+      // Some homes can have tasks with empty/missing optionalCategory; treat them as a safe fallback
+      // so phase grouping remains stable and we can compute durations.
+      const rawName = (task.templateItem.optionalCategory || "").trim() || "Uncategorized"
       const rep: WorkTemplateDisplaySortKey = {
         sequenceOrder: task.templateItem.sequenceOrder,
         optionalCategory: task.templateItem.optionalCategory,
@@ -116,13 +117,16 @@ export function computeCurrentPhaseForHome(
 
   for (const category of orderedCategories) {
     const categoryName = category.name
+    const homeTaskCategory = (t: DashboardHomeForPhase["tasks"][number]): string =>
+      ((t.templateItem.optionalCategory || "").trim() || "Uncategorized")
+
     const hasAnyInCategory = tasks.some(
-      (t) => (t.templateItem.optionalCategory || "").trim() === categoryName
+      (t) => homeTaskCategory(t) === categoryName
     )
     if (!hasAnyInCategory) continue
     const hasIncompleteInCategory = tasks.some(
       (t) =>
-        (t.templateItem.optionalCategory || "").trim() === categoryName &&
+        homeTaskCategory(t) === categoryName &&
         t.status !== "Completed"
     )
     if (hasIncompleteInCategory) {
