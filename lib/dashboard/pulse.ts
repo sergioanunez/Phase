@@ -5,6 +5,8 @@ export type DashboardTaskForPulse = {
   completedAt: Date | null
   updatedAt: Date
   isCriticalPath: boolean
+  /** Snapshot of template duration; 0-day items are schedule milestones (see template Gantt). */
+  durationDaysSnapshot: number
   templateItem: {
     name: string
     isCriticalGate: boolean
@@ -39,41 +41,122 @@ export type PulseSubdivisionGroup = {
 }
 
 export type LastCriticalSelection = {
+  taskId: string | null
   taskName: string | null
   completedAt: Date | null
 }
 
 /**
- * Select the most recent completed critical task from a home's tasks.
- * Critical tasks are determined by:
- * - First, tasks whose template item is marked isCriticalGate=true.
- * - Otherwise, tasks flagged as isCriticalPath=true.
+ * Tasks that count as milestones for Field Pulse (full build history — no phase filter).
+ * Aligns with app “critical” concepts: gates, forecast critical path, and 0-day schedule milestones.
+ */
+export function isPulseMilestoneTask(t: DashboardTaskForPulse): boolean {
+  return (
+    t.templateItem.isCriticalGate ||
+    t.isCriticalPath ||
+    (typeof t.durationDaysSnapshot === "number" && t.durationDaysSnapshot <= 0)
+  )
+}
+
+function completionSortMs(t: DashboardTaskForPulse): number {
+  if (t.completedAt) return t.completedAt.getTime()
+  return t.updatedAt.getTime()
+}
+
+/**
+ * Most recently completed milestone across all home tasks (not limited to current phase).
+ * Uses status === Completed, ordered by completedAt descending, then updatedAt.
  */
 export function selectLastCriticalCompletedTask(
   tasks: DashboardTaskForPulse[]
 ): LastCriticalSelection {
   if (!tasks || tasks.length === 0) {
-    return { taskName: null, completedAt: null }
+    return { taskId: null, taskName: null, completedAt: null }
   }
 
-  const gateTasks = tasks.filter((t) => t.templateItem.isCriticalGate)
-  const criticalCandidates =
-    gateTasks.length > 0 ? gateTasks : tasks.filter((t) => t.isCriticalPath)
+  const milestoneTasks = tasks.filter(isPulseMilestoneTask)
+  const completed = milestoneTasks
+    .filter((t) => t.status === "Completed")
+    .slice()
+    .sort((a, b) => completionSortMs(b) - completionSortMs(a))
 
-  const completedCritical = criticalCandidates.filter((t) => t.status === "Completed")
-  if (completedCritical.length === 0) {
-    return { taskName: null, completedAt: null }
+  if (completed.length === 0) {
+    return { taskId: null, taskName: null, completedAt: null }
   }
 
-  const latest = completedCritical.reduce((best, task) => {
-    const bestDate = best.completedAt ?? best.updatedAt
-    const taskDate = task.completedAt ?? task.updatedAt
-    return taskDate > bestDate ? task : best
-  })
-
+  const latest = completed[0]
   return {
+    taskId: latest.id,
     taskName: latest.templateItem.name,
     completedAt: latest.completedAt ?? latest.updatedAt,
+  }
+}
+
+export type PulseMilestoneDebugRow = {
+  homeId: string
+  address: string
+  milestoneCandidates: Array<{ taskId: string; name: string; gate: boolean; criticalPath: boolean; zeroDay: boolean }>
+  completedMilestones: Array<{
+    taskId: string
+    name: string
+    completedAt: string | null
+    updatedAt: string
+    sortMs: number
+  }>
+  selected: { taskId: string; name: string } | null
+  reasonIfNone: string | null
+}
+
+/** When DASHBOARD_PULSE_MILESTONE_DEBUG=1, pass rows into computePulseBySubdivision. */
+export function buildPulseMilestoneDebugRow(
+  home: DashboardHomeForPulse,
+  selection: LastCriticalSelection
+): PulseMilestoneDebugRow {
+  const tasks = home.tasks ?? []
+  const milestoneCandidates = tasks.filter(isPulseMilestoneTask).map((t) => ({
+    taskId: t.id,
+    name: t.templateItem.name,
+    gate: t.templateItem.isCriticalGate,
+    criticalPath: t.isCriticalPath,
+    zeroDay: typeof t.durationDaysSnapshot === "number" && t.durationDaysSnapshot <= 0,
+  }))
+  const completedMilestones = tasks
+    .filter(isPulseMilestoneTask)
+    .filter((t) => t.status === "Completed")
+    .map((t) => ({
+      taskId: t.id,
+      name: t.templateItem.name,
+      completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+      updatedAt: t.updatedAt.toISOString(),
+      sortMs: completionSortMs(t),
+    }))
+    .sort((a, b) => b.sortMs - a.sortMs)
+
+  const selected: PulseMilestoneDebugRow["selected"] =
+    selection.taskId && selection.taskName
+      ? { taskId: selection.taskId, name: selection.taskName }
+      : null
+
+  let reasonIfNone: string | null = null
+  if (!selection.taskName) {
+    const anyCompleted = tasks.some((t) => t.status === "Completed")
+    if (!anyCompleted) {
+      reasonIfNone = "no completed tasks on home"
+    } else if (milestoneCandidates.length === 0) {
+      reasonIfNone =
+        "no tasks qualify as milestones (need isCriticalGate, isCriticalPath, or 0-day duration snapshot)"
+    } else {
+      reasonIfNone = "milestone tasks exist but none marked Completed"
+    }
+  }
+
+  return {
+    homeId: home.id,
+    address: home.addressOrLot,
+    milestoneCandidates,
+    completedMilestones,
+    selected,
+    reasonIfNone,
   }
 }
 
@@ -87,13 +170,23 @@ function isHomeNotStarted(home: { startDate: Date | null; tasks: { scheduledDate
 
 /**
  * Compute Pulse groups (by subdivision) from a set of active homes.
+ * @param options.debug + options.debugRows — when `process.env.DASHBOARD_PULSE_MILESTONE_DEBUG === "1"`, pass `{ debug: true, debugRows: [] }` to collect rows for homes that have completed tasks but no displayed milestone.
  */
-export function computePulseBySubdivision(homes: DashboardHomeForPulse[]): PulseSubdivisionGroup[] {
+export function computePulseBySubdivision(
+  homes: DashboardHomeForPulse[],
+  options?: { debug?: boolean; debugRows?: PulseMilestoneDebugRow[] }
+): PulseSubdivisionGroup[] {
   const groupsBySubdivision = new Map<string, PulseSubdivisionGroup>()
+  const debug = options?.debug === true
+  const debugRows = options?.debugRows
 
   for (const home of homes) {
     const notStarted = isHomeNotStarted({ startDate: home.startDate, tasks: home.tasks })
-    const { taskName, completedAt } = selectLastCriticalCompletedTask(home.tasks)
+    const { taskId, taskName, completedAt } = selectLastCriticalCompletedTask(home.tasks)
+
+    if (debug && debugRows && !taskName && home.tasks.some((t) => t.status === "Completed")) {
+      debugRows.push(buildPulseMilestoneDebugRow(home, { taskId, taskName, completedAt }))
+    }
 
     const subdivisionId = home.subdivision.id
     const subdivisionName = home.subdivision.name

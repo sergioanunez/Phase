@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import type { PulseMilestoneDebugRow } from "@/lib/dashboard/pulse"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
             completedAt: true,
             updatedAt: true,
             isCriticalPath: true,
+            durationDaysSnapshot: true,
             templateItem: {
               select: {
                 name: true,
@@ -253,6 +255,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const pulseDebug = process.env.DASHBOARD_PULSE_MILESTONE_DEBUG === "1"
+    const pulseDebugRows: Awaited<
+      ReturnType<typeof import("@/lib/dashboard/pulse").buildPulseMilestoneDebugRow>
+    >[] = []
     const pulse = computePulseBySubdivision(
       homes.map((h) => ({
         id: h.id,
@@ -268,13 +274,18 @@ export async function GET(request: NextRequest) {
           completedAt: t.completedAt,
           updatedAt: t.updatedAt,
           isCriticalPath: t.isCriticalPath,
+          durationDaysSnapshot: t.durationDaysSnapshot,
           templateItem: {
             name: t.templateItem.name,
             isCriticalGate: t.templateItem.isCriticalGate,
           },
         })),
-      }))
+      })),
+      pulseDebug ? { debug: true, debugRows: pulseDebugRows } : undefined
     )
+    if (pulseDebug && pulseDebugRows.length > 0) {
+      console.log("[dashboard:pulse-milestone] homes with completed tasks but no milestone label:", pulseDebugRows)
+    }
 
     return NextResponse.json({ phaseDistribution, pulse })
   } catch (error) {

@@ -425,7 +425,22 @@ export default function DashboardPage() {
                             )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {home.lastCriticalTaskName ?? "—"}
+                            {home.lastCriticalTaskName ? (
+                              <>
+                                {home.lastCriticalTaskName}
+                                {home.lastCriticalCompletedAt ? (
+                                  <>
+                                    {" "}
+                                    ·{" "}
+                                    {formatDistanceToNow(new Date(home.lastCriticalCompletedAt), {
+                                      addSuffix: true,
+                                    })}
+                                  </>
+                                ) : null}
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </p>
                         </button>
                       ))}
