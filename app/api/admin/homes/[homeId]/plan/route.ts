@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PlanFileType } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
+import {
+  shouldUseLegacySingleUpload,
+  uploadLegacySinglePlan,
+  uploadMultiHomePlans,
+} from "@/lib/admin-home-plan-upload"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB
-const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]
-const ALLOWED_PDF = "application/pdf"
-
-function requireAdmin(session: any) {
+function requireAdmin(session: { user?: { id: string; role?: string } } | null) {
   if (!session?.user) {
     return { error: "Unauthorized", status: 401 as const }
   }
@@ -22,29 +22,24 @@ function requireAdmin(session: any) {
   return null
 }
 
-const SAFE_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"] as const
-
-function getExtension(filename: string, mimeType: string): string {
-  const mt = (mimeType || "").toLowerCase().trim()
-  if (mt === "application/pdf") return ".pdf"
-  if (mt === "image/png") return ".png"
-  if (mt === "image/jpeg" || mt === "image/jpg") return ".jpg"
-  if (mt === "image/webp") return ".webp"
-  const fromFile = filename.split(".").pop()?.toLowerCase()?.trim()
-  if (fromFile === "pdf") return ".pdf"
-  if (fromFile === "png") return ".png"
-  if (fromFile === "jpg" || fromFile === "jpeg") return ".jpg"
-  if (fromFile === "webp") return ".webp"
-  return ".jpg"
-}
-
 const patchPlanSchema = z.object({
   planName: z.string().optional().nullable(),
   planVariant: z.string().optional().nullable(),
 })
 
+function collectFiles(formData: FormData): File[] {
+  return formData
+    .getAll("file")
+    .filter((x): x is File => typeof File !== "undefined" && x instanceof File && x.size > 0)
+}
+
 /**
- * POST /api/admin/homes/:homeId/plan - Upload or replace floor plan (Settings access required)
+ * POST /api/admin/homes/:homeId/plan - Upload floor plan(s) (Settings access required)
+ *
+ * - One file + tag "Floor Plan" + no HomePlan rows yet: legacy path (updates Home.planStoragePath at …/floorplan.ext).
+ * - Otherwise: HomePlan rows under homes/{id}/plans/{id}.ext (migrates legacy into HomePlan first if needed).
+ *
+ * Form fields: file (repeatable), planTag (optional, default Floor Plan), planName, planVariant
  */
 export async function POST(
   request: NextRequest,
@@ -56,7 +51,6 @@ export async function POST(
     const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
     const { createAuditLog } = await import("@/lib/audit")
-    const { createSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase/server")
 
     const resolved = await Promise.resolve(params)
     const homeId = resolved?.homeId
@@ -77,117 +71,98 @@ export async function POST(
     }
 
     const formData = await request.formData()
-    const file = formData.get("file") as File | null
+    const files = collectFiles(formData)
+    if (files.length === 0) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    }
+
+    const planTagRaw = ((formData.get("planTag") as string) || "Floor Plan").trim()
     const planNameFromForm = (formData.get("planName") as string)?.trim() || null
     const planVariant = (formData.get("planVariant") as string) || null
 
-    if (!file || !file.size) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File exceeds 20 MB limit" }, { status: 400 })
-    }
+    const existingHomePlanCount = await prisma.homePlan.count({ where: { homeId } })
+    const useLegacy = shouldUseLegacySingleUpload(planTagRaw, files.length, existingHomePlanCount)
 
-    const mimeType = file.type?.toLowerCase() || ""
-    const isPdf = mimeType === ALLOWED_PDF
-    const isImage = ALLOWED_IMAGE_TYPES.includes(mimeType)
-    if (!isPdf && !isImage) {
-      return NextResponse.json(
-        { error: "Invalid file type. Use PDF or image (PNG, JPEG, WebP)." },
-        { status: 400 }
-      )
-    }
+    const userId = session!.user!.id
 
-    let ext = getExtension(file.name, mimeType)
-    if (![".pdf", ".png", ".jpg", ".jpeg", ".webp"].includes(ext)) ext = ".jpg"
-    // Plan name is independent: only update when user sends one in form; otherwise keep existing
-    const planName =
-      planNameFromForm != null && planNameFromForm !== ""
-        ? planNameFromForm
-        : home.planName
-    // File name is independent: always set from uploaded file (for display only)
-    const planFileName =
-      file.name?.replace(new RegExp(`${ext.replace(".", "\\.")}$`, "i"), "").trim() ||
-      file.name ||
-      null
-    const storagePath = `homes/${homeId}/floorplan${ext}`
-    const planFileType: PlanFileType = isPdf ? "PDF" : "IMAGE"
+    if (useLegacy) {
+      const before = {
+        planStoragePath: home.planStoragePath,
+        planFileName: home.planFileName,
+        planFileType: home.planFileType,
+        planName: home.planName,
+        planVariant: home.planVariant,
+        planUploadedAt: home.planUploadedAt,
+        planUploadedByUserId: home.planUploadedByUserId,
+      }
 
-    const supabase = createSupabaseServerClient()
-    const buffer = Buffer.from(await file.arrayBuffer())
-
-    const { error: uploadError } = await supabase.storage
-      .from(HOME_PLANS_BUCKET)
-      .upload(storagePath, buffer, {
-        contentType: mimeType,
-        upsert: true,
+      const result = await uploadLegacySinglePlan({
+        prisma,
+        home,
+        homeId,
+        file: files[0]!,
+        planNameFromForm,
+        planVariant,
+        userId,
       })
 
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError)
-      return NextResponse.json(
-        { error: uploadError.message || "Failed to upload plan" },
-        { status: 500 }
+      const updated = await prisma.home.findUnique({
+        where: { id: homeId },
+        include: { planUploadedBy: { select: { id: true, name: true } } },
+      })
+
+      await createAuditLog(
+        userId,
+        "Home",
+        homeId,
+        "HOME_PLAN_UPLOADED",
+        before,
+        {
+          planStoragePath: updated?.planStoragePath,
+          planFileName: updated?.planFileName,
+          planFileType: updated?.planFileType,
+          planName: updated?.planName,
+          planVariant: updated?.planVariant,
+          planUploadedAt: updated?.planUploadedAt,
+          planUploadedByUserId: updated?.planUploadedByUserId,
+        }
       )
+
+      return NextResponse.json({
+        mode: "legacy",
+        planName: result.planName,
+        planFileName: result.planFileName,
+        planVariant: result.planVariant,
+        planFileType: result.planFileType,
+        planUploadedAt: result.planUploadedAt,
+        uploadedBy: result.uploadedBy,
+      })
     }
 
-    const before = {
-      planStoragePath: home.planStoragePath,
-      planFileName: home.planFileName,
-      planFileType: home.planFileType,
-      planName: home.planName,
-      planVariant: home.planVariant,
-      planUploadedAt: home.planUploadedAt,
-      planUploadedByUserId: home.planUploadedByUserId,
-    }
+    const beforeMulti = { homePlanCount: existingHomePlanCount }
 
-    const updated = await prisma.home.update({
-      where: { id: homeId },
-      data: {
-        planStoragePath: storagePath,
-        planFileName,
-        planFileType,
-        planName,
-        planVariant: planVariant ?? home.planVariant,
-        planUploadedAt: new Date(),
-        planUploadedByUserId: session!.user!.id,
-      },
-      include: {
-        planUploadedBy: { select: { id: true, name: true } },
-      },
+    const multi = await uploadMultiHomePlans({
+      prisma,
+      home,
+      homeId,
+      files,
+      tag: planTagRaw,
+      userId,
     })
 
-    await createAuditLog(
-      session!.user!.id,
-      "Home",
-      homeId,
-      "HOME_PLAN_UPLOADED",
-      before,
-      {
-        planStoragePath: updated.planStoragePath,
-        planFileName: updated.planFileName,
-        planFileType: updated.planFileType,
-        planName: updated.planName,
-        planVariant: updated.planVariant,
-        planUploadedAt: updated.planUploadedAt,
-        planUploadedByUserId: updated.planUploadedByUserId,
-      }
-    )
+    await createAuditLog(userId, "Home", homeId, "HOME_PLANS_UPLOADED", beforeMulti, {
+      homePlanCount: existingHomePlanCount + multi.created.length,
+      created: multi.created,
+    })
 
     return NextResponse.json({
-      planName: updated.planName,
-      planFileName: updated.planFileName,
-      planVariant: updated.planVariant,
-      planFileType: updated.planFileType,
-      planUploadedAt: updated.planUploadedAt,
-      uploadedBy: updated.planUploadedBy,
+      mode: "multi",
+      created: multi.created,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Failed to upload plan"
     console.error("Error uploading home plan:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to upload plan" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
@@ -252,20 +227,20 @@ export async function PATCH(
       planName: updated.planName,
       planVariant: updated.planVariant,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+      return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error("Error updating plan metadata:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to update plan metadata" },
+      { error: error instanceof Error ? error.message : "Failed to update plan metadata" },
       { status: 500 }
     )
   }
 }
 
 /**
- * DELETE /api/admin/homes/:homeId/plan - Remove plan file and clear metadata (Settings access required)
+ * DELETE /api/admin/homes/:homeId/plan - Remove legacy floor plan file and clear Home metadata (Settings access required)
  */
 export async function DELETE(
   request: NextRequest,
@@ -295,12 +270,26 @@ export async function DELETE(
       return NextResponse.json({ error: "Home not found" }, { status: 404 })
     }
 
-    if (home.planStoragePath) {
-      const supabase = createSupabaseServerClient()
-      await supabase.storage
-        .from(HOME_PLANS_BUCKET)
-        .remove([home.planStoragePath])
+    if (!home.planStoragePath) {
+      return NextResponse.json(
+        { error: "No primary plan on the home record. Remove files from the plan list instead." },
+        { status: 400 }
+      )
     }
+
+    const { listMergedHomePlans } = await import("@/lib/home-plans")
+    const rows = await prisma.homePlan.findMany({ where: { homeId } })
+    if (listMergedHomePlans(home, rows).length <= 1) {
+      return NextResponse.json(
+        { error: "Cannot remove the last remaining plan. Upload another plan first." },
+        { status: 400 }
+      )
+    }
+
+    const pathToRemove = home.planStoragePath
+    const supabase = createSupabaseServerClient()
+    await supabase.storage.from(HOME_PLANS_BUCKET).remove([pathToRemove])
+    await prisma.homePlan.deleteMany({ where: { homeId, storagePath: pathToRemove } })
 
     const before = {
       planStoragePath: home.planStoragePath,
@@ -323,20 +312,13 @@ export async function DELETE(
       },
     })
 
-    await createAuditLog(
-      session!.user!.id,
-      "Home",
-      homeId,
-      "HOME_PLAN_DELETED",
-      before,
-      null
-    )
+    await createAuditLog(session!.user!.id, "Home", homeId, "HOME_PLAN_DELETED", before, null)
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting home plan:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to delete plan" },
+      { error: error instanceof Error ? error.message : "Failed to delete plan" },
       { status: 500 }
     )
   }

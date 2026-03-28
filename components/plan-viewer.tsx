@@ -15,6 +15,8 @@ interface PlanViewerProps {
   addressOrLot: string
   planName?: string | null
   planVariant?: string | null
+  /** When set, loads that attachment (`legacy` or HomePlan id). Omit for default resolution. */
+  planId?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -34,6 +36,7 @@ export function PlanViewer({
   addressOrLot,
   planName: initialPlanName,
   planVariant: initialPlanVariant,
+  planId = null,
   open,
   onOpenChange,
 }: PlanViewerProps) {
@@ -56,7 +59,8 @@ export function PlanViewer({
     setScale(1)
     setTranslate({ x: 0, y: 0 })
     try {
-      const res = await fetch(`/api/homes/${homeId}/plan`)
+      const q = planId ? `?planId=${encodeURIComponent(planId)}` : ""
+      const res = await fetch(`/api/homes/${homeId}/plan${q}`)
       const json = await res.json()
       if (!res.ok) {
         setError(json.error || "Failed to load plan")
@@ -70,13 +74,13 @@ export function PlanViewer({
     } finally {
       setLoading(false)
     }
-  }, [homeId])
+  }, [homeId, planId])
 
   useEffect(() => {
     if (open && homeId) {
       fetchPlan()
     }
-  }, [open, homeId, fetchPlan])
+  }, [open, homeId, planId, fetchPlan])
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault()

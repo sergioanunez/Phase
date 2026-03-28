@@ -25,6 +25,7 @@ import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
+import { groupPlansByTag } from "@/lib/home-plans"
 
 interface HomeTask {
   id: string
@@ -63,6 +64,15 @@ interface HomeTask {
   lastRescheduledBy?: { id: string; name: string | null } | null
 }
 
+interface ListedHomePlan {
+  id: string
+  tag: string
+  label: string
+  fileName: string
+  planFileType: "PDF" | "IMAGE"
+  isLegacy: boolean
+}
+
 interface Home {
   id: string
   addressOrLot: string
@@ -99,6 +109,9 @@ export default function HomeDetailPage() {
   const [punchListOpen, setPunchListOpen] = useState(false)
   const [gateStatuses, setGateStatuses] = useState<any[]>([])
   const [planViewerOpen, setPlanViewerOpen] = useState(false)
+  const [planViewerPlanId, setPlanViewerPlanId] = useState<string | null>(null)
+  const [listedPlans, setListedPlans] = useState<ListedHomePlan[]>([])
+  const [plansLoading, setPlansLoading] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
@@ -165,6 +178,35 @@ export default function HomeDetailPage() {
       })
       .catch(() => setThumbnailUrl(null))
   }, [params.id, home?.id])
+
+  useEffect(() => {
+    if (!home?.id) {
+      setListedPlans([])
+      return
+    }
+    setPlansLoading(true)
+    fetch(`/api/homes/${home.id}/plans`)
+      .then((res) => res.json())
+      .then((data: { plans?: ListedHomePlan[] }) => {
+        setListedPlans(Array.isArray(data.plans) ? data.plans : [])
+      })
+      .catch(() => setListedPlans([]))
+      .finally(() => setPlansLoading(false))
+  }, [home?.id])
+
+  const openPlanInNewTab = async (planId: string) => {
+    if (!home?.id) return
+    try {
+      const res = await fetch(`/api/homes/${home.id}/plan?planId=${encodeURIComponent(planId)}`)
+      const j = await res.json()
+      if (j.signedUrl) window.open(j.signedUrl, "_blank", "noopener,noreferrer")
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const legacyPlanHint =
+    !!(home?.planStoragePath || home?.planName || home?.planVariant || home?.hasPlan)
 
   // Deep-link: open task modal when ?task=<taskId> is in the URL (e.g. from Flow "Open task")
   useEffect(() => {
@@ -566,21 +608,40 @@ export default function HomeDetailPage() {
                     <span> • {[home.planName, home.planVariant].filter(Boolean).join(" – ")}</span>
                   )}
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {scheduleStatus && <StatusPill status={scheduleStatus} />}
-                  {(home.hasPlan === true || home.planStoragePath || home.planName || home.planVariant) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPlanViewerOpen(true)}
-                      className="h-8 gap-1.5 rounded-full"
-                    >
-                      <FileText className="h-4 w-4" />
-                      View Plan
-                    </Button>
-                  )}
-                  {home.addressOrLot?.trim() && (
+                <div className="mt-3 flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {scheduleStatus && <StatusPill status={scheduleStatus} />}
+                    {plansLoading && legacyPlanHint && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        className="h-8 gap-1.5 rounded-full"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Plans…
+                      </Button>
+                    )}
+                    {!plansLoading && listedPlans.length === 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPlanViewerPlanId(listedPlans[0]!.id)
+                          setPlanViewerOpen(true)
+                        }}
+                        className="h-8 gap-1.5 rounded-full"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Plan
+                      </Button>
+                    )}
+                    {!plansLoading && listedPlans.length > 1 && (
+                      <span className="text-sm font-medium text-muted-foreground">Plans</span>
+                    )}
+                    {home.addressOrLot?.trim() && (
                     <Button
                       type="button"
                       variant="outline"
@@ -601,6 +662,38 @@ export default function HomeDetailPage() {
                       <MapPin className="h-4 w-4" />
                       Open in Maps
                     </Button>
+                    )}
+                  </div>
+                  {!plansLoading && listedPlans.length > 1 && (
+                    <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                      {Array.from(groupPlansByTag(listedPlans).entries()).map(([tag, items]) => (
+                        <div key={tag} className="mb-3 last:mb-0">
+                          <p className="font-semibold text-foreground">{tag}</p>
+                          <ul className="mt-1 space-y-1.5 pl-0 list-none">
+                            {items.map((p) => (
+                              <li key={p.id} className="flex flex-wrap items-center gap-2">
+                                <span className="text-muted-foreground truncate max-w-[200px] sm:max-w-xs">
+                                  {p.fileName}
+                                  {p.planFileType === "PDF" ? " (PDF)" : ""}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-primary"
+                                  onClick={() => openPlanInNewTab(p.id)}
+                                >
+                                  Open
+                                </Button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!plansLoading && listedPlans.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No plans uploaded yet.</p>
                   )}
                 </div>
                 {(() => {
@@ -885,8 +978,12 @@ export default function HomeDetailPage() {
         addressOrLot={home.addressOrLot}
         planName={home.planName}
         planVariant={home.planVariant}
+        planId={planViewerPlanId}
         open={planViewerOpen}
-        onOpenChange={setPlanViewerOpen}
+        onOpenChange={(open) => {
+          setPlanViewerOpen(open)
+          if (!open) setPlanViewerPlanId(null)
+        }}
       />
 
       <ImageViewer

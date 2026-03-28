@@ -338,6 +338,7 @@ model User {
   createdPunchItems   PunchItem[]      @relation("PunchItemCreator")
   closedPunchItems     PunchItem[]      @relation("PunchItemCloser")
   planUploadedHomes   Home[]           @relation("PlanUploader")
+  homePlansUploaded   HomePlan[]
   invitesCreated      UserInvite[]     @relation("InvitesCreatedBy")
   invites             UserInvite[]     @relation("UserInvites")
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
@@ -478,6 +479,7 @@ model Home {
   activityEvents   ActivityEvent[]
   contractorAssignments ContractorAssignment[]
   taskRescheduleHistory TaskRescheduleHistory[]
+  homePlans             HomePlan[]
 
   @@index([companyId])
   @@index([companyId, isComplete])
@@ -485,6 +487,26 @@ model Home {
   @@index([subdivisionId])
   @@index([targetCompletionDate])
   @@index([startDate])
+}
+
+/// Additional floor / trade plans per home (Supabase storage path). Legacy single plan remains on Home.planStoragePath.
+model HomePlan {
+  id                 String       @id @default(cuid())
+  homeId             String
+  companyId          String?
+  /// Supabase Storage path (same bucket as Home.planStoragePath); not a public URL.
+  storagePath        String
+  fileName           String
+  tag                String
+  planFileType       PlanFileType
+  uploadedByUserId   String
+  uploadedBy         User         @relation(fields: [uploadedByUserId], references: [id])
+  createdAt          DateTime     @default(now())
+  home               Home         @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId])
+  @@index([homeId, createdAt])
+  @@index([companyId])
 }
 
 /// Builder-defined phase bucket; ordered by categoryPosition. Work items belong to one category.

@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
     const homes = await prisma.home.findMany({
       where: baseWhere,
       include: {
+        _count: { select: { homePlans: true } },
         subdivision: {
           select: {
             id: true,
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
     }
 
     const serialized = homesForSerialization.map((h) => {
-      const { planStoragePath: _p, thumbnailStoragePath: _t, ...rest } = h
+      const { planStoragePath: _p, thumbnailStoragePath: _t, _count, ...rest } = h
       let forecastCompletionDate = rest.forecastCompletionDate
       let forecastTotalWorkingDays = rest.forecastTotalWorkingDays
       let criticalPathTaskIds: string[] = []
@@ -276,7 +277,7 @@ export async function GET(request: NextRequest) {
             : null,
         forecastTotalWorkingDays: forecastTotalWorkingDays ?? rest.forecastTotalWorkingDays,
         criticalPathTaskIds,
-        hasPlan: !!h.planStoragePath,
+        hasPlan: !!h.planStoragePath || (_count?.homePlans ?? 0) > 0,
         hasThumbnail: !!h.thumbnailStoragePath,
       }
     })

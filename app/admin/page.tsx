@@ -24,6 +24,7 @@ import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
 import { sanitizeUrl } from "@/lib/url"
+import { HOME_PLAN_TAGS } from "@/lib/home-plans"
 import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
 import { sortWorkTemplatesForDisplay } from "@/lib/work-template-display-order"
 import {
@@ -59,6 +60,15 @@ interface Home {
     id: string
     name: string
   }
+}
+
+interface AdminListedPlan {
+  id: string
+  tag: string
+  label: string
+  fileName: string
+  planFileType: string
+  isLegacy: boolean
 }
 
 interface WorkTemplateCategoryRow {
@@ -222,8 +232,13 @@ export default function AdminPage() {
   const [editingPlanVariant, setEditingPlanVariant] = useState("")
   const [planUploading, setPlanUploading] = useState(false)
   const [planDeleting, setPlanDeleting] = useState(false)
+  const [planUploadTag, setPlanUploadTag] = useState("Floor Plan")
+  const [editingHomePlans, setEditingHomePlans] = useState<AdminListedPlan[]>([])
+  const [editingHomePlansLoading, setEditingHomePlansLoading] = useState(false)
+  const [plansListNonce, setPlansListNonce] = useState(0)
   const [planViewerOpen, setPlanViewerOpen] = useState(false)
   const [planViewerHome, setPlanViewerHome] = useState<Home | null>(null)
+  const [planViewerPlanId, setPlanViewerPlanId] = useState<string | null>(null)
   const planFileInputRef = useRef<HTMLInputElement>(null)
   const thumbnailFileInputRef = useRef<HTMLInputElement>(null)
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
@@ -893,6 +908,7 @@ export default function AdminPage() {
     setEditingHomeTargetDate(home.targetCompletionDate ? new Date(home.targetCompletionDate).toISOString().split("T")[0] : "")
     setEditingPlanName(home.planName ?? "")
     setEditingPlanVariant(home.planVariant ?? "")
+    setPlanUploadTag("Floor Plan")
   }
 
   const handleCancelEditHome = () => {
@@ -924,6 +940,21 @@ export default function AdminPage() {
       .finally(() => setAssignmentsLoading(false))
   }, [editingHomeId])
 
+  useEffect(() => {
+    if (!editingHomeId) {
+      setEditingHomePlans([])
+      return
+    }
+    setEditingHomePlansLoading(true)
+    fetch(`/api/homes/${editingHomeId}/plans`)
+      .then((res) => res.json())
+      .then((data: { plans?: AdminListedPlan[] }) => {
+        setEditingHomePlans(Array.isArray(data.plans) ? data.plans : [])
+      })
+      .catch(() => setEditingHomePlans([]))
+      .finally(() => setEditingHomePlansLoading(false))
+  }, [editingHomeId, plansListNonce])
+
   const handleSaveAssignments = async (homeId: string) => {
     setAssignmentsSaving(true)
     try {
@@ -949,15 +980,19 @@ export default function AdminPage() {
   const superintendentUsers = users.filter((u) => u.role === "Superintendent")
 
   const handleUploadPlan = async (homeId: string) => {
-    const file = planFileInputRef.current?.files?.[0]
-    if (!file?.size) {
-      alert("Please select a file (PDF or image: PNG, JPEG, WebP). Max 20 MB.")
+    const input = planFileInputRef.current
+    const files = input?.files?.length ? Array.from(input.files) : []
+    if (files.length === 0) {
+      alert("Please select at least one file (PDF or image: PNG, JPEG, WebP). Max 20 MB each.")
       return
     }
     setPlanUploading(true)
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      for (const f of files) {
+        formData.append("file", f)
+      }
+      formData.append("planTag", planUploadTag)
       if (editingPlanName.trim()) formData.append("planName", editingPlanName.trim())
       if (editingPlanVariant.trim()) formData.append("planVariant", editingPlanVariant.trim())
       const res = await fetch(`/api/admin/homes/${homeId}/plan`, {
@@ -970,6 +1005,7 @@ export default function AdminPage() {
         return
       }
       if (planFileInputRef.current) planFileInputRef.current.value = ""
+      setPlansListNonce((n) => n + 1)
       handleRefresh()
     } catch (err: any) {
       console.error("Plan upload error:", err)
@@ -979,16 +1015,19 @@ export default function AdminPage() {
     }
   }
 
-  const handleDeletePlan = async (homeId: string) => {
-    if (!confirm("Remove the floor plan file for this home? This cannot be undone.")) return
+  const handleDeletePlanRow = async (homeId: string, planId: string) => {
+    if (!confirm("Remove this plan file? This cannot be undone.")) return
     setPlanDeleting(true)
     try {
-      const res = await fetch(`/api/admin/homes/${homeId}/plan`, { method: "DELETE" })
+      const res = await fetch(`/api/admin/homes/${homeId}/plans/${encodeURIComponent(planId)}`, {
+        method: "DELETE",
+      })
       const data = await res.json()
       if (!res.ok) {
         alert(data.error || "Failed to delete plan")
         return
       }
+      setPlansListNonce((n) => n + 1)
       handleRefresh()
     } catch (err: any) {
       console.error("Plan delete error:", err)
@@ -1760,7 +1799,11 @@ export default function AdminPage() {
                                   </div>
                                 </div>
                                 <div className="border-t pt-3 mt-2">
-                                  <p className="text-sm font-medium mb-2">Floor Plan</p>
+                                  <p className="text-sm font-medium mb-2">Plans</p>
+                                  <p className="text-xs text-muted-foreground mb-2">
+                                    One file + tag &quot;Floor Plan&quot; with no extra attachments uses the original
+                                    primary slot. Multiple files or other tags add separate plans.
+                                  </p>
                                   <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-2">
                                       <label className="text-sm text-muted-foreground whitespace-nowrap">Plan name:</label>
@@ -1782,34 +1825,73 @@ export default function AdminPage() {
                                         placeholder="e.g. A, Reversed"
                                       />
                                     </div>
-                                    {home.hasPlan && (
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setPlanViewerHome(home)
-                                            setPlanViewerOpen(true)
-                                          }}
-                                          className="text-sm text-primary hover:underline truncate max-w-[240px] text-left"
-                                        >
-                                          {home.planFileName || "Floor plan"}
-                                          {home.planFileType && ` (${home.planFileType})`}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeletePlan(home.id)}
-                                          disabled={planDeleting}
-                                          className="shrink-0 text-muted-foreground hover:text-destructive p-0.5 rounded"
-                                          aria-label="Delete floor plan"
-                                        >
-                                          <X className="h-4 w-4" />
-                                        </button>
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                                      <label className="text-sm text-muted-foreground whitespace-nowrap">Tag:</label>
+                                      <select
+                                        value={planUploadTag}
+                                        onChange={(e) => setPlanUploadTag(e.target.value)}
+                                        className="px-2 py-1 border rounded-md text-sm flex-1 max-w-[220px]"
+                                      >
+                                        {HOME_PLAN_TAGS.map((t) => (
+                                          <option key={t} value={t}>
+                                            {t}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    {editingHomeId === home.id && (
+                                      <div className="rounded-md border border-border bg-muted/20 px-2 py-2">
+                                        {editingHomePlansLoading ? (
+                                          <p className="text-xs text-muted-foreground">Loading plans…</p>
+                                        ) : editingHomePlans.length === 0 ? (
+                                          <p className="text-xs text-muted-foreground">No plans uploaded yet.</p>
+                                        ) : (
+                                          <ul className="space-y-2 text-sm">
+                                            {editingHomePlans.map((p) => (
+                                              <li key={p.id} className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                  <span className="font-medium text-foreground">{p.tag}</span>
+                                                  {p.label && p.label !== p.fileName && (
+                                                    <span className="text-muted-foreground"> · {p.label}</span>
+                                                  )}
+                                                  <div className="text-muted-foreground truncate text-xs">
+                                                    {p.fileName}
+                                                    {p.planFileType ? ` (${p.planFileType})` : ""}
+                                                  </div>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-1">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setPlanViewerHome(home)
+                                                      setPlanViewerPlanId(p.id)
+                                                      setPlanViewerOpen(true)
+                                                    }}
+                                                    className="text-xs text-primary hover:underline"
+                                                  >
+                                                    View
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeletePlanRow(home.id, p.id)}
+                                                    disabled={planDeleting}
+                                                    className="text-muted-foreground hover:text-destructive p-0.5 rounded"
+                                                    aria-label="Delete plan"
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </button>
+                                                </div>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
                                       </div>
                                     )}
                                     <input
                                       ref={planFileInputRef}
                                       key={`plan-file-${home.id}`}
                                       type="file"
+                                      multiple
                                       accept="image/*,application/pdf"
                                       className="text-sm"
                                     />
@@ -1821,7 +1903,7 @@ export default function AdminPage() {
                                         onClick={() => handleUploadPlan(home.id)}
                                         disabled={planUploading}
                                       >
-                                        Upload plan
+                                        {planUploading ? "Uploading…" : "Upload plans"}
                                       </Button>
                                     </div>
                                   </div>
@@ -3689,10 +3771,14 @@ export default function AdminPage() {
           addressOrLot={planViewerHome.addressOrLot}
           planName={planViewerHome.planName}
           planVariant={planViewerHome.planVariant}
+          planId={planViewerPlanId}
           open={planViewerOpen}
           onOpenChange={(open) => {
             setPlanViewerOpen(open)
-            if (!open) setPlanViewerHome(null)
+            if (!open) {
+              setPlanViewerHome(null)
+              setPlanViewerPlanId(null)
+            }
           }}
         />
       )}
