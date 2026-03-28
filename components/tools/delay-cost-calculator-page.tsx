@@ -620,7 +620,7 @@ export function DelayCostCalculatorPage() {
                 cycle time by improving coordination, communication, and accountability.
               </p>
               <Link
-                href="/#solution"
+                href="/#hero"
                 className="mt-8 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-6 text-base font-semibold text-gray-900 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-900"
               >
                 See how Phase works

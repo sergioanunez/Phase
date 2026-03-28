@@ -21,7 +21,10 @@ export function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className={`${SECTION_CLASS} pt-14 sm:pt-20 pb-12`}>
+        <section
+          id="hero"
+          className={`scroll-mt-20 ${SECTION_CLASS} pt-14 sm:pt-20 pb-12`}
+        >
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-center">
             <div>
               <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
