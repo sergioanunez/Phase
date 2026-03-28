@@ -25,7 +25,7 @@ import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
-import { groupPlansByTag } from "@/lib/home-plans"
+import { groupPlansByTag, type ListedHomePlan } from "@/lib/home-plans"
 
 interface HomeTask {
   id: string
@@ -62,15 +62,6 @@ interface HomeTask {
   lastPreviousScheduledDate?: string | null
   rescheduleCount?: number
   lastRescheduledBy?: { id: string; name: string | null } | null
-}
-
-interface ListedHomePlan {
-  id: string
-  tag: string
-  label: string
-  fileName: string
-  planFileType: "PDF" | "IMAGE"
-  isLegacy: boolean
 }
 
 interface Home {
