@@ -1,5 +1,5 @@
 import { compareWorkTemplatesForDisplay, type WorkTemplateDisplaySortKey } from "@/lib/work-template-display-order"
-import { workingDaysBetween } from "@/lib/forecast"
+import { workingDaysBetween } from "@/lib/working-days"
 
 export const NOT_STARTED_PHASE_KEY = "not_started"
 export const COMPLETE_PHASE_KEY = "complete"

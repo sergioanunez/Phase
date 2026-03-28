@@ -62,6 +62,12 @@ export function workingDayDiff(start: Date, end: Date): number {
   return diff
 }
 
+/** Working days between start (exclusive) and end (inclusive). Positive if end > start. */
+export function workingDaysBetween(start: Date, end: Date): number {
+  if (end <= start) return 0
+  return workingDayDiff(start, end)
+}
+
 /** Go backward by n working days (Mon–Fri). */
 export function subWorkingDays(start: Date, workingDays: number): Date {
   if (workingDays <= 0) return new Date(start)

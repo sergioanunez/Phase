@@ -3,17 +3,10 @@
  * and dependency logic. All duration math is in WORKING DAYS (Mon–Fri).
  */
 
-import { addWorkingDays, normalizeToWorkingDay } from "./working-days"
-import { workingDayDiff } from "./working-days"
+import { addWorkingDays, normalizeToWorkingDay, workingDaysBetween } from "./working-days"
 
 // Re-export for consumers
-export { addWorkingDays, normalizeToWorkingDay } from "./working-days"
-
-/** Working days between a and b (a exclusive, b inclusive). Positive if b > a. */
-export function workingDaysBetween(a: Date, b: Date): number {
-  if (b <= a) return 0
-  return workingDayDiff(a, b)
-}
+export { addWorkingDays, normalizeToWorkingDay, workingDaysBetween } from "./working-days"
 
 export type TaskStatusForForecast = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE"
 
@@ -205,10 +198,74 @@ export function computeHomeForecast(
   }
 }
 
+/**
+ * When TemplateDependency rows are missing or incomplete, CPM undercounts. Floor finish with
+ * phase-based remaining WD (Construction Timeline / template category sequence + incomplete
+ * work in the active category) — not a % of total task duration.
+ */
+export function applyForecastSanityFloor(
+  cpm: ForecastResult,
+  opts: {
+    homeStart: Date
+    taskNodes: TaskNode[]
+    /** From computePhaseBasedRemainingWorkingDays; null skips floor. */
+    remainingWorkingDays: number | null
+    debugLabel?: string
+  }
+): ForecastResult {
+  const { homeStart, taskNodes, remainingWorkingDays: remWd } = opts
+  if (remWd == null || remWd <= 0 || taskNodes.length === 0) {
+    return cpm
+  }
+
+  const homeStartNorm = normalizeToWorkingDay(startOfDay(homeStart))
+  let anchorMs = homeStartNorm.getTime()
+  for (const t of taskNodes) {
+    if (t.status === COMPLETE && t.completedAt) {
+      const ms = startOfDay(new Date(t.completedAt)).getTime()
+      if (ms > anchorMs) anchorMs = ms
+    }
+  }
+
+  const anchorDate = normalizeToWorkingDay(new Date(anchorMs))
+  const floorFinish = addWorkingDays(anchorDate, remWd)
+
+  if (floorFinish.getTime() <= cpm.forecastDate.getTime()) {
+    return cpm
+  }
+
+  const warnings = [
+    ...cpm.warnings,
+    `Forecast raised to phase-based template floor (~${remWd} wd remaining vs CPM ${startOfDay(cpm.forecastDate).toISOString().slice(0, 10)})`,
+  ]
+
+  if (process.env.FORECAST_SANITY_DEBUG === "1") {
+    console.log("[forecast:sanity]", {
+      label: opts.debugLabel,
+      remainingWorkingDays: remWd,
+      completedTaskCount: taskNodes.filter((t) => t.status === COMPLETE).length,
+      totalTasks: taskNodes.length,
+      anchor: anchorDate.toISOString(),
+      cpmFinish: cpm.forecastDate.toISOString(),
+      floorFinish: floorFinish.toISOString(),
+    })
+  }
+
+  return {
+    ...cpm,
+    forecastDate: floorFinish,
+    forecastDateISO: floorFinish.toISOString(),
+    warnings,
+  }
+}
+
 // --- Persistence: load from DB, compute, write back ---
 
 import { prisma } from "./prisma"
 import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
+import { deriveOrderedCategories } from "./dashboard/phaseDistribution"
+import { getTenantTemplateForecastPhaseData } from "./forecast-template-total"
+import { computePhaseBasedRemainingWorkingDays } from "./forecast-phase-remaining"
 
 type HomeTaskRow = {
   id: string
@@ -219,6 +276,12 @@ type HomeTaskRow = {
   scheduledDate: Date | null
   completedAt: Date | null
   sortOrderSnapshot: number
+  templateItem: {
+    name: string
+    optionalCategory: string | null
+    sortOrder: number
+    sequenceOrder: number | null
+  }
 }
 
 function mapStatus(status: string): TaskStatusForForecast {
@@ -284,7 +347,28 @@ export async function computeHomeForecastAndPersist(homeId: string): Promise<voi
   const home = await prisma.home.findUnique({
     where: { id: homeId },
     include: {
-      tasks: { orderBy: [...homeTaskOrderByTemplateSequence()] },
+      tasks: {
+        orderBy: [...homeTaskOrderByTemplateSequence()],
+        select: {
+          id: true,
+          templateItemId: true,
+          nameSnapshot: true,
+          durationDaysSnapshot: true,
+          status: true,
+          scheduledDate: true,
+          completedAt: true,
+          sortOrderSnapshot: true,
+          templateItem: {
+            select: {
+              name: true,
+              optionalCategory: true,
+              sortOrder: true,
+              sequenceOrder: true,
+            },
+          },
+        },
+      },
+      subdivision: { select: { companyId: true } },
     },
   })
 
@@ -351,7 +435,61 @@ export async function computeHomeForecastAndPersist(homeId: string): Promise<voi
   homeStart.setHours(0, 0, 0, 0)
   homeStart = normalizeToWorkingDay(homeStart)
 
-  const result = computeHomeForecast(taskNodes, homeStart)
+  const cpm = computeHomeForecast(taskNodes, homeStart)
+  let result = cpm
+  const tenantCompanyId = home.companyId ?? home.subdivision?.companyId ?? null
+  if (tenantCompanyId) {
+    const phaseHomeForOrder = {
+      id: home.id,
+      addressOrLot: home.addressOrLot,
+      startDate: home.startDate,
+      createdAt: home.createdAt,
+      isComplete: home.isComplete,
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        status: t.status,
+        scheduledDate: t.scheduledDate,
+        templateItem: {
+          name: t.templateItem.name,
+          optionalCategory: t.templateItem.optionalCategory,
+          sortOrder: t.templateItem.sortOrder,
+          sequenceOrder: t.templateItem.sequenceOrder,
+        },
+      })),
+    }
+    const extraCategoryNames = deriveOrderedCategories([phaseHomeForOrder]).map((c) => c.name)
+    const phaseData = await getTenantTemplateForecastPhaseData(
+      prisma,
+      tenantCompanyId,
+      extraCategoryNames
+    )
+    const remainingWd =
+      phaseData != null
+        ? computePhaseBasedRemainingWorkingDays(
+            {
+              id: home.id,
+              addressOrLot: home.addressOrLot,
+              startDate: home.startDate,
+              createdAt: home.createdAt,
+              isComplete: home.isComplete,
+              tasks: tasks.map((t) => ({
+                id: t.id,
+                status: t.status,
+                scheduledDate: t.scheduledDate,
+                durationDaysSnapshot: t.durationDaysSnapshot,
+                templateItem: t.templateItem,
+              })),
+            },
+            phaseData
+          )
+        : null
+    result = applyForecastSanityFloor(cpm, {
+      homeStart,
+      taskNodes,
+      remainingWorkingDays: remainingWd,
+      debugLabel: `persist:${home.id}`,
+    })
+  }
 
   const totalWorkingDays = result.forecastDate.getTime() > homeStart.getTime()
     ? workingDaysBetween(homeStart, result.forecastDate)

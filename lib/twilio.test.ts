@@ -38,7 +38,8 @@ describe("buildScheduledSms", () => {
 
   it("does not include subdivision/community in body", () => {
     const out = buildScheduledSms({
-      tenant: { whiteLabelEnabled: true, name: "Cullers Homes" },
+      tenant: { name: "Cullers Homes" },
+      subscription: { whiteLabelAddOn: true },
       taskName: "Plumbing Rough",
       address: "13941 Paseo Honor",
       date: new Date("2026-03-03"),

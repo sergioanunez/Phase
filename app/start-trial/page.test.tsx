@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import { vi } from "vitest"
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest"
 import StartTrialPage from "./page"
 
 vi.mock("next/navigation", () => ({
@@ -36,5 +36,5 @@ describe("StartTrialPage SMS consent", () => {
 
     expect((checkbox as HTMLInputElement).checked).toBe(false)
   })
-}
+})
 

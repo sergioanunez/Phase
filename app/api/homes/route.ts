@@ -129,7 +129,10 @@ export async function GET(request: NextRequest) {
       buildTaskNodesFromPrismaTasks,
       getHomeStart,
       workingDaysBetween,
+      applyForecastSanityFloor,
     } = await import("@/lib/forecast")
+    const { getTenantTemplateForecastPhaseData } = await import("@/lib/forecast-template-total")
+    const { computePhaseBasedRemainingWorkingDays } = await import("@/lib/forecast-phase-remaining")
 
     let homesForSerialization = homes
 
@@ -168,6 +171,36 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    let phaseData: Awaited<ReturnType<typeof getTenantTemplateForecastPhaseData>> = null
+    if (ctx.companyId != null) {
+      const { deriveOrderedCategories } = await import("@/lib/dashboard/phaseDistribution")
+      const nameSet = new Set<string>()
+      for (const h of homesForSerialization) {
+        const ph = {
+          id: h.id,
+          addressOrLot: h.addressOrLot,
+          startDate: h.startDate,
+          createdAt: h.createdAt,
+          isComplete: h.isComplete,
+          tasks: h.tasks.map((t) => ({
+            id: t.id,
+            status: t.status,
+            scheduledDate: t.scheduledDate,
+            templateItem: {
+              name: t.templateItem?.name ?? t.nameSnapshot,
+              optionalCategory: t.templateItem?.optionalCategory ?? null,
+              sortOrder: t.templateItem?.sortOrder ?? 0,
+              sequenceOrder: t.templateItem?.sequenceOrder ?? null,
+            },
+          })),
+        }
+        for (const c of deriveOrderedCategories([ph])) {
+          nameSet.add(c.name)
+        }
+      }
+      phaseData = await getTenantTemplateForecastPhaseData(prisma, ctx.companyId, [...nameSet])
+    }
+
     const serialized = homesForSerialization.map((h) => {
       const { planStoragePath: _p, thumbnailStoragePath: _t, ...rest } = h
       let forecastCompletionDate = rest.forecastCompletionDate
@@ -191,7 +224,38 @@ export async function GET(request: NextRequest) {
             { startDate: h.startDate, createdAt: h.createdAt },
             h.tasks
           )
-          const result = computeHomeForecast(taskNodes, homeStart)
+          const cpm = computeHomeForecast(taskNodes, homeStart)
+          const remainingWd =
+            phaseData != null
+              ? computePhaseBasedRemainingWorkingDays(
+                  {
+                    id: h.id,
+                    addressOrLot: h.addressOrLot,
+                    startDate: h.startDate,
+                    createdAt: h.createdAt,
+                    isComplete: h.isComplete,
+                    tasks: h.tasks.map((t) => ({
+                      id: t.id,
+                      status: t.status,
+                      scheduledDate: t.scheduledDate,
+                      durationDaysSnapshot: t.durationDaysSnapshot,
+                      templateItem: {
+                        name: t.templateItem?.name ?? t.nameSnapshot,
+                        optionalCategory: t.templateItem?.optionalCategory ?? null,
+                        sortOrder: t.templateItem?.sortOrder ?? 0,
+                        sequenceOrder: t.templateItem?.sequenceOrder ?? null,
+                      },
+                    })),
+                  },
+                  phaseData
+                )
+              : null
+          const result = applyForecastSanityFloor(cpm, {
+            homeStart,
+            taskNodes,
+            remainingWorkingDays: remainingWd,
+            debugLabel: `list:${h.id}`,
+          })
           forecastCompletionDate = result.forecastDate
           forecastTotalWorkingDays =
             result.forecastDate > homeStart

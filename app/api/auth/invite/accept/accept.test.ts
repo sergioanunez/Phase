@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 vi.mock("@/lib/buildGuard", () => ({ isBuildTime: false, buildGuardResponse: () => new Response() }))
@@ -40,7 +41,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
 
     const { POST } = await import("./route")
     const res = await POST(
-      new Request("http://localhost/api/auth/invite/accept", {
+      new NextRequest("http://localhost/api/auth/invite/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: "valid-token", password: "password123" }),
@@ -63,7 +64,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
 
     const { POST } = await import("./route")
     const res = await POST(
-      new Request("http://localhost/api/auth/invite/accept", {
+      new NextRequest("http://localhost/api/auth/invite/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,7 +92,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
 
     const { POST } = await import("./route")
     const res = await POST(
-      new Request("http://localhost/api/auth/invite/accept", {
+      new NextRequest("http://localhost/api/auth/invite/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,7 +130,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
 
     const { POST } = await import("./route")
     const res = await POST(
-      new Request("http://localhost/api/auth/invite/accept", {
+      new NextRequest("http://localhost/api/auth/invite/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

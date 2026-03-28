@@ -4,6 +4,7 @@ import {
   workingDaysBetween,
   topologicalSort,
   computeHomeForecast,
+  applyForecastSanityFloor,
   type TaskNode,
 } from "./forecast"
 
@@ -11,15 +12,14 @@ function task(
   id: string,
   opts: Partial<TaskNode> & { durationDays: number; dependencyIds: string[] }
 ): TaskNode {
+  const { durationDays, dependencyIds, ...rest } = opts
   return {
     id,
     name: id,
-    durationDays: opts.durationDays,
-    status: opts.status ?? "NOT_STARTED",
-    dependencyIds: opts.dependencyIds,
-    scheduledStartDate: opts.scheduledStartDate,
-    completedAt: opts.completedAt,
-    ...opts,
+    durationDays,
+    dependencyIds,
+    status: "NOT_STARTED",
+    ...rest,
   }
 }
 
@@ -45,6 +45,42 @@ describe("addWorkingDays / workingDaysBetween", () => {
     const fri = new Date("2025-03-07T00:00:00Z")
     fri.setHours(0, 0, 0, 0)
     expect(workingDaysBetween(mon, fri)).toBe(4)
+  })
+})
+
+describe("applyForecastSanityFloor", () => {
+  it("raises finish when CPM undercounts many parallel roots (sparse deps)", () => {
+    const homeStart = monday()
+    const tasks: TaskNode[] = [
+      task("a", { durationDays: 10, dependencyIds: [], status: "NOT_STARTED" }),
+      task("b", { durationDays: 10, dependencyIds: [], status: "NOT_STARTED" }),
+      task("c", { durationDays: 10, dependencyIds: [], status: "NOT_STARTED" }),
+    ]
+    const cpm = computeHomeForecast(tasks, homeStart)
+    expect(workingDaysBetween(homeStart, cpm.forecastDate)).toBe(10)
+
+    const merged = applyForecastSanityFloor(cpm, {
+      homeStart,
+      taskNodes: tasks,
+      remainingWorkingDays: 85,
+    })
+    expect(workingDaysBetween(homeStart, merged.forecastDate)).toBeGreaterThanOrEqual(85)
+    expect(merged.warnings.some((w) => w.includes("raised to phase-based"))).toBe(true)
+  })
+
+  it("does not lower an already-long CPM finish", () => {
+    const homeStart = monday()
+    const tasks: TaskNode[] = [
+      task("a", { durationDays: 40, dependencyIds: [], status: "NOT_STARTED" }),
+      task("b", { durationDays: 50, dependencyIds: ["a"], status: "NOT_STARTED" }),
+    ]
+    const cpm = computeHomeForecast(tasks, homeStart)
+    const merged = applyForecastSanityFloor(cpm, {
+      homeStart,
+      taskNodes: tasks,
+      remainingWorkingDays: 85,
+    })
+    expect(merged.forecastDate.getTime()).toBe(cpm.forecastDate.getTime())
   })
 })
 
