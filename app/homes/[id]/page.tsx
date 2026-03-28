@@ -103,6 +103,7 @@ export default function HomeDetailPage() {
   const [planViewerPlanId, setPlanViewerPlanId] = useState<string | null>(null)
   const [listedPlans, setListedPlans] = useState<ListedHomePlan[]>([])
   const [plansLoading, setPlansLoading] = useState(false)
+  const [plansPanelOpen, setPlansPanelOpen] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
@@ -184,6 +185,14 @@ export default function HomeDetailPage() {
       .catch(() => setListedPlans([]))
       .finally(() => setPlansLoading(false))
   }, [home?.id])
+
+  useEffect(() => {
+    setPlansPanelOpen(false)
+  }, [home?.id])
+
+  useEffect(() => {
+    if (listedPlans.length <= 1) setPlansPanelOpen(false)
+  }, [listedPlans.length])
 
   const openPlanInNewTab = async (planId: string) => {
     if (!home?.id) return
@@ -599,7 +608,7 @@ export default function HomeDetailPage() {
                     <span> • {[home.planName, home.planVariant].filter(Boolean).join(" – ")}</span>
                   )}
                 </p>
-                <div className="mt-3 flex flex-col gap-3">
+                <div className="mt-3 flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     {scheduleStatus && <StatusPill status={scheduleStatus} />}
                     {plansLoading && legacyPlanHint && (
@@ -609,6 +618,7 @@ export default function HomeDetailPage() {
                         size="sm"
                         disabled
                         className="h-8 gap-1.5 rounded-full"
+                        aria-busy="true"
                       >
                         <FileText className="h-4 w-4" />
                         Plans…
@@ -630,40 +640,65 @@ export default function HomeDetailPage() {
                       </Button>
                     )}
                     {!plansLoading && listedPlans.length > 1 && (
-                      <span className="text-sm font-medium text-muted-foreground">Plans</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 rounded-full"
+                        aria-expanded={plansPanelOpen}
+                        aria-controls="house-plans-panel"
+                        id="house-plans-trigger"
+                        onClick={() => setPlansPanelOpen((o) => !o)}
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span className="tabular-nums">
+                          Plans {plansPanelOpen ? "\u25b4" : "\u25be"}
+                        </span>
+                      </Button>
                     )}
                     {home.addressOrLot?.trim() && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 rounded-full"
-                      onClick={() => {
-                        const query = [home.addressOrLot, home.subdivision?.name].filter(Boolean).join(", ")
-                        const encoded = encodeURIComponent(query)
-                        const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent)
-                        const url = isIOS
-                          ? `https://maps.apple.com/?q=${encoded}`
-                          : `https://www.google.com/maps/search/?api=1&query=${encoded}`
-                        window.open(url, "_blank", "noopener,noreferrer")
-                      }}
-                      title="Open location in native maps"
-                      aria-label="Open in Maps"
-                    >
-                      <MapPin className="h-4 w-4" />
-                      Open in Maps
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 rounded-full"
+                        onClick={() => {
+                          const query = [home.addressOrLot, home.subdivision?.name].filter(Boolean).join(", ")
+                          const encoded = encodeURIComponent(query)
+                          const isIOS =
+                            typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent)
+                          const url = isIOS
+                            ? `https://maps.apple.com/?q=${encoded}`
+                            : `https://www.google.com/maps/search/?api=1&query=${encoded}`
+                          window.open(url, "_blank", "noopener,noreferrer")
+                        }}
+                        title="Open location in native maps"
+                        aria-label="Open in Maps"
+                      >
+                        <MapPin className="h-4 w-4" />
+                        Open in Maps
+                      </Button>
                     )}
                   </div>
-                  {!plansLoading && listedPlans.length > 1 && (
-                    <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  {!plansLoading && listedPlans.length > 1 && plansPanelOpen && (
+                    <div
+                      id="house-plans-panel"
+                      role="region"
+                      aria-labelledby="house-plans-trigger"
+                      className="max-w-md rounded-lg border border-border/80 bg-muted/25 px-2.5 py-2 text-sm shadow-sm"
+                    >
                       {Array.from(groupPlansByTag(listedPlans).entries()).map(([tag, items]) => (
-                        <div key={tag} className="mb-3 last:mb-0">
-                          <p className="font-semibold text-foreground">{tag}</p>
-                          <ul className="mt-1 space-y-1.5 pl-0 list-none">
+                        <div key={tag} className="mb-2.5 last:mb-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {tag}
+                          </p>
+                          <ul className="mt-1 space-y-1 pl-0 list-none">
                             {items.map((p) => (
-                              <li key={p.id} className="flex flex-wrap items-center gap-2">
-                                <span className="text-muted-foreground truncate max-w-[200px] sm:max-w-xs">
+                              <li
+                                key={p.id}
+                                className="flex items-center gap-2 min-w-0 border-b border-border/40 pb-1 last:border-0 last:pb-0"
+                              >
+                                <span className="min-w-0 flex-1 truncate text-muted-foreground" title={p.fileName}>
                                   {p.fileName}
                                   {p.planFileType === "PDF" ? " (PDF)" : ""}
                                 </span>
@@ -671,7 +706,7 @@ export default function HomeDetailPage() {
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-primary"
+                                  className="h-7 shrink-0 px-2 text-primary"
                                   onClick={() => openPlanInNewTab(p.id)}
                                 >
                                   Open
@@ -682,9 +717,6 @@ export default function HomeDetailPage() {
                         </div>
                       ))}
                     </div>
-                  )}
-                  {!plansLoading && listedPlans.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No plans uploaded yet.</p>
                   )}
                 </div>
                 {(() => {
