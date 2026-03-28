@@ -50,7 +50,7 @@ export const viewport = {
   themeColor: "#111827",
 }
 
-const PUBLIC_PATHS = ["/", "/contact", "/start-trial", "/founders10"]
+const PUBLIC_PATHS = ["/", "/contact", "/start-trial", "/founders10", "/tools/delay-cost-calculator"]
 
 export default async function RootLayout({
   children,

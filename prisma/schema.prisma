@@ -1008,3 +1008,18 @@ model ActivityNotificationRead {
   @@unique([userId, activityKey])
   @@index([userId, companyId])
 }
+
+/// Lead capture from public marketing tools (e.g. Delay Cost Calculator).
+model MarketingToolLead {
+  id           String   @id @default(cuid())
+  email        String
+  firstName    String?
+  source       String
+  formVariant  String?
+  inputs       Json
+  results      Json
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+  @@index([source, createdAt])
+}
