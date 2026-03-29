@@ -63,6 +63,9 @@ export async function POST(
     const wasAlreadyReported = punch.reportedCompleteAt != null
 
     const companyId = punch.companyId ?? punch.home.companyId
+    if (!companyId) {
+      return NextResponse.json({ error: "Punch has no tenant scope" }, { status: 400 })
+    }
     const reporter = await prisma.user.findUnique({
       where: { id: user.id },
       select: { name: true },

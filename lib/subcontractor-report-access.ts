@@ -1,6 +1,9 @@
 import { listSubcontractorTenantsForUser } from "@/lib/subcontractor-tenants"
 
-function effectiveCompanyId(task: { companyId: string | null; home: { companyId: string } }): string {
+function effectiveCompanyId(task: {
+  companyId: string | null
+  home: { companyId: string | null }
+}): string | null {
   return task.companyId ?? task.home.companyId
 }
 
@@ -9,11 +12,16 @@ function effectiveCompanyId(task: { companyId: string | null; home: { companyId:
  */
 export async function canSubcontractorReportOnTask(
   userId: string,
-  task: { contractorId: string | null; companyId: string | null; home: { companyId: string } }
+  task: {
+    contractorId: string | null
+    companyId: string | null
+    home: { companyId: string | null }
+  }
 ): Promise<boolean> {
   if (!task.contractorId) return false
   const tenants = await listSubcontractorTenantsForUser(userId)
   const cid = effectiveCompanyId(task)
+  if (!cid) return false
   return tenants.some((t) => t.companyId === cid && t.contractorId === task.contractorId)
 }
 
@@ -22,8 +30,12 @@ export async function canSubcontractorReportOnPunch(
   punch: {
     assignedContractorId: string | null
     companyId: string | null
-    home: { companyId: string }
-    relatedHomeTask: { contractorId: string | null; companyId: string | null; home: { companyId: string } }
+    home: { companyId: string | null }
+    relatedHomeTask: {
+      contractorId: string | null
+      companyId: string | null
+      home: { companyId: string | null }
+    }
   }
 ): Promise<boolean> {
   const contractorForPunch =
@@ -31,5 +43,6 @@ export async function canSubcontractorReportOnPunch(
   if (!contractorForPunch) return false
   const tenants = await listSubcontractorTenantsForUser(userId)
   const punchCompanyId = punch.companyId ?? punch.home.companyId
+  if (!punchCompanyId) return false
   return tenants.some((t) => t.companyId === punchCompanyId && t.contractorId === contractorForPunch)
 }

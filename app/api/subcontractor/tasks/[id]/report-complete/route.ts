@@ -53,6 +53,9 @@ export async function POST(
     }
 
     const companyId = task.companyId ?? task.home.companyId
+    if (!companyId) {
+      return NextResponse.json({ error: "Task has no tenant scope" }, { status: 400 })
+    }
     const reporter = await prisma.user.findUnique({
       where: { id: user.id },
       select: { name: true },
