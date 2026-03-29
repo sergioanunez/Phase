@@ -63,21 +63,6 @@ export default function MySchedulePage() {
   const [selectedEvent, setSelectedEvent] = useState<ContractorScheduleEvent | null>(null)
   const [dayReportedOpen, setDayReportedOpen] = useState(false)
 
-  const refreshSchedule = useCallback(async () => {
-    if (session?.user?.role !== "Subcontractor") return
-    const params = new URLSearchParams({
-      start: fetchStart.toISOString(),
-      end: fetchEnd.toISOString(),
-    })
-    if (selectedTenantId) {
-      params.set("companyId", selectedTenantId)
-    }
-    const res = await fetch(`/api/subcontractor/schedule?${params}`, { credentials: "same-origin" })
-    const data: ScheduleResponse & { error?: string } = await res.json()
-    if (data.error) throw new Error(data.error)
-    setEvents(Array.isArray(data.events) ? data.events : [])
-  }, [session?.user?.role, fetchStart, fetchEnd, selectedTenantId])
-
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin")
@@ -107,6 +92,21 @@ export default function MySchedulePage() {
     e.setDate(e.getDate() + 14)
     return e
   }, [weekEnd])
+
+  const refreshSchedule = useCallback(async () => {
+    if (session?.user?.role !== "Subcontractor") return
+    const params = new URLSearchParams({
+      start: fetchStart.toISOString(),
+      end: fetchEnd.toISOString(),
+    })
+    if (selectedTenantId) {
+      params.set("companyId", selectedTenantId)
+    }
+    const res = await fetch(`/api/subcontractor/schedule?${params}`, { credentials: "same-origin" })
+    const data: ScheduleResponse & { error?: string } = await res.json()
+    if (data.error) throw new Error(data.error)
+    setEvents(Array.isArray(data.events) ? data.events : [])
+  }, [session?.user?.role, fetchStart, fetchEnd, selectedTenantId])
 
   useEffect(() => {
     if (session?.user?.role !== "Subcontractor") return
