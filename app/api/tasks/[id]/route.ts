@@ -70,6 +70,7 @@ export async function GET(
         contractor: true,
         templateItem: true,
         lastRescheduledBy: { select: { id: true, name: true } },
+        reportedCompleteBy: { select: { id: true, name: true } },
         smsMessages: { orderBy: { createdAt: "desc" }, take: 10 },
       },
     })
@@ -96,6 +97,7 @@ export async function GET(
           contractor: true,
           templateItem: true,
           lastRescheduledBy: { select: { id: true, name: true } },
+          reportedCompleteBy: { select: { id: true, name: true } },
           smsMessages: { orderBy: { createdAt: "desc" }, take: 10 },
         },
       })
@@ -448,6 +450,7 @@ export async function PATCH(
           },
         },
         lastRescheduledBy: { select: { id: true, name: true } },
+        reportedCompleteBy: { select: { id: true, name: true } },
       },
     })
     // #region agent log

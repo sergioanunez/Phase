@@ -8,6 +8,7 @@ export interface ContractorScheduleEventPunchItem {
   title: string
   status: string
   severity: string
+  reportedCompleteAt?: string | null
 }
 
 export interface ContractorScheduleEvent {
@@ -25,6 +26,7 @@ export interface ContractorScheduleEvent {
   updatedAt?: string
   punchOpenCount?: number
   punchItems?: ContractorScheduleEventPunchItem[]
+  reportedCompleteAt?: string | null
 }
 
 export interface JobRowProps {
@@ -33,10 +35,17 @@ export interface JobRowProps {
   className?: string
 }
 
+function isReportedPendingVerification(event: ContractorScheduleEvent): boolean {
+  return !!(event.reportedCompleteAt && event.status !== "completed")
+}
+
 export function JobRow({ event, onClick, className }: JobRowProps) {
+  const reportedPending = isReportedPendingVerification(event)
   const statusIcon =
     event.status === "completed" ? (
       <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" aria-hidden />
+    ) : reportedPending ? (
+      <CheckCircle2 className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
     ) : (
       <Circle className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
     )
@@ -47,12 +56,26 @@ export function JobRow({ event, onClick, className }: JobRowProps) {
     <>
       {statusIcon}
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-foreground">{event.title}</p>
+        <p
+          className={cn(
+            "font-medium text-foreground",
+            reportedPending && "line-through text-muted-foreground"
+          )}
+        >
+          {event.title}
+        </p>
         <p className="text-sm text-muted-foreground">{event.address}</p>
         {event.tenantName && (
           <p className="mt-0.5 text-xs text-muted-foreground">
             <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
               {event.tenantName}
+            </span>
+          </p>
+        )}
+        {reportedPending && (
+          <p className="mt-0.5">
+            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+              Reported
             </span>
           </p>
         )}
@@ -69,6 +92,7 @@ export function JobRow({ event, onClick, className }: JobRowProps) {
 
   const rowClass = cn(
     "flex min-h-[56px] items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-muted/50",
+    reportedPending && "opacity-75",
     className
   )
 

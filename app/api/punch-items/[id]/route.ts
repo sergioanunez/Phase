@@ -61,6 +61,12 @@ export async function GET(
             name: true,
           },
         },
+        reportedCompleteBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         relatedHomeTask: {
           include: {
             home: {
@@ -167,6 +173,12 @@ export async function PATCH(
             },
           },
           closedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          reportedCompleteBy: {
             select: {
               id: true,
               name: true,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -15,7 +15,7 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns"
-import { ChevronLeft, Bell } from "lucide-react"
+import { Bell, ChevronDown, ChevronRight } from "lucide-react"
 import { SegmentedControl, type CalendarViewMode } from "@/components/calendar/segmented-control"
 import { WeekHeader } from "@/components/contractor-schedule/week-header"
 import { ContractorDayCard } from "@/components/contractor-schedule/day-card"
@@ -42,6 +42,10 @@ interface SubTenant {
   contractorName: string | null
 }
 
+function isReportedPendingVerification(e: ContractorScheduleEvent): boolean {
+  return !!(e.reportedCompleteAt && e.status !== "completed")
+}
+
 export default function MySchedulePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -57,6 +61,22 @@ export default function MySchedulePage() {
   const [loading, setLoading] = useState(true)
   const [jobDetailOpen, setJobDetailOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<ContractorScheduleEvent | null>(null)
+  const [dayReportedOpen, setDayReportedOpen] = useState(false)
+
+  const refreshSchedule = useCallback(async () => {
+    if (session?.user?.role !== "Subcontractor") return
+    const params = new URLSearchParams({
+      start: fetchStart.toISOString(),
+      end: fetchEnd.toISOString(),
+    })
+    if (selectedTenantId) {
+      params.set("companyId", selectedTenantId)
+    }
+    const res = await fetch(`/api/subcontractor/schedule?${params}`, { credentials: "same-origin" })
+    const data: ScheduleResponse & { error?: string } = await res.json()
+    if (data.error) throw new Error(data.error)
+    setEvents(Array.isArray(data.events) ? data.events : [])
+  }, [session?.user?.role, fetchStart, fetchEnd, selectedTenantId])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -124,24 +144,19 @@ export default function MySchedulePage() {
 
   useEffect(() => {
     if (session?.user?.role !== "Subcontractor") return
-    const params = new URLSearchParams({
-      start: fetchStart.toISOString(),
-      end: fetchEnd.toISOString(),
-    })
-    if (selectedTenantId) {
-      params.set("companyId", selectedTenantId)
-    }
-    fetch(`/api/subcontractor/schedule?${params}`, { credentials: "same-origin" })
-      .then((res) => res.json())
-      .then((data: ScheduleResponse & { error?: string }) => {
-        if (data.error) throw new Error(data.error)
-        setEvents(Array.isArray(data.events) ? data.events : [])
-      })
+    setLoading(true)
+    refreshSchedule()
       .catch(() => {
         setEvents([])
       })
       .finally(() => setLoading(false))
-  }, [session?.user?.role, fetchStart.toISOString(), fetchEnd.toISOString(), selectedTenantId])
+  }, [session?.user?.role, refreshSchedule])
+
+  useEffect(() => {
+    if (!jobDetailOpen || !selectedEvent?.id) return
+    const next = events.find((e) => e.id === selectedEvent.id)
+    if (next) setSelectedEvent(next)
+  }, [events, jobDetailOpen, selectedEvent?.id])
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, ContractorScheduleEvent[]> = {}
@@ -153,33 +168,56 @@ export default function MySchedulePage() {
   }, [events])
 
   const weekDayCards = useMemo(() => {
-    const days: { date: Date; label: string; events: ContractorScheduleEvent[] }[] = []
+    const days: {
+      date: Date
+      label: string
+      events: ContractorScheduleEvent[]
+      reportedEvents: ContractorScheduleEvent[]
+    }[] = []
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i)
       const key = format(d, "yyyy-MM-dd")
+      const list = eventsByDate[key] ?? []
+      const active = list.filter((e) => !isReportedPendingVerification(e))
+      const reported = list.filter(isReportedPendingVerification)
       days.push({
         date: d,
         label: format(d, "EEE MMM d"),
-        events: eventsByDate[key] ?? [],
+        events: active,
+        reportedEvents: reported,
       })
     }
     return days
   }, [weekStart, eventsByDate])
 
   const todayKey = format(selectedDate, "yyyy-MM-dd")
-  const dayEvents = eventsByDate[todayKey] ?? []
+  const dayEventsRaw = eventsByDate[todayKey] ?? []
+  const dayEvents = dayEventsRaw.filter((e) => !isReportedPendingVerification(e))
   const dayOverdue = useMemo(() => {
     const today = startOfDay(new Date())
-    return events.filter((e) => new Date(e.date) < today && e.status !== "completed")
+    return events.filter(
+      (e) =>
+        new Date(e.date) < today &&
+        e.status !== "completed" &&
+        !isReportedPendingVerification(e)
+    )
   }, [events])
   const dayUpcoming = useMemo(() => {
     const today = startOfDay(new Date())
     const nextWeek = addDays(today, 8)
     return events.filter((e) => {
       const d = new Date(e.date)
-      return d >= today && d < nextWeek
+      return (
+        d >= today &&
+        d < nextWeek &&
+        !isReportedPendingVerification(e)
+      )
     })
   }, [events])
+  const allReportedPending = useMemo(
+    () => events.filter(isReportedPendingVerification),
+    [events]
+  )
 
   const eventsCountForMonth = useMemo(() => {
     const map: Record<string, number> = {}
@@ -192,15 +230,6 @@ export default function MySchedulePage() {
   const handleJobClick = (event: ContractorScheduleEvent) => {
     setSelectedEvent(event)
     setJobDetailOpen(true)
-  }
-
-  const handleJobComplete = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, status: "completed" as const } : e))
-    )
-    setSelectedEvent((prev) =>
-      prev?.id === eventId ? { ...prev, status: "completed" as const } : prev ?? null
-    )
   }
 
   const handleMonthDaySelect = (date: Date) => {
@@ -316,6 +345,7 @@ export default function MySchedulePage() {
                 key={day.label}
                 dayLabel={day.label}
                 events={day.events}
+                reportedEvents={day.reportedEvents}
                 onJobClick={handleJobClick}
               />
             ))}
@@ -363,6 +393,33 @@ export default function MySchedulePage() {
                 </ul>
               </div>
             )}
+            {allReportedPending.length > 0 && (
+              <div className="rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setDayReportedOpen((o) => !o)}
+                  className="mb-2 flex w-full items-center justify-between text-left"
+                >
+                  <h3 className="font-semibold text-muted-foreground">
+                    Reported complete ({allReportedPending.length}) — awaiting builder
+                  </h3>
+                  {dayReportedOpen ? (
+                    <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+                  )}
+                </button>
+                {dayReportedOpen && (
+                  <ul className="space-y-1">
+                    {allReportedPending.map((e) => (
+                      <li key={e.id}>
+                        <JobRow event={e} onClick={() => handleJobClick(e)} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-4">
@@ -385,6 +442,7 @@ export default function MySchedulePage() {
         open={jobDetailOpen}
         onOpenChange={setJobDetailOpen}
         event={selectedEvent}
+        onScheduleRefresh={refreshSchedule}
       />
 
     </div>

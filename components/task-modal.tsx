@@ -43,6 +43,9 @@ interface Task {
   lastPreviousScheduledDate?: string | null
   rescheduleCount?: number
   lastRescheduledBy?: { id: string; name: string | null } | null
+  reportedCompleteAt?: string | null
+  reportedCompleteNote?: string | null
+  reportedCompleteBy?: { id: string; name: string | null } | null
 }
 
 interface TaskModalProps {
@@ -353,6 +356,39 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
             />
           </div>
 
+          {currentTask.reportedCompleteAt &&
+            currentTask.status !== "Completed" &&
+            canManualConfirm && (
+              <div className="rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-sm space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="border-amber-300 bg-white text-amber-900">
+                    Reported complete
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Reported by{" "}
+                  {currentTask.reportedCompleteBy?.name ??
+                    currentTask.contractor?.companyName ??
+                    "Contractor"}{" "}
+                  · {format(new Date(currentTask.reportedCompleteAt), "MMM d, yyyy h:mm a")}
+                </p>
+                {currentTask.reportedCompleteNote && (
+                  <p className="text-xs text-foreground">
+                    <span className="font-medium">Their note:</span> {currentTask.reportedCompleteNote}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                  onClick={() => handleStatusChange("Completed")}
+                >
+                  Verify & complete
+                </Button>
+              </div>
+            )}
+
           {currentTask.lastRescheduledAt && currentTask.lastRescheduleReason && (
             <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-xs space-y-1">
               <p className="font-medium text-foreground">Last reschedule</p>
@@ -490,8 +526,12 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
                 disabled={loading}
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 shrink-0 size-9 p-0"
-                title="Mark Completed"
-                aria-label="Mark Completed"
+                title={
+                  currentTask.reportedCompleteAt ? "Verify & complete" : "Mark Completed"
+                }
+                aria-label={
+                  currentTask.reportedCompleteAt ? "Verify and complete" : "Mark Completed"
+                }
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

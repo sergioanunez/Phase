@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,12 @@ interface PunchItem {
     id: string
     name: string
   } | null
+  reportedCompleteAt?: string | null
+  reportedCompleteNote?: string | null
+  reportedCompleteBy?: {
+    id: string
+    name: string
+  } | null
   photos?: { id: string; imageUrl: string; createdAt?: string }[]
 }
 
@@ -64,6 +71,8 @@ interface PunchItemsListProps {
   contextLabel?: string
 }
 
+const TENANT_VERIFY_ROLES = new Set(["Admin", "Manager", "Superintendent"])
+
 export function PunchItemsList({
   taskId,
   taskName,
@@ -74,6 +83,8 @@ export function PunchItemsList({
   homeLabel,
   contextLabel,
 }: PunchItemsListProps) {
+  const { data: session } = useSession()
+  const canTenantVerifyPunch = TENANT_VERIFY_ROLES.has(session?.user?.role ?? "")
   const [punchItems, setPunchItems] = useState<PunchItem[]>([])
   const [loading, setLoading] = useState(true)
   const [sendingSMS, setSendingSMS] = useState(false)
@@ -255,8 +266,11 @@ export function PunchItemsList({
     }
   }
 
-  const handleMarkComplete = async (itemId: string) => {
-    if (!confirm("Mark this punch item as complete?")) {
+  const handleMarkComplete = async (itemId: string, verifyReport?: boolean) => {
+    const msg = verifyReport
+      ? "Verify the subcontractor report and close this punch item?"
+      : "Mark this punch item as complete?"
+    if (!confirm(msg)) {
       return
     }
 
@@ -451,11 +465,36 @@ export function PunchItemsList({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
                       <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-                          <h4 className="font-medium break-words">{item.title}</h4>
+                          <h4
+                            className={`font-medium break-words ${
+                              item.reportedCompleteAt && item.status !== "Closed"
+                                ? "line-through text-muted-foreground"
+                                : ""
+                            }`}
+                          >
+                            {item.title}
+                          </h4>
                           <Badge variant={getStatusColor(item.status)} className="shrink-0">
                             {item.status}
                           </Badge>
+                          {item.reportedCompleteAt && item.status !== "Closed" && (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 border-amber-300 bg-amber-50 text-amber-900"
+                            >
+                              Reported complete
+                            </Badge>
+                          )}
                         </div>
+                        {item.reportedCompleteAt && item.status !== "Closed" && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Reported by {item.reportedCompleteBy?.name ?? "Subcontractor"} ·{" "}
+                            {format(new Date(item.reportedCompleteAt), "MMM d, yyyy h:mm a")}
+                            {item.reportedCompleteNote
+                              ? ` — “${item.reportedCompleteNote}”`
+                              : ""}
+                          </p>
+                        )}
                         {item.description && (
                           <p className="text-sm text-muted-foreground mb-2">
                             {item.description}
@@ -503,18 +542,31 @@ export function PunchItemsList({
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 self-end sm:self-start">
-                        {(item.status === "Open" || item.status === "ReadyForReview") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleMarkComplete(item.id)}
-                            className="text-green-600 hover:text-green-700 dark:text-green-400"
-                            title="Mark as complete"
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                        )}
+                      <div className="flex flex-wrap items-center gap-1 shrink-0 self-end sm:self-start justify-end">
+                        {(item.status === "Open" || item.status === "ReadyForReview") &&
+                          canTenantVerifyPunch &&
+                          item.reportedCompleteAt && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleMarkComplete(item.id, true)}
+                            >
+                              Verify & complete
+                            </Button>
+                          )}
+                        {(item.status === "Open" || item.status === "ReadyForReview") &&
+                          (!item.reportedCompleteAt || !canTenantVerifyPunch) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMarkComplete(item.id, false)}
+                              className="text-green-600 hover:text-green-700 dark:text-green-400"
+                              title="Mark as complete"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          )}
                         <Button
                           variant="ghost"
                           size="sm"

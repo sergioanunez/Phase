@@ -344,6 +344,8 @@ model User {
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
   importBatchesCreated ImportBatch[]  @relation("ImportBatchesCreatedBy")
   tasksManuallyConfirmed HomeTask[]    @relation("TaskManualConfirm")
+  homeTasksReportedComplete HomeTask[] @relation("HomeTaskReportedComplete")
+  punchItemsReportedComplete PunchItem[] @relation("PunchItemReportedComplete")
   homeTasksLastRescheduleSnapshot HomeTask[] @relation("TaskLastRescheduledBy")
   taskRescheduleHistory TaskRescheduleHistory[] @relation("RescheduleHistoryActor")
   webPushSubscriptions WebPushSubscription[]
@@ -621,6 +623,10 @@ model HomeTask {
   isCriticalPath       Boolean          @default(false)
   /// Convenience counter of how many prerequisites this task has.
   blockedByCount       Int              @default(0)
+  reportedCompleteAt   DateTime?
+  reportedCompleteByUserId String?
+  reportedCompleteBy   User?            @relation("HomeTaskReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
+  reportedCompleteNote String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -636,6 +642,7 @@ model HomeTask {
   @@index([hasOpenPunch])
   @@index([confirmedByUserId])
   @@index([lastRescheduledByUserId])
+  @@index([reportedCompleteByUserId])
 }
 
 /// Immutable log of each task reschedule (analytics + manager timeline).
@@ -883,6 +890,10 @@ model PunchItem {
   closedAt             DateTime?
   closedByUserId       String?
   closedBy             User?         @relation("PunchItemCloser", fields: [closedByUserId], references: [id])
+  reportedCompleteAt   DateTime?
+  reportedCompleteByUserId String?
+  reportedCompleteBy   User?         @relation("PunchItemReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
+  reportedCompleteNote String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -894,6 +905,7 @@ model PunchItem {
   @@index([assignedContractorId])
   @@index([status])
   @@index([category])
+  @@index([reportedCompleteByUserId])
 }
 
 model PunchPhoto {

@@ -22,6 +22,7 @@ export interface ContractorScheduleEventPunchItem {
   title: string
   status: string
   severity: string
+  reportedCompleteAt?: string | null
 }
 
 export interface ContractorScheduleEvent {
@@ -40,6 +41,8 @@ export interface ContractorScheduleEvent {
   updatedAt?: string
   punchOpenCount?: number
   punchItems?: ContractorScheduleEventPunchItem[]
+  /** Subcontractor reported complete; tenant has not verified (task still open). */
+  reportedCompleteAt?: string | null
 }
 
 function taskStatusToEventStatus(status: TaskStatus): ContractorScheduleEventStatus {
@@ -154,7 +157,13 @@ export async function GET(request: NextRequest) {
         },
         punchItems: {
           where: { status: { in: ["Open", "ReadyForReview"] } },
-          select: { id: true, title: true, status: true, severity: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            severity: true,
+            reportedCompleteAt: true,
+          },
           orderBy: { createdAt: "desc" },
         },
       },
@@ -184,7 +193,9 @@ export async function GET(request: NextRequest) {
           title: p.title,
           status: p.status,
           severity: p.severity,
+          reportedCompleteAt: p.reportedCompleteAt?.toISOString() ?? null,
         })) ?? [],
+        reportedCompleteAt: task.reportedCompleteAt?.toISOString() ?? null,
       }))
 
     return NextResponse.json({

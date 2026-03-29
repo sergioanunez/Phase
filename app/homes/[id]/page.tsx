@@ -62,6 +62,9 @@ interface HomeTask {
   lastPreviousScheduledDate?: string | null
   rescheduleCount?: number
   lastRescheduledBy?: { id: string; name: string | null } | null
+  reportedCompleteAt?: string | null
+  reportedCompleteNote?: string | null
+  reportedCompleteBy?: { id: string; name: string | null } | null
 }
 
 interface Home {
@@ -855,6 +858,14 @@ export default function HomeDetailPage() {
                                     Critical
                                   </Badge>
                                 )}
+                                {task.reportedCompleteAt && task.status !== "Completed" && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] px-1.5 py-0 font-medium border-amber-300 bg-amber-50 text-amber-900"
+                                  >
+                                    Reported complete
+                                  </Badge>
+                                )}
                               </div>
                               <span
                                 className={cn(
@@ -874,6 +885,16 @@ export default function HomeDetailPage() {
                             {blocked && (
                               <p className="text-[11px] text-orange-600 mt-0.5" title={getTaskBlockedReason(task) ?? undefined}>
                                 {getTaskBlockedReason(task)}
+                              </p>
+                            )}
+                            {task.reportedCompleteAt && task.status !== "Completed" && (
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                Reported by{" "}
+                                {task.reportedCompleteBy?.name ??
+                                  task.contractor?.companyName ??
+                                  "Contractor"}{" "}
+                                · {format(new Date(task.reportedCompleteAt), "MMM d, yyyy h:mm a")}
+                                {task.reportedCompleteNote ? ` — “${task.reportedCompleteNote}”` : ""}
                               </p>
                             )}
                             {/* Compact meta row: Duration • Punches (and optional Scheduled/Completed/Contractor) */}
@@ -912,7 +933,17 @@ export default function HomeDetailPage() {
                                 (task.status === "Scheduled" ||
                                   task.status === "PendingConfirm" ||
                                   task.status === "Confirmed" ||
-                                  task.status === "InProgress") && (
+                                  task.status === "InProgress") &&
+                                (task.reportedCompleteAt ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => handleMarkCompleted(e, task)}
+                                    disabled={markingTaskId === task.id}
+                                    className="bg-green-600 hover:bg-green-700 shrink-0 min-h-[44px] h-9 px-3"
+                                  >
+                                    {markingTaskId === task.id ? "Saving…" : "Verify & complete"}
+                                  </Button>
+                                ) : (
                                   <Button
                                     size="sm"
                                     onClick={(e) => handleMarkCompleted(e, task)}
@@ -923,7 +954,7 @@ export default function HomeDetailPage() {
                                   >
                                     <Check className="h-4 w-4" />
                                   </Button>
-                                )}
+                                ))}
                               <Button
                                 variant="ghost"
                                 size="sm"

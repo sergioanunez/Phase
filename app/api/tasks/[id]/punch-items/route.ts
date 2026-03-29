@@ -90,6 +90,12 @@ export async function GET(
             name: true,
           },
         },
+        reportedCompleteBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         photos: {
           orderBy: {
             createdAt: "asc",
