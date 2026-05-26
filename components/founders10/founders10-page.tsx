@@ -169,40 +169,14 @@ export function Founders10Page() {
         {/* What this is */}
         <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="what-this-is">
           <h2 id="what-this-is" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
-            What this is
+            Not a trial. Early adoption.
           </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
-            Founders10 is a small group of builders we&apos;ll work closely with to:
+            Founders10 is a small, closed group of builders we work directly with to implement Phase into
+            real operations, refine it around real jobsites, and build the system with real field feedback.
           </p>
-          <ul className="mt-6 space-y-3 border-l-2 border-stone-400/80 pl-5 text-base text-stone-800 sm:text-[17px]" role="list">
-            <li>Reduce build cycle time</li>
-            <li>Eliminate scheduling chaos</li>
-            <li>Run jobs with real-time execution visibility</li>
-          </ul>
-          <p className="mt-8 text-base font-medium text-stone-800 sm:text-lg">
-            This is not a trial.
-            <br />
-            This is early adoption.
-          </p>
-        </section>
-
-        <div className="border-t border-stone-300/70" aria-hidden />
-
-        {/* Why only 10 */}
-        <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="why-ten">
-          <h2 id="why-ten" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
-            Why only 10
-          </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
-            We&apos;re limiting this to 10 builders because we work directly with each team to:
-          </p>
-          <ul className="mt-6 space-y-3 border-l-2 border-stone-400/80 pl-5 text-base text-stone-800 sm:text-[17px]" role="list">
-            <li>implement Phase into real operations</li>
-            <li>refine workflows around real jobsites</li>
-            <li>build the system with real field feedback</li>
-          </ul>
-          <p className="mt-8 text-base text-stone-700 sm:text-lg">
-            This only works at a small scale.
+            This only works at a small scale. That&apos;s why there are only 10 spots.
           </p>
         </section>
 
@@ -216,23 +190,47 @@ export function Founders10Page() {
           <ul className="mt-8 space-y-4 text-base text-stone-800 sm:text-[17px]" role="list">
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
-              <span>Unlimited homes</span>
+              <span>
+                <span className="font-medium text-stone-900">Unlimited active homes</span>
+                {" "}— No caps. No volume limits. Run as many homes as your operation demands.
+              </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
-              <span>Direct access to product development</span>
+              <span>
+                <span className="font-medium text-stone-900">White label for life</span>
+                {" "}— Your logo. Your brand colors. Phase feels like your own internal system, always.
+              </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
-              <span>Priority support</span>
+              <span>
+                <span className="font-medium text-stone-900">5 custom development requests in year one</span>
+                {" "}— Up to 5 product development requests, scoped collaboratively with the founder, built
+                around your specific workflow. Subject to technical feasibility.
+              </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
-              <span>Locked founder pricing</span>
+              <span>
+                <span className="font-medium text-stone-900">60-day implementation period</span>
+                {" "}— Get fully set up before billing starts. No clock running while you&apos;re still onboarding.
+              </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
-              <span>60-day implementation period before billing starts</span>
+              <span>
+                <span className="font-medium text-stone-900">Direct access to the founder</span>
+                {" "}— Not a support ticket. Not a chatbot. A builder who built this talking directly to a
+                builder who uses it.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-600" aria-hidden />
+              <span>
+                <span className="font-medium text-stone-900">Priority support</span>
+                {" "}— Founders10 builders move to the front of the line. Always.
+              </span>
             </li>
           </ul>
           <p className="mt-10 text-base italic text-stone-600 sm:text-lg">
@@ -240,6 +238,29 @@ export function Founders10Page() {
             <br />
             You&apos;re helping shape it.
           </p>
+        </section>
+
+        <div className="border-t border-stone-300/70" aria-hidden />
+
+        {/* Pricing */}
+        <section className={`${SECTION} py-14 sm:py-16`} aria-labelledby="pricing">
+          <h2 id="pricing" className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold tracking-tight leading-tight text-stone-900 sm:text-3xl">
+            Pricing
+          </h2>
+          <div className="mt-8 rounded-2xl border border-stone-300 bg-white px-5 py-6 shadow-sm sm:px-8 sm:py-7">
+            <p className="font-[family-name:var(--font-cormorant-garamond)] text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+              $499<span className="text-xl font-medium text-stone-600 sm:text-2xl">/month</span>
+            </p>
+            <p className="mt-2 text-sm font-medium tracking-wide text-stone-700 sm:text-base">
+              Locked for life · Never increases
+            </p>
+            <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-[17px]">
+              For context: the equivalent features at standard pricing would run $898/month or more.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-stone-600 sm:text-[17px]">
+              60-day implementation period before billing starts.
+            </p>
+          </div>
         </section>
 
         <div className="border-t border-stone-300/70" aria-hidden />
@@ -253,10 +274,10 @@ export function Founders10Page() {
             Founders10 is for builders who:
           </p>
           <ul className="mt-6 space-y-3 border-l-2 border-stone-400/80 pl-5 text-base text-stone-800 sm:text-[17px]" role="list">
-            <li>are building at real operational volume</li>
-            <li>care about cycle time and field control</li>
-            <li>want better systems, not more software</li>
-            <li>are willing to help refine the way Phase works in the field</li>
+            <li>Building at real operational volume with active homes under construction.</li>
+            <li>Care about cycle time, field execution, and knowing where every job stands.</li>
+            <li>Want better systems — not more software to manage.</li>
+            <li>Willing to give honest feedback that makes Phase better for everyone.</li>
           </ul>
           <p className="mt-8 text-base text-stone-600 sm:text-[17px]">
             This is not for passive users or builders looking for another reporting tool.
@@ -265,16 +286,31 @@ export function Founders10Page() {
 
         <div className="border-t border-stone-300/70" aria-hidden />
 
-        {/* Repeat CTA */}
-        <section className={`${SECTION} py-12 sm:py-14`}>
+        {/* Closing CTA */}
+        <section className={`${SECTION} py-12 sm:py-14`} aria-labelledby="closing-cta">
           <div className="text-center">
-            <button
-              type="button"
-              onClick={scrollToApply}
-              className="inline-flex min-h-[48px] w-full max-w-md items-center justify-center rounded-lg border border-stone-800 bg-stone-900 px-8 text-base font-semibold text-[#f4f3f0] shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb] sm:w-auto"
-            >
-              Apply for Founders10
-            </button>
+            <h2 id="closing-cta" className="sr-only">
+              Apply
+            </h2>
+            <p className="text-base leading-relaxed text-stone-700 sm:text-lg">
+              When execution improves, cycle time improves.
+            </p>
+            <p className="mt-3 text-base leading-relaxed text-stone-700 sm:text-lg">
+              When visibility improves, stress decreases.
+            </p>
+            <p className="mt-3 text-base leading-relaxed text-stone-700 sm:text-lg">
+              When coordination improves, builds move faster.
+            </p>
+            <div className="mt-10 flex w-full flex-col items-center">
+              <button
+                type="button"
+                onClick={scrollToApply}
+                className="inline-flex min-h-[48px] w-full max-w-md items-center justify-center rounded-lg border border-stone-800 bg-stone-900 px-8 text-base font-semibold text-[#f4f3f0] shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb] sm:w-auto"
+              >
+                Apply for Founders10
+              </button>
+              <p className="mt-2.5 text-sm text-stone-600">Takes about 2 minutes.</p>
+            </div>
           </div>
         </section>
 
