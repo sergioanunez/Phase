@@ -9,6 +9,10 @@ import {
   FOUNDERS10_SPOTS_REMAINING,
   FOUNDERS10_TOTAL_SPOTS,
 } from "@/lib/founders10-config"
+import {
+  FOUNDERS10_CHALLENGE_OPTIONS,
+  type Founders10ChallengeKey,
+} from "@/lib/founders10-challenges"
 
 const SECTION = "mx-auto max-w-2xl px-4 sm:px-6 lg:max-w-3xl lg:px-8"
 const INPUT =
@@ -26,11 +30,10 @@ export function Founders10Page() {
   const [name, setName] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [homesPerYear, setHomesPerYear] = useState<"1-20" | "20-50" | "50-100" | "100+" | "">("")
-  const [biggestChallenge, setBiggestChallenge] = useState("")
-  const [challengeOther, setChallengeOther] = useState("")
+  const [selectedChallenges, setSelectedChallenges] = useState<Founders10ChallengeKey[]>([])
+  const [otherChallenge, setOtherChallenge] = useState("")
   const [currentSystem, setCurrentSystem] = useState("")
   const [systemOther, setSystemOther] = useState("")
-  const [readiness, setReadiness] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [improvementQuestion, setImprovementQuestion] = useState("")
@@ -43,9 +46,26 @@ export function Founders10Page() {
     Math.min(FOUNDERS10_TOTAL_SPOTS, FOUNDERS10_SPOTS_REMAINING)
   )
 
+  const hasOtherChallenge = selectedChallenges.includes("other")
+
+  const toggleChallenge = (key: Founders10ChallengeKey) => {
+    setSelectedChallenges((prev) => {
+      if (prev.includes(key)) {
+        const next = prev.filter((k) => k !== key)
+        if (key === "other") setOtherChallenge("")
+        return next
+      }
+      return [...prev, key]
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    if (selectedChallenges.length === 0) {
+      setError("Select at least one operational challenge.")
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch("/api/founders10/apply", {
@@ -55,11 +75,10 @@ export function Founders10Page() {
           name: name.trim(),
           companyName: companyName.trim(),
           homesPerYear,
-          biggestChallenge,
-          challengeOther: challengeOther.trim() || undefined,
+          challenges: selectedChallenges,
+          otherChallenge: hasOtherChallenge ? otherChallenge.trim() || undefined : undefined,
           currentSystem,
           systemOther: systemOther.trim() || undefined,
-          readiness,
           phone: phone.trim(),
           email: email.trim().toLowerCase(),
           improvementQuestion: improvementQuestion.trim(),
@@ -75,11 +94,10 @@ export function Founders10Page() {
       setName("")
       setCompanyName("")
       setHomesPerYear("")
-      setBiggestChallenge("")
-      setChallengeOther("")
+      setSelectedChallenges([])
+      setOtherChallenge("")
       setCurrentSystem("")
       setSystemOther("")
-      setReadiness("")
       setPhone("")
       setEmail("")
       setImprovementQuestion("")
@@ -411,6 +429,38 @@ export function Founders10Page() {
                 />
               </div>
 
+              <div className="space-y-0">
+                <label htmlFor="founders-email" className={LABEL}>
+                  Email <span className="text-red-700">*</span>
+                </label>
+                <input
+                  id="founders-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+
+              <div className="space-y-0">
+                <label htmlFor="founders-phone" className={LABEL}>
+                  Phone number <span className="text-red-700">*</span>
+                </label>
+                <input
+                  id="founders-phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+
               <fieldset className={FIELDSET}>
                 <legend className={LABEL}>
                   Homes built per year <span className="text-red-700">*</span>
@@ -438,44 +488,49 @@ export function Founders10Page() {
                 ))}
               </fieldset>
 
-              <div>
-                <label htmlFor="founders-challenge" className={LABEL}>
-                  Biggest challenge today <span className="text-red-700">*</span>
-                </label>
-                <select
-                  id="founders-challenge"
-                  name="biggestChallenge"
-                  required
-                  value={biggestChallenge}
-                  onChange={(e) => setBiggestChallenge(e.target.value)}
-                  className={INPUT}
+              <fieldset className={FIELDSET}>
+                <legend id="founders-challenges-legend" className={LABEL}>
+                  What are your biggest operational challenges today?{" "}
+                  <span className="text-red-700">*</span>
+                </legend>
+                <p className="text-sm text-stone-600">(Select all that apply)</p>
+                <div
+                  id="founders-challenges-group"
+                  className="mt-3 space-y-2"
+                  role="group"
+                  aria-labelledby="founders-challenges-legend"
                 >
-                  <option value="">Select one</option>
-                  <option value="keeping-schedules-on-track">Keeping schedules on track</option>
-                  <option value="subcontractor-coordination">Subcontractor coordination</option>
-                  <option value="delays-between-phases">Delays between phases</option>
-                  <option value="lack-of-visibility">Lack of visibility</option>
-                  <option value="communication-across-teams">Communication across teams</option>
-                  <option value="other">Other</option>
-                </select>
-                {biggestChallenge === "other" ? (
+                  {FOUNDERS10_CHALLENGE_OPTIONS.map(({ key, label }) => (
+                    <label key={key} className={RADIO_ROW}>
+                      <input
+                        type="checkbox"
+                        name="challenges"
+                        value={key}
+                        checked={selectedChallenges.includes(key)}
+                        onChange={() => toggleChallenge(key)}
+                        className="h-5 w-5 shrink-0 rounded border-stone-400 text-stone-800 focus:ring-2 focus:ring-stone-500"
+                      />
+                      <span className="text-base leading-snug text-stone-900">{label}</span>
+                    </label>
+                  ))}
+                </div>
+                {hasOtherChallenge ? (
                   <div className="mt-3">
-                    <label htmlFor="founders-challenge-other" className={LABEL}>
-                      Describe <span className="text-red-700">*</span>
+                    <label htmlFor="founders-challenge-other" className="sr-only">
+                      Tell us more about your other challenge
                     </label>
                     <input
                       id="founders-challenge-other"
-                      name="challengeOther"
+                      name="otherChallenge"
                       type="text"
-                      value={challengeOther}
-                      onChange={(e) => setChallengeOther(e.target.value)}
+                      value={otherChallenge}
+                      onChange={(e) => setOtherChallenge(e.target.value)}
+                      placeholder="Tell us more"
                       className={INPUT}
-                      required={biggestChallenge === "other"}
-                      aria-required="true"
                     />
                   </div>
                 ) : null}
-              </div>
+              </fieldset>
 
               <div>
                 <label htmlFor="founders-system" className={LABEL}>
@@ -517,57 +572,6 @@ export function Founders10Page() {
               </div>
 
               <div>
-                <label htmlFor="founders-readiness" className={LABEL}>
-                  Readiness <span className="text-red-700">*</span>
-                </label>
-                <select
-                  id="founders-readiness"
-                  name="readiness"
-                  required
-                  value={readiness}
-                  onChange={(e) => setReadiness(e.target.value)}
-                  className={INPUT}
-                >
-                  <option value="">Select one</option>
-                  <option value="actively-looking">Yes, actively looking</option>
-                  <option value="exploring">Exploring options</option>
-                  <option value="curious">Just curious</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="founders-phone" className={LABEL}>
-                  Phone number <span className="text-red-700">*</span>
-                </label>
-                <input
-                  id="founders-phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className={INPUT}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="founders-email" className={LABEL}>
-                  Email <span className="text-red-700">*</span>
-                </label>
-                <input
-                  id="founders-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={INPUT}
-                />
-              </div>
-
-              <div>
                 <label htmlFor="founders-improve" className={LABEL}>
                   What would you most like to improve in your builds? <span className="text-red-700">*</span>
                 </label>
@@ -594,7 +598,7 @@ export function Founders10Page() {
                   disabled={loading}
                   className="min-h-[52px] w-full rounded-xl bg-stone-900 px-6 text-base font-semibold text-[#f4f3f0] shadow-sm transition hover:bg-stone-800 active:translate-y-[1px] focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb] disabled:opacity-60"
                 >
-                  {loading ? "Sending…" : "Apply now"}
+                  {loading ? "Sending…" : "Apply to Founders10"}
                 </button>
               </div>
             </form>
@@ -602,9 +606,13 @@ export function Founders10Page() {
         </section>
       </main>
 
-      <footer className="border-t border-stone-300/70 py-8 text-center text-sm text-stone-600">
-        <Link href="/" className="underline-offset-4 hover:text-stone-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500">
-          Back to Phase
+      <footer className="border-t border-stone-300/70 px-4 py-8 text-center">
+        <p className="text-sm text-stone-600">Not ready yet?</p>
+        <Link
+          href="/#solution"
+          className="mt-2 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-800 shadow-sm transition hover:border-stone-400 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb]"
+        >
+          Explore Phase features
         </Link>
       </footer>
     </div>

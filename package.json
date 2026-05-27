@@ -1,6 +1,8 @@
 {
-  "name": "cullers-scheduling",
+  "name": "phase",
   "version": "1.0.0",
+  "description": "The homebuilder field operating system",
+  "author": "Sergio Alberto Nuñez",
   "private": true,
   "engines": {
     "node": "20.x"
