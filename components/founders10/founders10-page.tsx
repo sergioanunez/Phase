@@ -609,7 +609,7 @@ export function Founders10Page() {
       <footer className="border-t border-stone-300/70 px-4 py-8 text-center">
         <p className="text-sm text-stone-600">Not ready yet?</p>
         <Link
-          href="/#solution"
+          href="/"
           className="mt-2 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-800 shadow-sm transition hover:border-stone-400 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0eeeb]"
         >
           Explore Phase features
