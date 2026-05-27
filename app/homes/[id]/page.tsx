@@ -21,6 +21,7 @@ import { PlanViewer } from "@/components/plan-viewer"
 import { ImageViewer } from "@/components/image-viewer"
 import { HomeActivityTimeline } from "@/components/home-activity-timeline"
 import { HomeRescheduleHistory } from "@/components/home-reschedule-history"
+import { HouseScheduleCard } from "@/components/homes/house-schedule-card"
 import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
@@ -771,6 +772,18 @@ export default function HomeDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        <HouseScheduleCard
+          tasks={tasksList}
+          onTaskClick={
+            canEdit
+              ? (task) => {
+                  const full = tasksList.find((t) => t.id === task.id)
+                  if (full) handleTaskClick(full)
+                }
+              : undefined
+          }
+        />
 
         {/* Activity Timeline */}
         {session?.user && (session.user as any).role !== "Subcontractor" && (
