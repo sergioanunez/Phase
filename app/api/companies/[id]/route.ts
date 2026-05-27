@@ -84,7 +84,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Company not found" }, { status: 404 })
     }
 
-    await prisma.company.delete({ where: { id } })
+    const { deleteCompanyAndRelatedData } = await import("@/lib/company-delete")
+    await prisma.$transaction(async (tx) => {
+      await deleteCompanyAndRelatedData(tx, id)
+    })
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error("DELETE /api/companies/[id] error:", e)

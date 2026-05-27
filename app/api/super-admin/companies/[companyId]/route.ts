@@ -164,22 +164,9 @@ export async function DELETE(
       name: company.name,
     }, companyId, "Company", companyId)
 
-    // Delete in order to satisfy FKs: TemplateDependency and HomeTask reference WorkTemplateItem (RESTRICT).
-    // When Company is deleted, Prisma cascades to WorkTemplateItem; both must be cleared first.
+    const { deleteCompanyAndRelatedData } = await import("@/lib/company-delete")
     await prisma.$transaction(async (tx) => {
-      await tx.templateDependency.deleteMany({ where: { companyId } })
-      // Delete by companyId and also by templateItemId in case any HomeTask references this company's templates
-      const templateIds = await tx.workTemplateItem.findMany({
-        where: { companyId },
-        select: { id: true },
-      })
-      const ids = templateIds.map((t) => t.id)
-      if (ids.length > 0) {
-        await tx.homeTask.deleteMany({ where: { OR: [{ companyId }, { templateItemId: { in: ids } }] } })
-      } else {
-        await tx.homeTask.deleteMany({ where: { companyId } })
-      }
-      await tx.company.delete({ where: { id: companyId } })
+      await deleteCompanyAndRelatedData(tx, companyId)
     })
     return NextResponse.json({ success: true })
   } catch (err) {

@@ -52,6 +52,8 @@ export default function StartTrialPage() {
             termsAccepted,
             smsConsent,
             smsConsentVersion: SMS_CONSENT_VERSION,
+            companyName: companyName.trim() || undefined,
+            signupSource: "/start-trial",
           }),
         })
         const signupData = await signupRes.json()

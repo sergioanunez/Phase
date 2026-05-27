@@ -9,4 +9,7 @@ export const signupSchema = z.object({
   }),
   smsConsent: z.boolean().optional().default(false),
   smsConsentVersion: z.string().optional(),
+  /** Optional; passed from trial signup form before company is provisioned. */
+  companyName: z.string().max(200).optional(),
+  signupSource: z.string().max(200).optional(),
 })
