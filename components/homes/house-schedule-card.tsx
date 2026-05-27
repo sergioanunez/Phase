@@ -87,8 +87,8 @@ export function HouseScheduleCard({ tasks, onTaskClick }: HouseScheduleCardProps
           </div>
         </div>
 
-        <div className="mt-4 -mx-1 overflow-x-auto pb-1">
-          <div className="flex min-w-min gap-1.5 px-1">
+        <div className="mt-4 -mx-1 overflow-x-auto px-1 py-1">
+          <div className="flex min-w-min gap-1.5">
             {strip.days.map((day) => {
               const isSelected = selectedDateKey === day.dateKey
               const showCount = day.scheduledCount > 1
@@ -107,8 +107,10 @@ export function HouseScheduleCard({ tasks, onTaskClick }: HouseScheduleCardProps
                       !day.isGapDay &&
                       "border-border/60 bg-background",
                     day.isGapDay && !day.isWeekend && "border-amber-200/80 bg-amber-50/50",
-                    day.isToday && "ring-2 ring-primary/40 ring-offset-1",
-                    isSelected && "border-primary bg-primary/5"
+                    day.isToday &&
+                      !isSelected &&
+                      "border-2 border-primary/60 bg-primary/[0.04] shadow-sm",
+                    isSelected && "border-2 border-primary bg-primary/5"
                   )}
                   aria-pressed={isSelected}
                   aria-label={`${day.dayLabel} ${day.dateNumber}, ${day.scheduledCount} scheduled`}
