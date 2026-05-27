@@ -271,13 +271,13 @@ export function Founders10Page() {
             Who this is for
           </h2>
           <p className="mt-5 text-base leading-relaxed text-stone-700 sm:text-lg">
-            Founders10 is for builders who:
+            Founders10 is a fit if you:
           </p>
           <ul className="mt-6 space-y-3 border-l-2 border-stone-400/80 pl-5 text-base text-stone-800 sm:text-[17px]" role="list">
-            <li>Building at real operational volume with active homes under construction.</li>
+            <li>Are building at real operational volume with active homes under construction.</li>
             <li>Care about cycle time, field execution, and knowing where every job stands.</li>
             <li>Want better systems — not more software to manage.</li>
-            <li>Willing to give honest feedback that makes Phase better for everyone.</li>
+            <li>Are willing to give honest feedback that makes Phase better for everyone.</li>
           </ul>
           <p className="mt-8 text-base text-stone-600 sm:text-[17px]">
             This is not for passive users or builders looking for another reporting tool.
