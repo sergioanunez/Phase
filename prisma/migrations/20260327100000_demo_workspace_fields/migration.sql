@@ -1,0 +1,18 @@
+-- Demo workspace: tenant flags and isDemo markers for safe clear-demo-data.
+
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "demoDataSeeded" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "demoDataCleared" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "Subdivision" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Home" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "WorkTemplateCategory" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "WorkTemplateItem" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "TemplateDependency" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Contractor" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "HomeTask" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "PunchItem" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ActivityEvent" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Notification" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS "ActivityEvent_companyId_isDemo_idx" ON "ActivityEvent"("companyId", "isDemo");
+CREATE INDEX IF NOT EXISTS "Notification_companyId_isDemo_idx" ON "Notification"("companyId", "isDemo");

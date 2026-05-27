@@ -234,6 +234,11 @@ model Company {
   billingEmail      String?
   onboardingCompleted Boolean   @default(false)
 
+  /// True after trial/demo workspace seed runs once for this tenant.
+  demoDataSeeded      Boolean   @default(false)
+  /// True after admin clears demo data; prevents re-seeding.
+  demoDataCleared     Boolean   @default(false)
+
   users             User[]
   memberships       CompanyMembership[]
   homes         Home[]
@@ -423,6 +428,7 @@ model Subdivision {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name      String
+  isDemo    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -470,6 +476,7 @@ model Home {
   /// True when all schedule tasks for this home are Completed. Used for billing (active homes = !isComplete).
   isComplete           Boolean     @default(false)
   completedAt         DateTime?
+  isDemo               Boolean     @default(false)
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -519,6 +526,7 @@ model WorkTemplateCategory {
   name             String
   /// Sort key for major build phases (gaps of 100).
   categoryPosition Int                @default(100)
+  isDemo           Boolean            @default(false)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   templateItems    WorkTemplateItem[]
@@ -558,6 +566,7 @@ model WorkTemplateItem {
   contractor          Contractor?   @relation(fields: [contractorId], references: [id], onDelete: SetNull)
   /// Optional override for contractor lead days; when set, used instead of Contractor.leadDays.
   contractorLeadOverrideDays Int?
+  isDemo              Boolean       @default(false)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -627,6 +636,7 @@ model HomeTask {
   reportedCompleteByUserId String?
   reportedCompleteBy   User?            @relation("HomeTaskReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
   reportedCompleteNote String?
+  isDemo               Boolean          @default(false)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -678,6 +688,7 @@ model TemplateDependency {
   company         Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   templateItemId  String
   dependsOnItemId String
+  isDemo          Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   templateItem     WorkTemplateItem @relation("TemplateItemDependencies", fields: [templateItemId], references: [id])
@@ -710,6 +721,7 @@ model Contractor {
   /// Optional link to global subcontractor identity used for multi-tenant access.
   contractorDirectoryId String?
   contractorDirectory   ContractorDirectory? @relation(fields: [contractorDirectoryId], references: [id])
+  isDemo              Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -821,6 +833,7 @@ model ActivityEvent {
   actorName     String?
   recipientName String?
   metadataJson  Json?
+  isDemo        Boolean            @default(false)
   createdAt     DateTime           @default(now())
 
   @@index([companyId])
@@ -829,6 +842,7 @@ model ActivityEvent {
   @@index([eventType])
   @@index([createdAt])
   @@index([homeId, createdAt])
+  @@index([companyId, isDemo])
 }
 
 model AuditLog {
@@ -894,6 +908,7 @@ model PunchItem {
   reportedCompleteByUserId String?
   reportedCompleteBy   User?         @relation("PunchItemReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
   reportedCompleteNote String?
+  isDemo               Boolean       @default(false)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -975,6 +990,7 @@ model Notification {
   reviewedAt        DateTime?
   resolvedAt       DateTime?
   expiresAt        DateTime?
+  isDemo           Boolean                  @default(false)
   createdAt         DateTime                 @default(now())
 
   @@index([companyId])
@@ -982,6 +998,7 @@ model Notification {
   @@index([targetUserId])
   @@index([companyId, entityType, entityId, category, severity])
   @@index([createdAt])
+  @@index([companyId, isDemo])
 }
 
 /// Browser Web Push subscription (VAPID). Scoped to user + tenant.

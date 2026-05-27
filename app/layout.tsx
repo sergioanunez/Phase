@@ -13,6 +13,7 @@ import { AppHeader } from "@/components/app-header"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { TrialExpiredOverlay } from "@/components/billing/trial-expired-overlay"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { DemoWorkspaceBanner } from "@/components/demo/demo-workspace-banner"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { Navigation } from "@/components/navigation"
 import { SplashScreen } from "@/components/splash-screen"
@@ -67,6 +68,7 @@ export default async function RootLayout({
           <Providers>
             <ImpersonationBanner />
             <AppHeader />
+            <DemoWorkspaceBanner />
             <TrialExpiredOverlay />
             <PullToRefresh>
               <main className="min-h-screen bg-[#F6F7F9]">
@@ -97,6 +99,7 @@ export default async function RootLayout({
           <SplashScreen />
           <ImpersonationBanner />
           <AppHeader />
+          <DemoWorkspaceBanner />
           <TrialExpiredOverlay />
           <PullToRefresh>
             <main className="min-h-screen bg-[#F6F7F9]">
