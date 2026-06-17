@@ -40,6 +40,8 @@ export type ScheduleProposalRow = {
 export type GenerateSchedulePreview = {
   mode: GenerateScheduleMode
   modeLabel: string
+  respectExistingScheduledDates: boolean
+  scheduleBehaviorLabel: string
   anchorDate: string
   proposedCount: number
   completedSkipped: number
@@ -119,28 +121,43 @@ export function buildSchedulePreview(params: {
   templateDeps: Array<{ templateItemId: string; dependsOnItemId: string }>
   anchorDate: Date
   mode: GenerateScheduleMode
+  respectExistingScheduledDates?: boolean
 }): GenerateSchedulePreview {
-  const { home, tasks, templateDeps, anchorDate, mode } = params
+  const {
+    home,
+    tasks,
+    templateDeps,
+    anchorDate,
+    mode,
+    respectExistingScheduledDates = true,
+  } = params
   const anchor = normalizeToWorkingDay(startOfDay(anchorDate))
   const modeLabel = mode === "critical" ? "Critical tasks only" : "All remaining tasks"
+  const scheduleBehaviorLabel = respectExistingScheduledDates
+    ? "Respect existing scheduled dates"
+    : "Recalculate all eligible tasks"
   const completedSkipped = tasks.filter(isScheduleTaskCompleted).length
+
+  const emptyPreview = (partial: Partial<GenerateSchedulePreview>): GenerateSchedulePreview => ({
+    mode,
+    modeLabel,
+    respectExistingScheduledDates,
+    scheduleBehaviorLabel,
+    anchorDate: toDateOnlyISO(anchor),
+    proposedCount: 0,
+    completedSkipped,
+    proposedFirstDate: null,
+    proposedCompletionDate: null,
+    totalWorkingDays: 0,
+    rows: [],
+    warnings: [],
+    hasCycle: false,
+    ...partial,
+  })
 
   const eligible = tasks.filter(isScheduleTaskEligible)
   if (eligible.length === 0) {
-    return {
-      mode,
-      modeLabel,
-      anchorDate: toDateOnlyISO(anchor),
-      proposedCount: 0,
-      completedSkipped,
-      proposedFirstDate: null,
-      proposedCompletionDate: null,
-      totalWorkingDays: 0,
-      rows: [],
-      warnings: [],
-      error: "No remaining tasks to schedule.",
-      hasCycle: false,
-    }
+    return emptyPreview({ error: "No remaining tasks to schedule." })
   }
 
   const nodes = buildTaskNodesFromPrismaTasks(
@@ -150,7 +167,14 @@ export function buildSchedulePreview(params: {
       nameSnapshot: t.nameSnapshot,
       durationDaysSnapshot: t.durationDaysSnapshot,
       status: t.status,
-      scheduledDate: isScheduleTaskEligible(t) ? null : t.scheduledDate,
+      scheduledDate:
+        isScheduleTaskEligible(t) &&
+        respectExistingScheduledDates &&
+        t.scheduledDate
+          ? t.scheduledDate
+          : isScheduleTaskEligible(t)
+            ? null
+            : t.scheduledDate,
       completedAt: t.completedAt,
     })),
     templateDeps
@@ -159,21 +183,12 @@ export function buildSchedulePreview(params: {
   const cpm = computeHomeForecast(nodes, anchor)
   const hasCycle = cpm.warnings.some((w) => /cycle/i.test(w))
   if (hasCycle) {
-    return {
-      mode,
-      modeLabel,
-      anchorDate: toDateOnlyISO(anchor),
-      proposedCount: 0,
-      completedSkipped,
-      proposedFirstDate: null,
-      proposedCompletionDate: null,
-      totalWorkingDays: 0,
-      rows: [],
+    return emptyPreview({
       warnings: cpm.warnings,
       error:
         "Dependency cycle detected. Fix template dependencies or try All remaining tasks / schedule manually.",
       hasCycle: true,
-    }
+    })
   }
 
   const criticalIds = resolveCriticalTaskIds(tasks, cpm.criticalPathTaskIds)
@@ -181,28 +196,32 @@ export function buildSchedulePreview(params: {
     mode === "critical" ? eligible.filter((t) => criticalIds.has(t.id)) : eligible
 
   if (mode === "critical" && targetTasks.length === 0) {
-    return {
-      mode,
-      modeLabel,
-      anchorDate: toDateOnlyISO(anchor),
-      proposedCount: 0,
-      completedSkipped,
-      proposedFirstDate: null,
-      proposedCompletionDate: null,
-      totalWorkingDays: 0,
-      rows: [],
+    return emptyPreview({
       warnings: cpm.warnings,
       error: "No remaining critical tasks found. Try All remaining tasks.",
-      hasCycle: false,
-    }
+    })
   }
 
   const rows: ScheduleProposalRow[] = targetTasks
     .map((task) => {
-      const proposedStart = cpm.taskEarlyStart?.[task.id]
-      const proposedFinish = cpm.taskEarlyFinish?.[task.id]
-      if (!proposedStart || !proposedFinish) return null
       const durationDays = Math.max(0, task.durationDaysSnapshot)
+      const hasExistingSchedule =
+        respectExistingScheduledDates && task.scheduledDate != null
+
+      let proposedStart: Date | undefined
+      let proposedFinish: Date | undefined
+
+      if (hasExistingSchedule) {
+        proposedStart = normalizeToWorkingDay(startOfDay(new Date(task.scheduledDate!)))
+        proposedFinish =
+          durationDays === 0 ? proposedStart : addWorkingDays(proposedStart, durationDays)
+      } else {
+        proposedStart = cpm.taskEarlyStart?.[task.id]
+        proposedFinish = cpm.taskEarlyFinish?.[task.id]
+      }
+
+      if (!proposedStart || !proposedFinish) return null
+
       return {
         taskId: task.id,
         taskName: task.nameSnapshot,
@@ -238,6 +257,8 @@ export function buildSchedulePreview(params: {
   return {
     mode,
     modeLabel,
+    respectExistingScheduledDates,
+    scheduleBehaviorLabel,
     anchorDate: toDateOnlyISO(anchor),
     proposedCount: rows.length,
     completedSkipped,
@@ -253,8 +274,13 @@ export function buildSchedulePreview(params: {
 export function proposalsToScheduledDates(
   preview: GenerateSchedulePreview
 ): Array<{ taskId: string; scheduledDate: Date }> {
-  return preview.rows.map((row) => ({
-    taskId: row.taskId,
-    scheduledDate: startOfDay(new Date(row.proposedStart)),
-  }))
+  return preview.rows
+    .filter((row) => {
+      if (!preview.respectExistingScheduledDates) return true
+      return row.currentScheduledDate == null
+    })
+    .map((row) => ({
+      taskId: row.taskId,
+      scheduledDate: startOfDay(new Date(row.proposedStart)),
+    }))
 }

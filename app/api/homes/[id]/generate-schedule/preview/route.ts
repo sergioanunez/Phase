@@ -22,6 +22,7 @@ const bodySchema = z.object({
     .optional()
     .refine((v) => !v || /^\d{4}-\d{2}-\d{2}/.test(v), "Invalid anchor date"),
   mode: z.enum(["critical", "all"]).default("critical"),
+  respectExistingScheduledDates: z.boolean().default(true),
 })
 
 /**
@@ -72,6 +73,7 @@ export async function POST(
       templateDeps,
       anchorDate,
       mode: parsed.data.mode,
+      respectExistingScheduledDates: parsed.data.respectExistingScheduledDates,
     })
 
     return NextResponse.json({

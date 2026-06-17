@@ -31,6 +31,8 @@ type PreviewRow = {
 type SchedulePreview = {
   mode: GenerateScheduleMode
   modeLabel: string
+  respectExistingScheduledDates: boolean
+  scheduleBehaviorLabel: string
   anchorDate: string
   proposedCount: number
   completedSkipped: number
@@ -76,6 +78,7 @@ export function GenerateScheduleCard({
 }) {
   const [anchorDate, setAnchorDate] = useState(format(new Date(), "yyyy-MM-dd"))
   const [mode, setMode] = useState<GenerateScheduleMode>("critical")
+  const [respectExistingScheduledDates, setRespectExistingScheduledDates] = useState(true)
   const [preview, setPreview] = useState<SchedulePreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [applying, setApplying] = useState(false)
@@ -114,11 +117,11 @@ export function GenerateScheduleCard({
       const res = await fetch(`/api/homes/${homeId}/generate-schedule/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anchorDate, mode }),
+        body: JSON.stringify({ anchorDate, mode, respectExistingScheduledDates }),
       })
       const data = (await res.json()) as SchedulePreview & { error?: string }
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to generate preview")
+        setError(typeof data.error === "string" ? data.error : "Failed to generate schedule")
         setPreview(null)
         return
       }
@@ -129,7 +132,7 @@ export function GenerateScheduleCard({
       }
       setPreview(data)
     } catch {
-      setError("Failed to generate preview")
+      setError("Failed to generate schedule")
       setPreview(null)
     } finally {
       setLoading(false)
@@ -144,7 +147,11 @@ export function GenerateScheduleCard({
       const res = await fetch(`/api/homes/${homeId}/generate-schedule/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anchorDate, mode: preview.mode }),
+        body: JSON.stringify({
+          anchorDate,
+          mode: preview.mode,
+          respectExistingScheduledDates: preview.respectExistingScheduledDates,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -165,6 +172,12 @@ export function GenerateScheduleCard({
     setPreview(null)
     setError(null)
   }
+
+  const applyTaskCount = useMemo(() => {
+    if (!preview) return 0
+    if (!preview.respectExistingScheduledDates) return preview.proposedCount
+    return preview.rows.filter((row) => row.currentScheduledDate == null).length
+  }, [preview])
 
   const milestoneRows = useMemo(
     () => preview?.rows.filter((r) => r.isCritical) ?? [],
@@ -241,12 +254,32 @@ export function GenerateScheduleCard({
                 </div>
               </fieldset>
 
+              <fieldset>
+                <legend className="text-sm font-medium">Schedule behavior</legend>
+                <label className="mt-2 flex items-start gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={respectExistingScheduledDates}
+                    onChange={(e) => setRespectExistingScheduledDates(e.target.checked)}
+                  />
+                  <span>
+                    Respect existing scheduled dates
+                    <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                      When enabled, tasks that already have scheduled dates will keep their current
+                      dates whenever possible. Only unscheduled tasks and dependent tasks will be
+                      adjusted.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+
               <p className="text-xs text-muted-foreground">Completed tasks will not be changed.</p>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button type="button" onClick={() => void handleGeneratePreview()} disabled={loading}>
-                {loading ? "Generating…" : "Generate Preview"}
+                {loading ? "Generating…" : "Generate Schedule"}
               </Button>
             </div>
           ) : (
@@ -266,6 +299,7 @@ export function GenerateScheduleCard({
                       completed tasks skipped
                     </li>
                     <li>Mode: {preview.modeLabel}</li>
+                    <li>Schedule behavior: {preview.scheduleBehaviorLabel}</li>
                     <li>Start: {formatDisplayDate(preview.anchorDate)}</li>
                     <li>
                       Projected completion: {formatDisplayDate(preview.proposedCompletionDate)}
@@ -342,7 +376,7 @@ export function GenerateScheduleCard({
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  disabled={preview.rows.length === 0 || applying}
+                  disabled={preview.rows.length === 0 || applying || applyTaskCount === 0}
                   onClick={() => setApplyOpen(true)}
                 >
                   Apply Schedule
@@ -369,8 +403,11 @@ export function GenerateScheduleCard({
           <DialogHeader>
             <DialogTitle>Apply generated schedule?</DialogTitle>
             <DialogDescription>
-              This will update scheduled dates for {preview?.proposedCount ?? 0} incomplete task
-              {(preview?.proposedCount ?? 0) === 1 ? "" : "s"}. Completed tasks will not be changed.
+              This will update scheduled dates for {applyTaskCount} incomplete task
+              {applyTaskCount === 1 ? "" : "s"}. Completed tasks will not be changed.
+              {preview?.respectExistingScheduledDates && applyTaskCount < (preview?.proposedCount ?? 0)
+                ? " Tasks that already have scheduled dates will be left unchanged."
+                : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -451,6 +488,7 @@ function buildScheduleExportHtml(
     ${model ? `<div>Model: ${escapeHtml(model)}</div>` : ""}
     <div>Generated: ${generatedAt}</div>
     <div>Mode: ${escapeHtml(preview.modeLabel)}</div>
+    <div>Schedule behavior: ${escapeHtml(preview.scheduleBehaviorLabel)}</div>
     <div>Start: ${formatDisplayDate(preview.anchorDate)}</div>
     <div>Projected completion: ${formatDisplayDate(preview.proposedCompletionDate)}</div>
     <div>${preview.proposedCount} tasks proposed · ${preview.completedSkipped} completed skipped · ${preview.totalWorkingDays} working days</div>

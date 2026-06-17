@@ -25,6 +25,7 @@ const bodySchema = z.object({
     .min(1)
     .refine((v) => /^\d{4}-\d{2}-\d{2}/.test(v), "Invalid anchor date"),
   mode: z.enum(["critical", "all"]),
+  respectExistingScheduledDates: z.boolean().default(true),
 })
 
 /**
@@ -93,6 +94,7 @@ export async function POST(
       templateDeps,
       anchorDate,
       mode: parsed.data.mode,
+      respectExistingScheduledDates: parsed.data.respectExistingScheduledDates,
     })
 
     if (preview.error || preview.rows.length === 0) {
@@ -103,6 +105,15 @@ export async function POST(
     }
 
     const proposals = proposalsToScheduledDates(preview)
+    if (proposals.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "All tasks in scope already have scheduled dates. Turn off “Respect existing scheduled dates” to recalculate them.",
+        },
+        { status: 400 }
+      )
+    }
     const taskStatusById = new Map(tasks.map((t) => [t.id, t.status]))
 
     await prisma.$transaction(
@@ -135,7 +146,8 @@ export async function POST(
       metadata: {
         kind: "schedule_generated_applied",
         mode: preview.mode,
-        tasksUpdated: preview.proposedCount,
+        respectExistingScheduledDates: preview.respectExistingScheduledDates,
+        tasksUpdated: proposals.length,
         anchorDate: preview.anchorDate,
         projectedCompletionDate: preview.proposedCompletionDate,
         userId: ctx.userId,
@@ -144,7 +156,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      tasksUpdated: preview.proposedCount,
+      tasksUpdated: proposals.length,
       projectedCompletionDate: preview.proposedCompletionDate,
     })
   } catch (error) {

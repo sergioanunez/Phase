@@ -48,6 +48,28 @@ describe("buildSchedulePreview", () => {
     expect(preview.rows[0]!.taskId).toBe("t2")
   })
 
+  it("preserves existing scheduled dates when respect mode is on", () => {
+    const preview = buildSchedulePreview({
+      home: { startDate: new Date("2026-06-02") },
+      tasks: [
+        {
+          ...baseTask,
+          id: "scheduled",
+          status: "Scheduled",
+          scheduledDate: new Date("2026-07-10T12:00:00"),
+        },
+        { ...baseTask, id: "open", status: "Unscheduled", durationDaysSnapshot: 3 },
+      ],
+      templateDeps: [],
+      anchorDate: new Date("2026-06-03"),
+      mode: "all",
+      respectExistingScheduledDates: true,
+    })
+    const scheduledRow = preview.rows.find((r) => r.taskId === "scheduled")
+    expect(scheduledRow?.proposedStart.slice(0, 10)).toBe("2026-07-10")
+    expect(scheduledRow?.currentScheduledDate?.slice(0, 10)).toBe("2026-07-10")
+  })
+
   it("returns error when no remaining tasks", () => {
     const preview = buildSchedulePreview({
       home: { startDate: null },
