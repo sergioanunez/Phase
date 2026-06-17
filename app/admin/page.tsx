@@ -2419,10 +2419,10 @@ export default function AdminPage() {
                           value={block.id}
                           className="rounded-md border border-gray-200 border-l-4 border-l-gray-300 bg-white transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/20 dark:hover:bg-gray-900/30 border-b-0"
                         >
-                          <AccordionTrigger className="hover:no-underline py-4 px-4 [&>svg]:shrink-0">
-                            <div className="flex flex-wrap items-center justify-between gap-2 w-full pr-2 min-w-0">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span className="font-semibold text-gray-900 dark:text-gray-100 text-left break-words">
+                          <AccordionTrigger className="hover:no-underline py-4 px-4 items-start xl:items-center [&>svg]:shrink-0 [&>svg]:mt-1 xl:[&>svg]:mt-0">
+                            <div className="flex w-full min-w-0 flex-col gap-2 pr-2 text-left xl:flex-row xl:items-center xl:justify-between">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2 xl:flex-1 xl:pr-3">
+                                <span className="font-semibold text-gray-900 dark:text-gray-100 break-words">
                                   {category.replace(/Prelliminary/gi, "Preliminary")}
                                 </span>
                                 {categoryGates.some((gate) => gate.categoryName === category) && (
@@ -2431,7 +2431,7 @@ export default function AdminPage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end">
                                 <Button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -2451,7 +2451,7 @@ export default function AdminPage() {
                                 >
                                   <Lock className={`h-4 w-4 ${categoryGates.some((gate) => gate.categoryName === category) ? "fill-current" : ""}`} />
                                 </Button>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
                                   {sortedTemplates.length} items · {durationLabel}
                                 </span>
                                 <Button
@@ -2895,12 +2895,12 @@ export default function AdminPage() {
                         value={orphanBlock.id}
                         className="rounded-md border border-amber-200/80 border-l-4 border-l-amber-400 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-950/20 border-b-0"
                       >
-                        <AccordionTrigger className="hover:no-underline py-4 px-4 [&>svg]:shrink-0">
-                          <div className="flex flex-wrap items-center gap-2 w-full pr-2 min-w-0">
-                            <span className="font-semibold text-left break-words">
+                        <AccordionTrigger className="hover:no-underline py-4 px-4 items-start lg:items-center [&>svg]:shrink-0 [&>svg]:mt-1 lg:[&>svg]:mt-0">
+                          <div className="flex w-full min-w-0 flex-col gap-1 pr-2 text-left sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                            <span className="font-semibold break-words">
                               {orphanBlock.row.name}
                             </span>
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            <span className="text-sm text-muted-foreground">
                               {orphanBlock.items.length} items · edit an item to assign a category
                             </span>
                           </div>
