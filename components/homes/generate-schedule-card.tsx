@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { format } from "date-fns"
+import { ChevronDown } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -85,6 +86,7 @@ export function GenerateScheduleCard({
   const [error, setError] = useState<string | null>(null)
   const [applyOpen, setApplyOpen] = useState(false)
   const [defaultsLoaded, setDefaultsLoaded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const loadDefaults = useCallback(async () => {
     try {
@@ -109,6 +111,17 @@ export function GenerateScheduleCard({
       void loadDefaults()
     }
   }, [canGenerate, defaultsLoaded, loadDefaults])
+
+  useEffect(() => {
+    if (preview) {
+      setExpanded(true)
+    }
+  }, [preview])
+
+  const toggleExpanded = () => {
+    if (preview) return
+    setExpanded((open) => !open)
+  }
 
   const handleGeneratePreview = async () => {
     setLoading(true)
@@ -208,15 +221,50 @@ export function GenerateScheduleCard({
 
   return (
     <>
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="text-base font-semibold text-foreground">Generate schedule</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Create a proposed schedule for this home.
-          </p>
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="p-0">
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            aria-expanded={expanded}
+            aria-controls="generate-schedule-panel"
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+              preview ? "cursor-default" : "hover:bg-muted/30"
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold text-foreground">Generate schedule</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Create or regenerate a CPM schedule for this home.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!expanded && !preview ? (
+                <span className="hidden text-xs font-medium text-primary sm:inline">Show generator</span>
+              ) : null}
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 text-muted-foreground transition-transform duration-200",
+                  expanded && "rotate-180"
+                )}
+                aria-hidden
+              />
+            </div>
+          </button>
 
+          <div
+            id="generate-schedule-panel"
+            className={cn(
+              "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            )}
+            aria-hidden={!expanded}
+          >
+            <div className="overflow-hidden">
+              <div className="space-y-4 px-4 pb-4 pt-0">
           {!preview ? (
-            <div className="mt-4 space-y-4">
+            <div className="space-y-4">
               <div>
                 <label htmlFor="schedule-anchor-date" className="text-sm font-medium">
                   Start scheduling from
@@ -279,11 +327,11 @@ export function GenerateScheduleCard({
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button type="button" onClick={() => void handleGeneratePreview()} disabled={loading}>
-                {loading ? "Generating…" : "Generate Schedule"}
+                {loading ? "Generating…" : "Generate Preview"}
               </Button>
             </div>
           ) : (
-            <div className="mt-4 space-y-4">
+            <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-semibold">Schedule Preview</h3>
                 {preview.error ? (
@@ -395,6 +443,9 @@ export function GenerateScheduleCard({
               </div>
             </div>
           )}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
