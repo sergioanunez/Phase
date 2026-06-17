@@ -172,87 +172,23 @@ export function GenerateScheduleCard({
   )
 
   const handleExportPdf = () => {
-    if (!preview?.home) return
-    const generatedAt = format(new Date(), "MMM d, yyyy")
-    const model = [preview.home.planName, preview.home.planVariant].filter(Boolean).join(" · ")
+    if (!preview || preview.rows.length === 0) return
 
-    const tableRows = preview.rows
-      .map(
-        (row) => `
-      <tr>
-        <td>${escapeHtml(row.taskName)}</td>
-        <td>${escapeHtml(row.category ?? "—")}</td>
-        <td>${escapeHtml(row.contractorName ?? "—")}</td>
-        <td>${formatDisplayDate(row.currentScheduledDate)}</td>
-        <td>${formatDisplayDate(row.proposedStart)}</td>
-        <td>${formatDisplayDate(row.proposedFinish)}</td>
-        <td>${escapeHtml(row.status)}</td>
-      </tr>`
-      )
-      .join("")
+    const html = buildScheduleExportHtml(preview, milestoneRows)
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, "_blank")
 
-    const milestoneSection =
-      milestoneRows.length > 0
-        ? `<h2>Milestones / Critical Tasks</h2>
-      <ul>${milestoneRows.map((r) => `<li>${escapeHtml(r.taskName)} — ${formatDisplayDate(r.proposedStart)}</li>`).join("")}</ul>`
-        : ""
+    if (!win) {
+      URL.revokeObjectURL(url)
+      setError("Could not open the print window. Allow pop-ups for this site and try again.")
+      return
+    }
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>House Schedule Preview</title>
-  <style>
-    body { font-family: system-ui, sans-serif; color: #111; margin: 24px; font-size: 12px; }
-    h1 { font-size: 20px; margin: 0 0 4px; }
-    h2 { font-size: 14px; margin: 20px 0 8px; }
-    .meta { color: #444; margin-bottom: 16px; line-height: 1.5; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
-    th { background: #f3f3f3; }
-    .note { margin-top: 20px; font-size: 11px; color: #555; }
-    @media print { body { margin: 12px; } tr { page-break-inside: avoid; } }
-  </style>
-</head>
-<body>
-  <h1>House Schedule Preview</h1>
-  <div class="meta">
-    <div><strong>${escapeHtml(preview.home.addressOrLot)}</strong></div>
-    ${preview.home.subdivisionName ? `<div>Community: ${escapeHtml(preview.home.subdivisionName)}</div>` : ""}
-    ${model ? `<div>Model: ${escapeHtml(model)}</div>` : ""}
-    <div>Generated: ${generatedAt}</div>
-    <div>Mode: ${escapeHtml(preview.modeLabel)}</div>
-    <div>Start: ${formatDisplayDate(preview.anchorDate)}</div>
-    <div>Projected completion: ${formatDisplayDate(preview.proposedCompletionDate)}</div>
-    <div>${preview.proposedCount} tasks proposed · ${preview.completedSkipped} completed skipped · ${preview.totalWorkingDays} working days</div>
-  </div>
-  <h2>Summary</h2>
-  <p>${preview.proposedCount} task(s) in this proposed schedule. ${preview.completedSkipped} completed task(s) were excluded.</p>
-  ${milestoneSection}
-  <h2>Proposed Schedule</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Task</th>
-        <th>Category</th>
-        <th>Contractor</th>
-        <th>Current</th>
-        <th>Proposed Start</th>
-        <th>Proposed Finish</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>${tableRows}</tbody>
-  </table>
-  <p class="note">Completed tasks were excluded from this generated schedule.</p>
-  <script>window.onload = () => { window.print(); }</script>
-</body>
-</html>`
-
-    const win = window.open("", "_blank", "noopener,noreferrer")
-    if (!win) return
-    win.document.write(html)
-    win.document.close()
+    // Blob URL is revoked after the print tab loads.
+    win.addEventListener("load", () => {
+      URL.revokeObjectURL(url)
+    })
   }
 
   if (!canGenerate) return null
@@ -457,4 +393,92 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
+}
+
+function buildScheduleExportHtml(
+  preview: SchedulePreview,
+  milestoneRows: PreviewRow[]
+): string {
+  const generatedAt = format(new Date(), "MMM d, yyyy")
+  const home = preview.home
+  const model = home
+    ? [home.planName, home.planVariant].filter(Boolean).join(" · ")
+    : ""
+
+  const tableRows = preview.rows
+    .map(
+      (row) => `
+      <tr>
+        <td>${escapeHtml(row.taskName)}</td>
+        <td>${escapeHtml(row.category ?? "—")}</td>
+        <td>${escapeHtml(row.contractorName ?? "—")}</td>
+        <td>${formatDisplayDate(row.currentScheduledDate)}</td>
+        <td>${formatDisplayDate(row.proposedStart)}</td>
+        <td>${formatDisplayDate(row.proposedFinish)}</td>
+        <td>${escapeHtml(row.status)}</td>
+      </tr>`
+    )
+    .join("")
+
+  const milestoneSection =
+    milestoneRows.length > 0
+      ? `<h2>Milestones / Critical Tasks</h2>
+      <ul>${milestoneRows.map((r) => `<li>${escapeHtml(r.taskName)} — ${formatDisplayDate(r.proposedStart)}</li>`).join("")}</ul>`
+      : ""
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>House Schedule Preview</title>
+  <style>
+    body { font-family: system-ui, sans-serif; color: #111; margin: 24px; font-size: 12px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 14px; margin: 20px 0 8px; }
+    .meta { color: #444; margin-bottom: 16px; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f3f3; }
+    .note { margin-top: 20px; font-size: 11px; color: #555; }
+    @media print { body { margin: 12px; } tr { page-break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <h1>House Schedule Preview</h1>
+  <div class="meta">
+    ${home?.addressOrLot ? `<div><strong>${escapeHtml(home.addressOrLot)}</strong></div>` : ""}
+    ${home?.subdivisionName ? `<div>Community: ${escapeHtml(home.subdivisionName)}</div>` : ""}
+    ${model ? `<div>Model: ${escapeHtml(model)}</div>` : ""}
+    <div>Generated: ${generatedAt}</div>
+    <div>Mode: ${escapeHtml(preview.modeLabel)}</div>
+    <div>Start: ${formatDisplayDate(preview.anchorDate)}</div>
+    <div>Projected completion: ${formatDisplayDate(preview.proposedCompletionDate)}</div>
+    <div>${preview.proposedCount} tasks proposed · ${preview.completedSkipped} completed skipped · ${preview.totalWorkingDays} working days</div>
+  </div>
+  <h2>Summary</h2>
+  <p>${preview.proposedCount} task(s) in this proposed schedule. ${preview.completedSkipped} completed task(s) were excluded.</p>
+  ${milestoneSection}
+  <h2>Proposed Schedule</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Category</th>
+        <th>Contractor</th>
+        <th>Current</th>
+        <th>Proposed Start</th>
+        <th>Proposed Finish</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <p class="note">Completed tasks were excluded from this generated schedule.</p>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.print(); }, 300);
+    });
+  </script>
+</body>
+</html>`
 }
