@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
-import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
-import { homeOrderByDisplayOrder } from "@/lib/homes/display-order"
+import { fetchHomesForList } from "@/lib/homes/fetch-homes-list"
 import { nextDisplayOrder } from "@/lib/display-order"
 import { z } from "zod"
 
@@ -76,45 +75,7 @@ export async function GET(request: NextRequest) {
       baseWhere.id = { in: assignedHomeIds }
     }
 
-    const homes = await prisma.home.findMany({
-      where: baseWhere,
-      include: {
-        _count: { select: { homePlans: true } },
-        subdivision: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        tasks: {
-          select: {
-            id: true,
-            templateItemId: true,
-            status: true,
-            scheduledDate: true,
-            completedAt: true,
-            nameSnapshot: true,
-            durationDaysSnapshot: true,
-            contractor: {
-              select: {
-                id: true,
-                companyName: true,
-              },
-            },
-            templateItem: {
-              select: {
-                optionalCategory: true,
-                sortOrder: true,
-                sequenceOrder: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: [...homeTaskOrderByTemplateSequence()],
-        },
-      },
-      orderBy: [...homeOrderByDisplayOrder],
-    })
+    const homes = await fetchHomesForList(prisma, baseWhere)
 
     const companyId = homes[0]?.companyId ?? ctx.companyId
     const templateDeps =

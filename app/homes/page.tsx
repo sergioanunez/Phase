@@ -91,6 +91,7 @@ export default function HomesPage() {
   const [homes, setHomes] = useState<Home[]>([])
   const [subdivisions, setSubdivisions] = useState<Subdivision[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [planViewerHomeId, setPlanViewerHomeId] = useState<string | null>(null)
   const [planViewerOpen, setPlanViewerOpen] = useState(false)
@@ -101,9 +102,12 @@ export default function HomesPage() {
       fetch("/api/homes").then(async (res) => {
         const data = await res.json()
         if (!res.ok) {
+          const message = typeof data.error === "string" ? data.error : "Failed to load homes"
           console.error("Homes API error:", data)
+          setFetchError(message)
           return []
         }
+        setFetchError(null)
         return Array.isArray(data) ? data : []
       }),
       fetch("/api/subdivisions").then(async (res) => {
@@ -299,6 +303,15 @@ export default function HomesPage() {
                   <Link href="/homes" className="text-primary underline-offset-2 hover:underline">
                     View all homes
                   </Link>
+                </p>
+              </>
+            ) : fetchError ? (
+              <>
+                <p className="text-lg text-muted-foreground mb-2">
+                  Could not load homes
+                </p>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  {fetchError}
                 </p>
               </>
             ) : session?.user?.role === "Superintendent" ? (
