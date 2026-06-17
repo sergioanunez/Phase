@@ -1757,15 +1757,6 @@ export default function AdminPage() {
                         variant="outline"
                         size="sm"
                         disabled={homeOrderSaving}
-                        onClick={() => handleAutoSortHomes("lot")}
-                      >
-                        By Lot Number
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={homeOrderSaving}
                         onClick={() => handleAutoSortHomes("startDate")}
                       >
                         By Start Date
