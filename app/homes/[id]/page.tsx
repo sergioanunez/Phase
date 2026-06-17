@@ -22,6 +22,7 @@ import { ImageViewer } from "@/components/image-viewer"
 import { HomeActivityTimeline } from "@/components/home-activity-timeline"
 import { HomeRescheduleHistory } from "@/components/home-reschedule-history"
 import { HouseScheduleCard } from "@/components/homes/house-schedule-card"
+import { GenerateScheduleCard } from "@/components/homes/generate-schedule-card"
 import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
@@ -112,6 +113,24 @@ export default function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
+
+  const refreshHomeData = () => {
+    if (!params.id) return
+    const homeId = params.id as string
+    fetch(`/api/homes/${homeId}`)
+      .then(async (res) => (res.ok ? ((await res.json()) as Home) : null))
+      .then((data) => {
+        if (data) setHome(data)
+      })
+      .catch(() => {})
+    fetch(`/api/homes/${homeId}/forecast`)
+      .then((res) => res.json().then((d) => ({ ok: res.ok, data: d })))
+      .then(({ ok, data }) => {
+        if (ok && data && !data.error) setHome(data)
+      })
+      .catch(() => {})
+    setRescheduleHistoryRefresh((n) => n + 1)
+  }
 
   useEffect(() => {
     if (!params.id) return
@@ -783,6 +802,12 @@ export default function HomeDetailPage() {
                 }
               : undefined
           }
+        />
+
+        <GenerateScheduleCard
+          homeId={home.id}
+          canGenerate={canEdit}
+          onApplied={refreshHomeData}
         />
 
         {/* Activity Timeline */}
