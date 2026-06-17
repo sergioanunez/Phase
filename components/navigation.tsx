@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Home, Calendar, BarChart3, Clock, Bell, Building2, ListChecks, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { homesListRestoreHref } from "@/lib/homes/list-navigation-state"
 
 export function Navigation() {
   const pathname = usePathname()
@@ -65,6 +66,10 @@ export function Navigation() {
         {navItems.map((item) => {
           const Icon = item.icon as React.ComponentType<{ className?: string }>
           const isAssistant = (item as any).isAssistant
+          const href =
+            item.href === "/homes" && pathname?.startsWith("/homes/")
+              ? homesListRestoreHref()
+              : item.href
           const isActive =
             pathname === item.href ||
             (item.href === "/homes" && pathname?.startsWith("/homes/")) ||
@@ -73,7 +78,7 @@ export function Navigation() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               {...((item as any).dataOnboarding ? { "data-onboarding": (item as any).dataOnboarding } : {})}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 px-3 py-3 text-[11px] transition-colors",

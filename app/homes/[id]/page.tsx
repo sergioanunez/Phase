@@ -27,6 +27,7 @@ import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
+import { homesListRestoreHref } from "@/lib/homes/list-navigation-state"
 import { groupPlansByTag, type ListedHomePlan } from "@/lib/home-plans"
 
 interface HomeTask {
@@ -505,7 +506,7 @@ export default function HomeDetailPage() {
             : "Home not found."}
         </p>
         <Link
-          href="/homes"
+          href={homesListRestoreHref()}
           className="text-primary underline-offset-2 hover:underline"
         >
           ← Back to Homes
@@ -613,10 +614,10 @@ export default function HomeDetailPage() {
       <div className="app-container">
         <Button
           variant="ghost"
-          onClick={() => router.back()}
+          asChild
           className="-ml-2 mb-2 text-muted-foreground hover:text-foreground"
         >
-          ← Homes
+          <Link href={homesListRestoreHref()}>← Homes</Link>
         </Button>
 
         {/* Header card */}

@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Search } from "lucide-react"
 import { TaskStatus } from "@prisma/client"
@@ -12,6 +12,10 @@ import { getScheduleStatus } from "@/lib/schedule-status"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import type { CommunityHome } from "@/components/homes/community-accordion"
 import { compareHomesByDisplayOrder } from "@/lib/homes/display-order"
+import {
+  loadHomesListNavigationState,
+  saveHomesListNavigationState,
+} from "@/lib/homes/list-navigation-state"
 
 interface Home {
   id: string
@@ -87,7 +91,9 @@ type StatusFilter = "not_started" | "on_track" | "at_risk" | "behind"
 
 export default function HomesPage() {
   const { data: session } = useSession()
+  const router = useRouter()
   const searchParams = useSearchParams()
+  const shouldRestore = searchParams.get("restore") === "1"
   const statusFilter = searchParams.get("status") as StatusFilter | null
   const reduceToStarter = searchParams.get("reduceToStarter") === "1"
   const reduceActiveHomes = searchParams.get("activeHomes")
@@ -97,8 +103,11 @@ export default function HomesPage() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [openSubdivisions, setOpenSubdivisions] = useState<string[]>([])
   const [planViewerHomeId, setPlanViewerHomeId] = useState<string | null>(null)
   const [planViewerOpen, setPlanViewerOpen] = useState(false)
+  const restoredRef = useRef(false)
+  const pendingScrollRef = useRef<ReturnType<typeof loadHomesListNavigationState>>(null)
   const planViewerHome = planViewerHomeId ? homes.find((h) => h.id === planViewerHomeId) : null
 
   useEffect(() => {
@@ -192,6 +201,60 @@ export default function HomesPage() {
       return { id: sub.id, name: sub.name, homes: searchFiltered }
     })
   }, [subdivisions, groupedBySubdivision, statusFilter, searchQuery])
+
+  const visibleCommunities = useMemo(
+    () => communities.filter((c) => c.homes.length > 0),
+    [communities]
+  )
+
+  const handleHomeNavigate = useCallback(
+    (homeId: string, subdivisionId: string) => {
+      const open = openSubdivisions.includes(subdivisionId)
+        ? openSubdivisions
+        : [...openSubdivisions, subdivisionId]
+      saveHomesListNavigationState({
+        openSubdivisions: open,
+        scrollY: window.scrollY,
+        searchQuery,
+        homeId,
+      })
+    },
+    [openSubdivisions, searchQuery]
+  )
+
+  useEffect(() => {
+    if (loading || restoredRef.current || !shouldRestore) return
+    restoredRef.current = true
+    const saved = loadHomesListNavigationState()
+    if (!saved) {
+      router.replace("/homes", { scroll: false })
+      return
+    }
+
+    setSearchQuery(saved.searchQuery)
+    setOpenSubdivisions(saved.openSubdivisions)
+    pendingScrollRef.current = saved
+  }, [loading, shouldRestore, router])
+
+  useEffect(() => {
+    const saved = pendingScrollRef.current
+    if (!saved || loading) return
+
+    const timer = window.setTimeout(() => {
+      const el = saved.homeId
+        ? document.getElementById(`home-card-${saved.homeId}`)
+        : null
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "auto" })
+      } else if (saved.scrollY > 0) {
+        window.scrollTo({ top: saved.scrollY, behavior: "auto" })
+      }
+      pendingScrollRef.current = null
+      router.replace("/homes", { scroll: false })
+    }, 200)
+
+    return () => window.clearTimeout(timer)
+  }, [loading, openSubdivisions, searchQuery, visibleCommunities.length, router])
 
   const filterLabel =
     statusFilter === "not_started"
@@ -342,7 +405,10 @@ export default function HomesPage() {
           </div>
         ) : (
           <CommunityAccordion
-            communities={communities.filter((c) => c.homes.length > 0)}
+            communities={visibleCommunities}
+            openSubdivisions={openSubdivisions}
+            onOpenSubdivisionsChange={setOpenSubdivisions}
+            onHomeNavigate={handleHomeNavigate}
           />
         )}
       </div>

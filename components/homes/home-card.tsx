@@ -81,9 +81,10 @@ export interface HomeCardProps {
   home: HomeCardHome
   status: ScheduleStatus
   progress: number
+  onNavigate?: () => void
 }
 
-export function HomeCard({ home, status, progress }: HomeCardProps) {
+export function HomeCard({ home, status, progress, onNavigate }: HomeCardProps) {
   const criticalIds = home.criticalPathTaskIds ?? []
   const lastCriticalScheduledTask = home.tasks
     .filter(
@@ -104,7 +105,9 @@ export function HomeCard({ home, status, progress }: HomeCardProps) {
 
   return (
     <Link
+      id={`home-card-${home.id}`}
       href={`/homes/${home.id}`}
+      onClick={() => onNavigate?.()}
       className="block rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/20"
     >
       {/* Top row: thumbnail, address, status */}

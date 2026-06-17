@@ -36,11 +36,24 @@ export interface CommunityAccordionProps {
     name: string
     homes: Array<{ home: CommunityHome; status: ScheduleStatus; progress: number }>
   }>
+  openSubdivisions?: string[]
+  onOpenSubdivisionsChange?: (value: string[]) => void
+  onHomeNavigate?: (homeId: string, subdivisionId: string) => void
 }
 
-export function CommunityAccordion({ communities }: CommunityAccordionProps) {
+export function CommunityAccordion({
+  communities,
+  openSubdivisions,
+  onOpenSubdivisionsChange,
+  onHomeNavigate,
+}: CommunityAccordionProps) {
   return (
-    <Accordion type="multiple" className="w-full space-y-3">
+    <Accordion
+      type="multiple"
+      className="w-full space-y-3"
+      value={openSubdivisions}
+      onValueChange={onOpenSubdivisionsChange}
+    >
       {communities.map((community) => {
         const { homes } = community
         const total = homes.length
@@ -99,6 +112,11 @@ export function CommunityAccordion({ communities }: CommunityAccordionProps) {
                       home={home}
                       status={status}
                       progress={progress}
+                      onNavigate={
+                        onHomeNavigate
+                          ? () => onHomeNavigate(home.id, community.id)
+                          : undefined
+                      }
                     />
                   ))
                 )}
