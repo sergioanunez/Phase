@@ -16,13 +16,16 @@ describe("autoSortHomes", () => {
     { id: "3", displayOrder: 300, addressOrLot: "700 Tranquil Court" },
   ]
 
-  it("sorts by address", () => {
+  it("sorts by address (numeric-aware)", () => {
     const sorted = autoSortHomes(homes, "address")
-    expect(sorted.map((h) => h.id)).toEqual(["2", "1", "3"])
+    // 700 < 14545 < 14549 when leading numbers are compared numerically
+    expect(sorted.map((h) => h.id)).toEqual(["3", "2", "1"])
   })
 
   it("sorts by lot number from address", () => {
     const sorted = autoSortHomes(homes, "lot")
-    expect(sorted[0]!.addressOrLot).toContain("14545")
+    expect(sorted[0]!.addressOrLot).toContain("700")
+    expect(sorted[1]!.addressOrLot).toContain("14545")
+    expect(sorted[2]!.addressOrLot).toContain("14549")
   })
 })
