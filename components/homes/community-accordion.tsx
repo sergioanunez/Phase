@@ -16,6 +16,9 @@ export interface CommunityHome {
   displayOrder?: number
   forecastCompletionDate: string | null
   targetCompletionDate: string | null
+  planName?: string | null
+  planVariant?: string | null
+  hasThumbnail?: boolean
   subdivision: { id: string; name: string }
   criticalPathTaskIds?: string[]
   tasks: Array<{

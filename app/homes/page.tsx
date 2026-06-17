@@ -23,6 +23,7 @@ interface Home {
   forecastTotalWorkingDays: number | null
   criticalPathTaskIds?: string[]
   hasPlan?: boolean
+  hasThumbnail?: boolean
   planName?: string | null
   planVariant?: string | null
   planUploadedAt?: string | null
@@ -67,6 +68,9 @@ function toCommunityHome(home: Home): CommunityHome {
     displayOrder: home.displayOrder,
     forecastCompletionDate: home.forecastCompletionDate,
     targetCompletionDate: home.targetCompletionDate,
+    planName: home.planName,
+    planVariant: home.planVariant,
+    hasThumbnail: home.hasThumbnail,
     subdivision: home.subdivision ?? { id: "", name: "" },
     criticalPathTaskIds: home.criticalPathTaskIds ?? [],
     tasks: tasks.map((t) => ({
@@ -181,7 +185,9 @@ export default function HomesPage() {
           : filtered.filter(
               (item) =>
                 item.home.addressOrLot.toLowerCase().includes(q) ||
-                (item.home.subdivision?.name ?? "").toLowerCase().includes(q)
+                (item.home.subdivision?.name ?? "").toLowerCase().includes(q) ||
+                (item.home.planName ?? "").toLowerCase().includes(q) ||
+                (item.home.planVariant ?? "").toLowerCase().includes(q)
             )
       return { id: sub.id, name: sub.name, homes: searchFiltered }
     })
