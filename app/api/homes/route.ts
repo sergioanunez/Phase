@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
+import { homeOrderByDisplayOrder } from "@/lib/homes/display-order"
+import { nextDisplayOrder } from "@/lib/display-order"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -111,9 +113,7 @@ export async function GET(request: NextRequest) {
           orderBy: [...homeTaskOrderByTemplateSequence()],
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [...homeOrderByDisplayOrder],
     })
 
     const companyId = homes[0]?.companyId ?? ctx.companyId
@@ -352,11 +352,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Subdivision not found" }, { status: 404 })
     }
 
+    const orderAgg = await prisma.home.aggregate({
+      where: { subdivisionId: data.subdivisionId },
+      _max: { displayOrder: true },
+    })
+
     const home = await prisma.home.create({
       data: {
         companyId: ctx.companyId,
         subdivisionId: data.subdivisionId,
         addressOrLot: data.addressOrLot,
+        displayOrder: nextDisplayOrder(orderAgg._max.displayOrder),
         startDate: data.startDate ? new Date(data.startDate) : null,
         targetCompletionDate: data.targetCompletionDate ? new Date(data.targetCompletionDate) : null,
       },

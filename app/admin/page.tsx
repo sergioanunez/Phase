@@ -33,6 +33,12 @@ import {
   WorkTemplateItemsDndContext,
   WorkTemplateItemSortableRow,
 } from "@/components/work-template-dnd"
+import {
+  SubdivisionHomesSortableList,
+  SubdivisionHomeSortableRow,
+} from "@/components/homes/subdivision-homes-sortable-list"
+import { autoSortHomes, compareHomesByDisplayOrder } from "@/lib/homes/display-order"
+import { displayOrderForIndex } from "@/lib/display-order"
 
 interface Subdivision {
   id: string
@@ -46,6 +52,7 @@ interface Subdivision {
 interface Home {
   id: string
   addressOrLot: string
+  displayOrder?: number
   startDate: string | null
   targetCompletionDate: string | null
   hasPlan?: boolean
@@ -174,6 +181,7 @@ export default function AdminPage() {
   const [categoryGates, setCategoryGates] = useState<Array<{ categoryName: string; gateName: string | null; gateScope: string; gateBlockMode: string }>>([])
   const [loading, setLoading] = useState(true)
   const [createHomeOpen, setCreateHomeOpen] = useState(false)
+  const [homeOrderSaving, setHomeOrderSaving] = useState(false)
   const [createSubdivisionOpen, setCreateSubdivisionOpen] = useState(false)
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false)
   const [importTemplatesOpen, setImportTemplatesOpen] = useState(false)
@@ -1137,9 +1145,52 @@ export default function AdminPage() {
   }
 
   const selectedSubdivision = subdivisions.find((s) => s.id === selectedSubdivisionId)
-  const selectedSubdivisionHomes = Array.isArray(homes) 
-    ? homes.filter((h) => h.subdivision.id === selectedSubdivisionId)
-    : []
+  const selectedSubdivisionHomes = useMemo(() => {
+    if (!selectedSubdivisionId || !Array.isArray(homes)) return []
+    return homes
+      .filter((h) => h.subdivision.id === selectedSubdivisionId)
+      .sort(compareHomesByDisplayOrder)
+  }, [homes, selectedSubdivisionId])
+
+  const persistSubdivisionHomeOrder = async (orderedIds: string[]) => {
+    if (!selectedSubdivisionId) return
+    const orderMap = new Map(orderedIds.map((id, index) => [id, displayOrderForIndex(index)]))
+    setHomes((prev) =>
+      prev.map((h) => (orderMap.has(h.id) ? { ...h, displayOrder: orderMap.get(h.id)! } : h))
+    )
+    setHomeOrderSaving(true)
+    try {
+      const res = await fetch(`/api/subdivisions/${selectedSubdivisionId}/homes/order`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedHomeIds: orderedIds }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Failed to save home order")
+      }
+    } catch (err) {
+      console.error("Home order save error:", err)
+      alert(err instanceof Error ? err.message : "Failed to save home order")
+      fetch("/api/homes")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setHomes(data)
+        })
+        .catch(() => {})
+    } finally {
+      setHomeOrderSaving(false)
+    }
+  }
+
+  const handleReorderSubdivisionHomes = (orderedIds: string[]) => {
+    void persistSubdivisionHomeOrder(orderedIds)
+  }
+
+  const handleAutoSortHomes = (mode: "address" | "lot" | "startDate") => {
+    const sorted = autoSortHomes(selectedSubdivisionHomes, mode)
+    void persistSubdivisionHomeOrder(sorted.map((h) => h.id))
+  }
 
   const handleStartEditContractor = (contractor: Contractor) => {
     setEditingContractorId(contractor.id)
@@ -1682,9 +1733,59 @@ export default function AdminPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Drag homes to define your preferred build sequence.
+                    {homeOrderSaving ? (
+                      <span className="ml-2 text-foreground">Saving order…</span>
+                    ) : null}
+                  </p>
+                  {selectedSubdivisionHomes.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="self-center text-xs font-medium text-muted-foreground">Auto sort:</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={homeOrderSaving}
+                        onClick={() => handleAutoSortHomes("address")}
+                      >
+                        By Address
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={homeOrderSaving}
+                        onClick={() => handleAutoSortHomes("lot")}
+                      >
+                        By Lot Number
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={homeOrderSaving}
+                        onClick={() => handleAutoSortHomes("startDate")}
+                      >
+                        By Start Date
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <SubdivisionHomesSortableList
+                  orderedIds={selectedSubdivisionHomes.map((h) => h.id)}
+                  onReorder={handleReorderSubdivisionHomes}
+                  disabled={homeOrderSaving || selectedSubdivisionHomes.length <= 1}
+                >
                   {selectedSubdivisionHomes.map((home) => (
-                    <Card key={home.id}>
+                    <SubdivisionHomeSortableRow
+                      key={home.id}
+                      id={home.id}
+                      showDragHandle={selectedSubdivisionHomes.length > 1}
+                    >
+                    <Card>
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
@@ -2000,13 +2101,14 @@ export default function AdminPage() {
                         </div>
                       </CardHeader>
                     </Card>
+                    </SubdivisionHomeSortableRow>
                   ))}
                   {selectedSubdivisionHomes.length === 0 && (
                     <p className="text-muted-foreground text-center py-8">
                       No homes in this subdivision. Create one to get started.
                     </p>
                   )}
-                </div>
+                </SubdivisionHomesSortableList>
               </>
             ) : (
               // Subdivisions view

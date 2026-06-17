@@ -8,6 +8,7 @@ import {
   type FlowTaskForSelection,
 } from "./selection"
 import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
+import { homeOrderByDisplayOrder } from "@/lib/homes/display-order"
 import type { FlowAction, ComputeFlowInput, ComputeFlowResult } from "./types"
 
 const COMPLETED = "Completed"
@@ -135,6 +136,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         orderBy: [...homeTaskOrderByTemplateSequence()],
       },
     },
+    orderBy: [...homeOrderByDisplayOrder],
   })
 
   const actions: FlowAction[] = []

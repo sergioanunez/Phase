@@ -446,6 +446,8 @@ model Home {
   subdivisionId        String
   subdivision          Subdivision @relation(fields: [subdivisionId], references: [id], onDelete: Cascade)
   addressOrLot         String
+  /// Manual build-sequence order within the subdivision (gaps of 100).
+  displayOrder         Int         @default(0)
   /// Projected construction start date (used as day 0 for forecasting).
   /// Treated as a working-day anchor (Mon–Fri only in current implementation).
   startDate            DateTime?
@@ -494,6 +496,7 @@ model Home {
   @@index([companyId, isComplete])
   @@index([companyId, startDate])
   @@index([subdivisionId])
+  @@index([subdivisionId, displayOrder])
   @@index([targetCompletionDate])
   @@index([startDate])
 }

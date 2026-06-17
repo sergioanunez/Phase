@@ -166,6 +166,13 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
+    const { nextDisplayOrder } = await import("@/lib/display-order")
+    const orderAgg = await prisma.home.aggregate({
+      where: { subdivisionId },
+      _max: { displayOrder: true },
+    })
+    let runningMaxOrder = orderAgg._max.displayOrder ?? 0
+
     // Get template items for this tenant to create tasks for each home
     const { workTemplatePrismaOrderBy } = await import("@/lib/work-template-display-order")
     const templateItems = await prisma.workTemplateItem.findMany({
@@ -196,12 +203,16 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        const displayOrder = nextDisplayOrder(runningMaxOrder)
+        runningMaxOrder = displayOrder
+
         // Create home (set companyId so it appears in tenant's homes list)
         const home = await prisma.home.create({
           data: {
             companyId: ctx.companyId ?? undefined,
             subdivisionId,
             addressOrLot: validated.addressOrLot,
+            displayOrder,
             targetCompletionDate: validated.targetCompletionDate
               ? new Date(validated.targetCompletionDate)
               : null,

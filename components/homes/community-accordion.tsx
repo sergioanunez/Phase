@@ -13,6 +13,7 @@ import type { ScheduleStatus } from "@/lib/schedule-status"
 export interface CommunityHome {
   id: string
   addressOrLot: string
+  displayOrder?: number
   forecastCompletionDate: string | null
   targetCompletionDate: string | null
   subdivision: { id: string; name: string }

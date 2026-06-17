@@ -11,10 +11,12 @@ import { CommunityAccordion } from "@/components/homes/community-accordion"
 import { getScheduleStatus } from "@/lib/schedule-status"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import type { CommunityHome } from "@/components/homes/community-accordion"
+import { compareHomesByDisplayOrder } from "@/lib/homes/display-order"
 
 interface Home {
   id: string
   addressOrLot: string
+  displayOrder?: number
   startDate: string | null
   targetCompletionDate: string | null
   forecastCompletionDate: string | null
@@ -62,6 +64,7 @@ function toCommunityHome(home: Home): CommunityHome {
   return {
     id: home.id,
     addressOrLot: home.addressOrLot,
+    displayOrder: home.displayOrder,
     forecastCompletionDate: home.forecastCompletionDate,
     targetCompletionDate: home.targetCompletionDate,
     subdivision: home.subdivision ?? { id: "", name: "" },
@@ -156,6 +159,11 @@ export default function HomesPage() {
         progress: calculateProgress(home),
       }))
       const sorted = [...withStatus].sort((a, b) => {
+        const orderCmp = compareHomesByDisplayOrder(
+          { displayOrder: a.home.displayOrder, addressOrLot: a.home.addressOrLot },
+          { displayOrder: b.home.displayOrder, addressOrLot: b.home.addressOrLot }
+        )
+        if (orderCmp !== 0) return orderCmp
         if (a.status === "not_started" && b.status !== "not_started") return -1
         if (a.status !== "not_started" && b.status === "not_started") return 1
         return 0
