@@ -4,7 +4,7 @@
  * Does not touch home-level or scheduling locks.
  */
 
-import { addWorkingDays, normalizeToWorkingDay } from "@/lib/working-days"
+import { normalizeToWorkingDay, taskFinishFromDuration } from "@/lib/working-days"
 
 export type TemplateTaskInput = {
   id: string
@@ -116,7 +116,7 @@ function computeDepths(
 /**
  * Compute working-day schedule and critical path for template tasks.
  * - ForecastStart(task) = max(ForecastFinish(dep)) for deps, else projectStartDate
- * - ForecastFinish(task) = addWorkingDays(ForecastStart(task), duration_days)
+ * - ForecastFinish(task) = taskFinishFromDuration(ForecastStart(task), duration_days)
  * - projectStartDate is normalized to a working day (Mon–Fri).
  * - Critical path = longest path (by duration); backtrack from task with max EF.
  */
@@ -164,10 +164,7 @@ export function computeTemplateSchedule(
     }
 
     ES[id] = earliestStart
-    EF[id] =
-      duration === 0
-        ? earliestStart
-        : addWorkingDays(earliestStart, duration)
+    EF[id] = taskFinishFromDuration(earliestStart, duration)
   }
 
   let finishTaskId: string | null = null

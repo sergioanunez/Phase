@@ -4,6 +4,7 @@ import {
   normalizeToWorkingDay,
   addWorkingDays,
   subWorkingDays,
+  taskFinishFromDuration,
   workingDayDiff,
   diffWorkingDays,
 } from "./working-days"
@@ -65,6 +66,21 @@ describe("working days", () => {
       expect(next.getDay()).toBe(1)
       expect(next.getDate()).toBe(2)
       expect(next.getMonth()).toBe(2)
+    })
+  })
+
+  describe("taskFinishFromDuration", () => {
+    it("uses the same day for 0- and 1-day tasks", () => {
+      const mon = date(2026, 5, 22) // Mon Jun 22
+      expect(taskFinishFromDuration(mon, 0).getTime()).toBe(mon.getTime())
+      expect(taskFinishFromDuration(mon, 1).getTime()).toBe(mon.getTime())
+    })
+
+    it("spans N working days inclusive for longer tasks", () => {
+      const mon = date(2026, 6, 22) // Mon Jun 22
+      const wed = taskFinishFromDuration(mon, 3)
+      expect(wed.getDay()).toBe(3) // Wed Jun 24
+      expect(wed.getDate()).toBe(24)
     })
   })
 

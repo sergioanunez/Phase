@@ -3,10 +3,20 @@
  * and dependency logic. All duration math is in WORKING DAYS (Mon–Fri).
  */
 
-import { addWorkingDays, normalizeToWorkingDay, workingDaysBetween } from "./working-days"
+import {
+  addWorkingDays,
+  normalizeToWorkingDay,
+  taskFinishFromDuration,
+  workingDaysBetween,
+} from "./working-days"
 
 // Re-export for consumers
-export { addWorkingDays, normalizeToWorkingDay, workingDaysBetween } from "./working-days"
+export {
+  addWorkingDays,
+  normalizeToWorkingDay,
+  taskFinishFromDuration,
+  workingDaysBetween,
+} from "./working-days"
 
 export type TaskStatusForForecast = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE"
 
@@ -95,7 +105,7 @@ const COMPLETE: TaskStatusForForecast = "COMPLETE"
  * Compute home forecast using CPM with real execution (completedAt) and dependencies.
  * - COMPLETE tasks with completedAt use that as actual finish; missing completedAt uses scheduledEndDate ?? fallbackDate and adds a warning.
  * - EarliestStart(T) = max(EarliestFinish(dep)) for deps, or homeStart if no deps.
- * - EarliestFinish(T): if COMPLETE use actualFinish; else start = max(EarliestFinish(deps), scheduledStartDate ?? homeStart), finish = addWorkingDays(start, durationDays).
+ * - EarliestFinish(T): if COMPLETE use actualFinish; else start = max(EarliestFinish(deps), scheduledStartDate ?? homeStart), finish = taskFinishFromDuration(start, durationDays).
  * - Home forecast date = max(EarliestFinish(T)) over all tasks.
  */
 export function computeHomeForecast(
@@ -161,7 +171,7 @@ export function computeHomeForecast(
     const scheduledStart = task.scheduledStartDate ? startOfDay(new Date(task.scheduledStartDate)) : null
     const start = scheduledStart && scheduledStart > earliestStart ? scheduledStart : earliestStart
     ES[id] = start
-    EF[id] = duration === 0 ? start : addWorkingDays(start, duration)
+    EF[id] = taskFinishFromDuration(start, duration)
   }
 
   let projectFinish: Date = homeStartNorm

@@ -1,8 +1,8 @@
 import {
-  addWorkingDays,
   buildTaskNodesFromPrismaTasks,
   computeHomeForecast,
   normalizeToWorkingDay,
+  taskFinishFromDuration,
   workingDaysBetween,
 } from "@/lib/forecast"
 
@@ -213,8 +213,7 @@ export function buildSchedulePreview(params: {
 
       if (hasExistingSchedule) {
         proposedStart = normalizeToWorkingDay(startOfDay(new Date(task.scheduledDate!)))
-        proposedFinish =
-          durationDays === 0 ? proposedStart : addWorkingDays(proposedStart, durationDays)
+        proposedFinish = taskFinishFromDuration(proposedStart, durationDays)
       } else {
         proposedStart = cpm.taskEarlyStart?.[task.id]
         proposedFinish = cpm.taskEarlyFinish?.[task.id]

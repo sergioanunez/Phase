@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { addWorkingDays, subWorkingDays, diffWorkingDays, normalizeToWorkingDay } from "@/lib/working-days"
+import { subWorkingDays, diffWorkingDays, normalizeToWorkingDay, taskFinishFromDuration } from "@/lib/working-days"
 import {
   buildTaskMap,
   computeFrontierTasks,
@@ -214,7 +214,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         }, null as Date | null)
         forecastStart[taskId] = maxFinish ?? homeStartDate
       }
-      forecastFinish[taskId] = addWorkingDays(forecastStart[taskId], duration)
+      forecastFinish[taskId] = taskFinishFromDuration(forecastStart[taskId], duration)
     }
 
     const forecastCompletionDate =

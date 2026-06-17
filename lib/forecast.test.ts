@@ -57,7 +57,7 @@ describe("applyForecastSanityFloor", () => {
       task("c", { durationDays: 10, dependencyIds: [], status: "NOT_STARTED" }),
     ]
     const cpm = computeHomeForecast(tasks, homeStart)
-    expect(workingDaysBetween(homeStart, cpm.forecastDate)).toBe(10)
+    expect(workingDaysBetween(homeStart, cpm.forecastDate)).toBe(9)
 
     const merged = applyForecastSanityFloor(cpm, {
       homeStart,
@@ -227,6 +227,17 @@ describe("computeHomeForecast", () => {
     expect(result.criticalPathTaskIds).toContain("a")
     expect(result.criticalPathTaskIds).toContain("b")
     expect(result.criticalPathTaskIds).not.toContain("c")
+  })
+
+  it("duration 1 gives finish = start (same day)", () => {
+    const homeStart = monday()
+    const tasks: TaskNode[] = [
+      task("a", { durationDays: 1, dependencyIds: [] }),
+    ]
+    const result = computeHomeForecast(tasks, homeStart)
+    const startDay = startOfDay(result.taskEarlyStart!["a"] ?? homeStart).getTime()
+    const finishDay = startOfDay(result.taskEarlyFinish!["a"] ?? homeStart).getTime()
+    expect(finishDay).toBe(startDay)
   })
 
   it("duration 0 gives finish = start (same day)", () => {

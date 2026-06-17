@@ -44,6 +44,15 @@ export function addWorkingDays(start: Date, workingDays: number): Date {
   return current
 }
 
+/**
+ * Inclusive finish date for a task spanning durationDays working days (Mon–Fri).
+ * Duration 0–1 finish on the start day; duration N > 1 spans N working days inclusive.
+ */
+export function taskFinishFromDuration(start: Date, durationDays: number): Date {
+  const duration = Math.max(0, durationDays)
+  return addWorkingDays(start, Math.max(0, duration - 1))
+}
+
 /** Count working days between start (exclusive) and end (inclusive) for offsets. */
 export function workingDayDiff(start: Date, end: Date): number {
   if (end <= start) return 0
