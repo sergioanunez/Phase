@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,10 @@ import { HomeActivityTimeline } from "@/components/home-activity-timeline"
 import { HomeRescheduleHistory } from "@/components/home-reschedule-history"
 import { HouseScheduleCard } from "@/components/homes/house-schedule-card"
 import { GenerateScheduleCard } from "@/components/homes/generate-schedule-card"
+import {
+  HouseDetailStickyAddress,
+  useHouseHeaderInView,
+} from "@/components/homes/house-detail-sticky-address"
 import type { TaskRescheduleReason } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
@@ -114,6 +118,8 @@ export default function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
+  const headerCardRef = useRef<HTMLDivElement>(null)
+  const headerInView = useHouseHeaderInView(headerCardRef)
 
   const refreshHomeData = () => {
     if (!params.id) return
@@ -611,6 +617,13 @@ export default function HomeDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
+      <HouseDetailStickyAddress
+        address={home.addressOrLot}
+        show={!headerInView}
+        onScrollToTop={() => {
+          headerCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }}
+      />
       <div className="app-container">
         <Button
           variant="ghost"
@@ -621,7 +634,7 @@ export default function HomeDetailPage() {
         </Button>
 
         {/* Header card */}
-        <Card className="mb-4">
+        <Card ref={headerCardRef} id="house-detail-header" className="mb-4 scroll-mt-20">
           <CardContent className="p-5">
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex-1 min-w-0">
