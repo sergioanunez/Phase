@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils"
 
 /** Matches app header (nav h-16 + brand belt h-1) and page pt-20 offset. */
 const STICKY_TOP_CLASS = "top-20"
+/** pt-20 = 5rem; IntersectionObserver rootMargin only accepts px or %. */
+const HEADER_OFFSET_PX = 80
 
 export function useHouseHeaderInView(
   headerRef: RefObject<HTMLElement | null>,
@@ -29,7 +31,7 @@ export function useHouseHeaderInView(
         },
         {
           threshold: 0,
-          rootMargin: "-5rem 0px 0px 0px",
+          rootMargin: `-${HEADER_OFFSET_PX}px 0px 0px 0px`,
         }
       )
       observer.observe(el)
