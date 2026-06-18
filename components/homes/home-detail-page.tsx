@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -117,8 +117,8 @@ export function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
-  const headerCardRef = useRef<HTMLDivElement>(null)
-  const headerInView = useHouseHeaderInView(headerCardRef, home?.id)
+  const [headerCardEl, setHeaderCardEl] = useState<HTMLDivElement | null>(null)
+  const headerInView = useHouseHeaderInView(headerCardEl, home?.id)
 
   const refreshHomeData = () => {
     if (!params.id) return
@@ -614,7 +614,7 @@ export function HomeDetailPage() {
         address={home.addressOrLot}
         show={!headerInView}
         onScrollToTop={() => {
-          headerCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+          headerCardEl?.scrollIntoView({ behavior: "smooth", block: "start" })
         }}
       />
       <div className="app-container">
@@ -627,7 +627,7 @@ export function HomeDetailPage() {
         </Button>
 
         {/* Header card */}
-        <Card ref={headerCardRef} id="house-detail-header" className="mb-4 scroll-mt-20">
+        <Card ref={setHeaderCardEl} id="house-detail-header" className="mb-4 scroll-mt-20">
           <CardContent className="p-5">
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex-1 min-w-0">

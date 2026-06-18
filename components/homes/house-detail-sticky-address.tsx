@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, type RefObject } from "react"
+import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 /** Matches app header (nav h-16 + brand belt h-1) and page pt-20 offset. */
@@ -9,51 +10,28 @@ const STICKY_TOP_CLASS = "top-20"
 const HEADER_OFFSET_PX = 80
 
 export function useHouseHeaderInView(
-  headerRef: RefObject<HTMLElement | null>,
+  element: HTMLElement | null,
   /** Re-attach when the header mounts (e.g. home id after loading). */
   observeKey?: string
 ) {
   const [headerInView, setHeaderInView] = useState(true)
 
   useEffect(() => {
-    if (!observeKey) return
+    if (!observeKey || !element) return
 
-    let observer: IntersectionObserver | null = null
-    let cancelled = false
-
-    const attach = () => {
-      const el = headerRef.current
-      if (!el || cancelled) return false
-
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          setHeaderInView(entry?.isIntersecting ?? true)
-        },
-        {
-          threshold: 0,
-          rootMargin: `-${HEADER_OFFSET_PX}px 0px 0px 0px`,
-        }
-      )
-      observer.observe(el)
-      return true
-    }
-
-    if (!attach()) {
-      const frame = requestAnimationFrame(() => {
-        attach()
-      })
-      return () => {
-        cancelled = true
-        cancelAnimationFrame(frame)
-        observer?.disconnect()
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderInView(entry?.isIntersecting ?? true)
+      },
+      {
+        threshold: 0,
+        rootMargin: `-${HEADER_OFFSET_PX}px 0px 0px 0px`,
       }
-    }
+    )
 
-    return () => {
-      cancelled = true
-      observer?.disconnect()
-    }
-  }, [headerRef, observeKey])
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [element, observeKey])
 
   return headerInView
 }
@@ -67,7 +45,15 @@ export function HouseDetailStickyAddress({
   show: boolean
   onScrollToTop: () => void
 }) {
-  return (
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
+  return createPortal(
     <div
       className={cn(
         "fixed left-0 right-0 z-[35] border-b border-border/80 bg-white/95 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out",
@@ -91,6 +77,7 @@ export function HouseDetailStickyAddress({
           <span className="truncate text-base font-semibold text-foreground">{address}</span>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
