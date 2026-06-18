@@ -6,23 +6,52 @@ import { cn } from "@/lib/utils"
 /** Matches app header (nav h-16 + brand belt h-1) and page pt-20 offset. */
 const STICKY_TOP_CLASS = "top-20"
 
-export function useHouseHeaderInView(headerRef: RefObject<HTMLElement | null>) {
+export function useHouseHeaderInView(
+  headerRef: RefObject<HTMLElement | null>,
+  /** Re-attach when the header mounts (e.g. home id after loading). */
+  observeKey?: string
+) {
   const [headerInView, setHeaderInView] = useState(true)
 
   useEffect(() => {
-    const el = headerRef.current
-    if (!el) return
+    if (!observeKey) return
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHeaderInView(entry?.isIntersecting ?? true)
-      },
-      { threshold: 0 }
-    )
+    let observer: IntersectionObserver | null = null
+    let cancelled = false
 
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [headerRef])
+    const attach = () => {
+      const el = headerRef.current
+      if (!el || cancelled) return false
+
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          setHeaderInView(entry?.isIntersecting ?? true)
+        },
+        {
+          threshold: 0,
+          rootMargin: "-5rem 0px 0px 0px",
+        }
+      )
+      observer.observe(el)
+      return true
+    }
+
+    if (!attach()) {
+      const frame = requestAnimationFrame(() => {
+        attach()
+      })
+      return () => {
+        cancelled = true
+        cancelAnimationFrame(frame)
+        observer?.disconnect()
+      }
+    }
+
+    return () => {
+      cancelled = true
+      observer?.disconnect()
+    }
+  }, [headerRef, observeKey])
 
   return headerInView
 }
@@ -39,7 +68,7 @@ export function HouseDetailStickyAddress({
   return (
     <div
       className={cn(
-        "fixed left-0 right-0 z-30 border-b border-border/80 bg-white/95 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out",
+        "fixed left-0 right-0 z-[35] border-b border-border/80 bg-white/95 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out",
         STICKY_TOP_CLASS,
         show
           ? "pointer-events-auto translate-y-0 opacity-100"

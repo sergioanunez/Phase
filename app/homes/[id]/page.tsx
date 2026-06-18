@@ -119,7 +119,7 @@ export default function HomeDetailPage() {
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
   const headerCardRef = useRef<HTMLDivElement>(null)
-  const headerInView = useHouseHeaderInView(headerCardRef)
+  const headerInView = useHouseHeaderInView(headerCardRef, home?.id)
 
   const refreshHomeData = () => {
     if (!params.id) return
