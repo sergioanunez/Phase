@@ -88,8 +88,12 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
   }, [task])
 
   const handleCancelSchedule = async () => {
-    const willSendSMS = currentTask.status === "Confirmed" && currentTask.contractor
-    const confirmMessage = willSendSMS
+    const mayNotifyContractor =
+      !!currentTask.contractor &&
+      (currentTask.status === "Confirmed" ||
+        currentTask.status === "PendingConfirm" ||
+        currentTask.status === "Scheduled")
+    const confirmMessage = mayNotifyContractor
       ? "Cancel schedule? This will remove the scheduled date and contractor assignment, and send a cancellation SMS to the contractor."
       : "Cancel schedule? This will remove the scheduled date and contractor assignment."
     
@@ -111,7 +115,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         setScheduledDate("")
         setContractorId("")
         onUpdate()
-        if (willSendSMS) {
+        if (mayNotifyContractor) {
           alert("Schedule cancelled and cancellation SMS sent to contractor.")
         }
       } else {
@@ -485,7 +489,9 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
           {/* Schedule actions: only when task has a date */}
           {currentTask.scheduledDate && (currentTask.status === "Scheduled" || currentTask.status === "Confirmed" || currentTask.status === "PendingConfirm") && (
             <div className="flex flex-wrap gap-2">
-              {(currentTask.status === "Scheduled" || currentTask.status === "Confirmed") && (
+              {(currentTask.status === "Scheduled" ||
+                currentTask.status === "Confirmed" ||
+                currentTask.status === "PendingConfirm") && (
                 <>
                   <Button
                     onClick={handleCancelSchedule}
@@ -497,7 +503,8 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
                   >
                     <CalendarX className="h-4 w-4" />
                   </Button>
-                  {scheduledDate &&
+                  {(currentTask.status === "Scheduled" || currentTask.status === "Confirmed") &&
+                    scheduledDate &&
                     scheduledDate !== (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "") && (
                     <Button
                       onClick={() => setRescheduleDialogOpen(true)}
