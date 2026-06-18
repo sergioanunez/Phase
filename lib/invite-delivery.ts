@@ -40,17 +40,18 @@ export function fromPrismaDeliveryMethod(method: InviteDeliveryMethod): InviteDe
   }
 }
 
-const inviteContactFieldsSchema = z
-  .object({
-    name: z.string().min(1),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    inviteDeliveryMethod: inviteDeliveryMethodInputSchema.default("email"),
-  })
-  .superRefine((data, ctx) => {
-    const method = data.inviteDeliveryMethod
-    const email = data.email?.trim() ?? ""
-    const phone = data.phone?.trim() ?? ""
+const inviteContactFieldsBaseSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  inviteDeliveryMethod: inviteDeliveryMethodInputSchema.default("email"),
+})
+
+function refineInviteContactFields<T extends z.ZodTypeAny>(schema: T) {
+  return schema.superRefine((data, ctx) => {
+    const method = data.inviteDeliveryMethod as InviteDeliveryMethodInput
+    const email = (data.email as string | undefined)?.trim() ?? ""
+    const phone = (data.phone as string | undefined)?.trim() ?? ""
 
     if ((method === "email" || method === "both") && !email) {
       ctx.addIssue({
@@ -81,16 +82,21 @@ const inviteContactFieldsSchema = z
       })
     }
   })
+}
 
-export const staffInviteSchema = inviteContactFieldsSchema.extend({
-  role: z.enum(["Admin", "Superintendent", "Manager"]),
-})
+export const staffInviteSchema = refineInviteContactFields(
+  inviteContactFieldsBaseSchema.extend({
+    role: z.enum(["Admin", "Superintendent", "Manager"]),
+  })
+)
 
-export const subcontractorInviteSchema = inviteContactFieldsSchema.extend({
-  contractorId: z.string().min(1),
-})
+export const subcontractorInviteSchema = refineInviteContactFields(
+  inviteContactFieldsBaseSchema.extend({
+    contractorId: z.string().min(1),
+  })
+)
 
-export const vendorContactInviteSchema = inviteContactFieldsSchema
+export const vendorContactInviteSchema = refineInviteContactFields(inviteContactFieldsBaseSchema)
 
 export type ParsedInviteInput = {
   name: string
@@ -101,7 +107,7 @@ export type ParsedInviteInput = {
 
 export function parseStaffInviteInput(body: unknown): ParsedInviteInput & { role: "Admin" | "Superintendent" | "Manager" } {
   const data = staffInviteSchema.parse(body)
-  return normalizeInviteInput(data)
+  return { ...normalizeInviteInput(data), role: data.role }
 }
 
 export function parseSubcontractorInviteInput(
