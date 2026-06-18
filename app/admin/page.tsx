@@ -15,6 +15,7 @@ import { ImportTemplatesDialog } from "@/components/import-templates-dialog"
 import { ImportContractorsDialog } from "@/components/import-contractors-dialog"
 import { CreateContractorDialog } from "@/components/create-contractor-dialog"
 import { CreateUserDialog } from "@/components/create-user-dialog"
+import { InviteDeliveryFields } from "@/components/invites/invite-delivery-fields"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
@@ -194,6 +195,9 @@ export default function AdminPage() {
   const [inviteContactOpen, setInviteContactOpen] = useState(false)
   const [inviteContactName, setInviteContactName] = useState("")
   const [inviteContactEmail, setInviteContactEmail] = useState("")
+  const [inviteContactPhone, setInviteContactPhone] = useState("")
+  const [inviteContactDeliveryMethod, setInviteContactDeliveryMethod] =
+    useState<"email" | "sms" | "both">("sms")
   const [inviteContactLoading, setInviteContactLoading] = useState(false)
   const [inviteContactError, setInviteContactError] = useState("")
   const [subSearchOpen, setSubSearchOpen] = useState(false)
@@ -1619,7 +1623,9 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: inviteContactName.trim(),
-          email: inviteContactEmail.trim().toLowerCase(),
+          email: inviteContactEmail.trim() || undefined,
+          phone: inviteContactPhone.trim() || undefined,
+          inviteDeliveryMethod: inviteContactDeliveryMethod,
         }),
       })
       const data = await res.json()
@@ -3738,6 +3744,8 @@ export default function AdminPage() {
                   setInviteContactVendorId(null)
                   setInviteContactName("")
                   setInviteContactEmail("")
+                  setInviteContactPhone("")
+                  setInviteContactDeliveryMethod("sms")
                   setInviteContactError("")
                 }
               }}
@@ -3748,12 +3756,12 @@ export default function AdminPage() {
                   <p className="text-sm text-muted-foreground">
                     {inviteContactVendorId && contractors.find((c) => c.id === inviteContactVendorId)?.companyName
                       ? `Send an invite to a contact for ${contractors.find((c) => c.id === inviteContactVendorId)?.companyName}. They will set their password and opt in to SMS.`
-                      : "Send an invite email. The contact will set their password and opt in to SMS."}
+                      : "Send an invite by email, SMS, or both. The contact will set their password and opt in to SMS."}
                   </p>
                 </DialogHeader>
                 <form onSubmit={handleInviteContactSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Name</label>
+                    <label className="block text-sm font-medium mb-1">Name *</label>
                     <input
                       type="text"
                       value={inviteContactName}
@@ -3763,17 +3771,15 @@ export default function AdminPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={inviteContactEmail}
-                      onChange={(e) => setInviteContactEmail(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md"
-                      placeholder="email@example.com"
-                      required
-                    />
-                  </div>
+                  <InviteDeliveryFields
+                    email={inviteContactEmail}
+                    phone={inviteContactPhone}
+                    inviteDeliveryMethod={inviteContactDeliveryMethod}
+                    onEmailChange={setInviteContactEmail}
+                    onPhoneChange={setInviteContactPhone}
+                    onDeliveryMethodChange={setInviteContactDeliveryMethod}
+                    isContactRole
+                  />
                   {inviteContactError && (
                     <p className="text-sm text-destructive">{inviteContactError}</p>
                   )}

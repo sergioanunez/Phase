@@ -192,6 +192,12 @@ enum InviteEmailLogStatus {
   FAILED
 }
 
+enum InviteDeliveryMethod {
+  EMAIL
+  SMS
+  BOTH
+}
+
 model Company {
   id                   String       @id @default(cuid())
   name                 String
@@ -387,23 +393,28 @@ model CompanyMembership {
 }
 
 model UserInvite {
-  id                String    @id @default(cuid())
-  companyId         String?
-  company           Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User      @relation("UserInvites", fields: [userId], references: [id], onDelete: Cascade)
-  email             String
-  tokenHash         String
-  expiresAt         DateTime
-  usedAt            DateTime?
-  createdAt         DateTime  @default(now())
-  createdByUserId  String
-  createdBy         User      @relation("InvitesCreatedBy", fields: [createdByUserId], references: [id])
-  resendCount       Int       @default(0)
+  id                   String                @id @default(cuid())
+  companyId            String?
+  company              Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User                  @relation("UserInvites", fields: [userId], references: [id], onDelete: Cascade)
+  email                String
+  phoneE164            String?
+  inviteDeliveryMethod InviteDeliveryMethod  @default(EMAIL)
+  tokenHash            String
+  expiresAt            DateTime
+  usedAt               DateTime?
+  emailSentAt          DateTime?
+  smsSentAt            DateTime?
+  createdAt            DateTime              @default(now())
+  createdByUserId      String
+  createdBy            User                  @relation("InvitesCreatedBy", fields: [createdByUserId], references: [id])
+  resendCount          Int                   @default(0)
 
   @@index([companyId])
   @@index([userId])
   @@index([email])
+  @@index([phoneE164])
   @@index([tokenHash])
 }
 

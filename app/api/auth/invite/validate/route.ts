@@ -28,7 +28,14 @@ export async function GET(request: NextRequest) {
       where: { tokenHash },
       include: {
         user: {
-          select: { id: true, name: true, email: true, role: true, contractorId: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            contractorId: true,
+            phoneE164: true,
+          },
         },
       },
     })
@@ -37,12 +44,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ valid: false }, { status: 200 })
     }
 
+    const { isSyntheticInviteEmail } = await import("@/lib/invite-email")
+    const synthetic = isSyntheticInviteEmail(invite.user.email)
+
     return NextResponse.json({
       valid: true,
-      email: invite.user.email,
+      email: synthetic ? undefined : invite.user.email,
       name: invite.user.name,
       role: invite.user.role,
       contractorId: invite.user.contractorId ?? undefined,
+      phoneE164: invite.phoneE164 ?? invite.user.phoneE164 ?? undefined,
+      requiresRealEmail: synthetic,
     })
   } catch {
     return NextResponse.json({ valid: false }, { status: 200 })

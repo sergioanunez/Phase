@@ -59,6 +59,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "contractors:read",
     "sms:send",
     "dashboard:view",
+    "users:write",
   ],
   Subcontractor: [
     "my-week:view",

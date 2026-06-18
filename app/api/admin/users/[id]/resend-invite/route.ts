@@ -12,20 +12,21 @@ export async function POST(
 ) {
   try {
     if (isBuildTime) return buildGuardResponse()
+    const userId = params.id
     const { prisma } = await import("@/lib/prisma")
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const { handleApiError } = await import("@/lib/api-response")
     const {
       generateInviteToken,
       hashInviteToken,
       getInviteExpiresAt,
       buildInviteLink,
-      sendInviteEmailWithIdempotency,
-    } = await import("@/lib/invite")
+      deliverInviteNotifications,
+      fromPrismaDeliveryMethod,
+    } = await import("@/lib/invite-delivery")
+    const { isSyntheticInviteEmail } = await import("@/lib/invite-email")
 
     const ctx = await requireTenantPermission("users:write")
-    const userId = params.id
 
     const user = await prisma.user.findFirst({
       where: { id: userId, companyId: ctx.companyId },
@@ -44,10 +45,7 @@ export async function POST(
       )
     }
     if (user.status !== "INVITED") {
-      return NextResponse.json(
-        { error: "User is not in INVITED status" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "User is not in INVITED status" }, { status: 400 })
     }
 
     const latestInvite = await prisma.userInvite.findFirst({
@@ -55,21 +53,17 @@ export async function POST(
       orderBy: { createdAt: "desc" },
     })
     if (!latestInvite) {
-      return NextResponse.json(
-        { error: "No invite found for this user" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "No invite found for this user" }, { status: 400 })
     }
     if (latestInvite.usedAt) {
-      return NextResponse.json(
-        { error: "Invite has already been used" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Invite has already been used" }, { status: 400 })
     }
 
     const token = generateInviteToken()
     const tokenHash = hashInviteToken(token)
     const expiresAt = getInviteExpiresAt()
+    const deliveryMethod = fromPrismaDeliveryMethod(latestInvite.inviteDeliveryMethod)
+    const phoneE164 = latestInvite.phoneE164 ?? user.phoneE164
 
     await prisma.userInvite.update({
       where: { id: latestInvite.id },
@@ -81,63 +75,80 @@ export async function POST(
     })
 
     const { getBaseUrl, ensureAbsoluteInviteUrl } = await import("@/lib/url")
-    const inviteLink = buildInviteLink(getBaseUrl(), token)
-    const sanitizedInviteLink = ensureAbsoluteInviteUrl(inviteLink)
-    // Unique key per resend so we don't violate InviteEmailLog.idempotencyKey unique constraint (initial invite uses invite:companyId:userId)
-    const idempotencyKey = `invite:resend:${ctx.companyId ?? ""}:${userId}:${latestInvite.id}:${Date.now()}`
+    const inviteLink = ensureAbsoluteInviteUrl(buildInviteLink(getBaseUrl(), token))
 
-    const emailResult = await sendInviteEmailWithIdempotency(prisma, {
-      idempotencyKey,
+    const delivery = await deliverInviteNotifications({
+      prisma,
       companyId: ctx.companyId,
       userId: user.id,
-      email: user.email,
-      to: user.email,
+      userInviteId: latestInvite.id,
       name: user.name,
-      inviteLink: sanitizedInviteLink,
+      email: user.email,
+      phoneE164,
+      roleLabel: user.role === "Subcontractor" ? "Contact" : user.role,
+      inviteLink,
       expiresAt,
       invitingCompanyName: ctx.companyName,
+      deliveryMethod,
+      idempotencyKeyBase: `invite:resend:${ctx.companyId ?? ""}:${userId}:${latestInvite.id}:${Date.now()}`,
     })
 
-    await createAuditLog(ctx.userId, "UserInvite", latestInvite.id, "INVITE_RESENT", null, {
-      userId: user.id,
-      email: user.email,
-      resendCount: latestInvite.resendCount + 1,
-      emailOk: emailResult.ok,
-      emailError: emailResult.error,
-      skipped: emailResult.skipped,
-    }, ctx.companyId)
+    await createAuditLog(
+      ctx.userId,
+      "UserInvite",
+      latestInvite.id,
+      "INVITE_RESENT",
+      null,
+      {
+        userId: user.id,
+        email: user.email,
+        phoneE164,
+        inviteDeliveryMethod: deliveryMethod,
+        resendCount: latestInvite.resendCount + 1,
+        emailOk: delivery.emailOk,
+        smsOk: delivery.smsOk,
+        emailError: delivery.emailError,
+        smsError: delivery.smsError,
+        emailSkipped: delivery.emailSkipped,
+      },
+      ctx.companyId
+    )
 
-    if (emailResult.rateLimit) {
-      return NextResponse.json(
-        { error: emailResult.error ?? "Resend rate limit reached" },
-        { status: 429 }
-      )
+    if (delivery.emailError && delivery.emailOk === false && delivery.emailError.includes("rate limit")) {
+      return NextResponse.json({ error: delivery.emailError }, { status: 429 })
     }
 
-    if (emailResult.skipped) {
-      return NextResponse.json({ message: emailResult.message ?? "Invite already sent recently." })
+    if (delivery.emailSkipped && delivery.smsOk !== false) {
+      return NextResponse.json({ message: "Invite already sent recently." })
     }
 
-    if (!emailResult.ok) {
-      return NextResponse.json(
-        {
-          message: "Invite link rotated but email failed to send.",
-          error: emailResult.error,
-          manualLink: sanitizedInviteLink,
-        },
-        { status: 200 }
-      )
+    if (delivery.warning) {
+      return NextResponse.json({
+        message: delivery.warning,
+        manualLink: inviteLink,
+      })
     }
+
+    const parts: string[] = []
+    if (deliveryMethod === "email" || deliveryMethod === "both") {
+      if (!isSyntheticInviteEmail(user.email)) parts.push("email")
+    }
+    if (deliveryMethod === "sms" || deliveryMethod === "both") parts.push("SMS")
 
     return NextResponse.json({
-      message: "Invite email sent.",
+      message:
+        parts.length === 2
+          ? "Invite email and text message sent."
+          : parts[0] === "SMS"
+            ? "Invite text message sent."
+            : "Invite email sent.",
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isBuildTime) return buildGuardResponse()
     try {
       const { handleApiError } = await import("@/lib/api-response")
       return handleApiError(error)
-    } catch (_) {
+    } catch {
       return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
   }

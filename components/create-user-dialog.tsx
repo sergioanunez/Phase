@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import {
   Dialog,
@@ -11,6 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import type { InviteDeliveryMethodInput } from "@/lib/invite-delivery"
+import {
+  InviteDeliveryFields,
+  defaultInviteDeliveryForRole,
+} from "@/components/invites/invite-delivery-fields"
 
 type UserRole = "Admin" | "Superintendent" | "Manager" | "Subcontractor"
 
@@ -32,7 +37,9 @@ export function CreateUserDialog({
 }: CreateUserDialogProps) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [phone, setPhone] = useState("")
+  const [inviteDeliveryMethod, setInviteDeliveryMethod] =
+    useState<InviteDeliveryMethodInput>("email")
   const [role, setRole] = useState<UserRole>("Superintendent")
   const [contractorId, setContractorId] = useState("")
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -49,11 +56,33 @@ export function CreateUserDialog({
     }
   }, [open])
 
+  useEffect(() => {
+    setInviteDeliveryMethod(defaultInviteDeliveryForRole(role, ""))
+  }, [role])
+
+  const resetForm = () => {
+    setName("")
+    setEmail("")
+    setPhone("")
+    setInviteDeliveryMethod("email")
+    setRole("Superintendent")
+    setContractorId("")
+    setError("")
+    setUpgradeHint(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setUpgradeHint(null)
     setLoading(true)
+
+    const payload = {
+      name: name.trim(),
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      inviteDeliveryMethod,
+    }
 
     try {
       if (role === "Subcontractor" && !contractorId) {
@@ -62,60 +91,22 @@ export function CreateUserDialog({
         return
       }
 
-      if (role === "Subcontractor") {
-        const res = await fetch("/api/admin/users/subcontractor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            email: email.trim().toLowerCase(),
-            contractorId: contractorId.trim(),
-          }),
-        })
-        let data: { error?: string; warning?: string; upgradeHint?: string } = {}
-        try {
-          const contentType = res.headers.get("content-type")
-          if (contentType?.includes("application/json")) {
-            data = await res.json()
-          }
-        } catch {
-          // Server returned non-JSON (e.g. HTML error page)
-        }
-        if (!res.ok) {
-          setUpgradeHint(data.upgradeHint ?? null)
-          const msg =
-            typeof data.error === "string"
-              ? data.error
-              : res.status >= 500
-                ? "Server error. Please try again."
-                : "Failed to invite subcontractor"
-          throw new Error(msg)
-        }
-        if (data.warning) {
-          setError(data.warning)
-          setLoading(false)
-          return
-        }
-        setName("")
-        setEmail("")
-        setPassword("")
-        setRole("Superintendent")
-        setContractorId("")
-        onSuccess()
-        onOpenChange(false)
-        return
-      }
+      const endpoint =
+        role === "Subcontractor"
+          ? "/api/admin/users/subcontractor"
+          : "/api/admin/users/invite"
 
-      // Superintendent, Manager, Admin: invite flow (email to set password)
-      const res = await fetch("/api/admin/users/invite", {
+      const body =
+        role === "Subcontractor"
+          ? { ...payload, contractorId: contractorId.trim() }
+          : { ...payload, role }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          role,
-        }),
+        body: JSON.stringify(body),
       })
+
       let data: { error?: string; warning?: string; upgradeHint?: string } = {}
       try {
         const contentType = res.headers.get("content-type")
@@ -125,6 +116,7 @@ export function CreateUserDialog({
       } catch {
         // Server returned non-JSON
       }
+
       if (!res.ok) {
         setUpgradeHint(data.upgradeHint ?? null)
         const msg =
@@ -135,16 +127,14 @@ export function CreateUserDialog({
               : "Failed to send invite"
         throw new Error(msg)
       }
+
       if (data.warning) {
         setError(data.warning)
         setLoading(false)
         return
       }
-      setName("")
-      setEmail("")
-      setPassword("")
-      setRole("Superintendent")
-      setContractorId("")
+
+      resetForm()
       onSuccess()
       onOpenChange(false)
     } catch (err: unknown) {
@@ -155,12 +145,19 @@ export function CreateUserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next)
+        if (!next) resetForm()
+      }}
+    >
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create User</DialogTitle>
+          <DialogTitle>Invite User</DialogTitle>
           <DialogDescription>
-            Add a new user (Superintendent, Manager, Admin, or Contact). Contacts are people linked to a vendor who receive SMS. Prefer inviting contacts from the Vendors tab.
+            Invite a new user by email, SMS, or both. Contacts are people linked to a vendor who
+            receive scheduling texts after they accept and opt in.
           </DialogDescription>
         </DialogHeader>
 
@@ -178,17 +175,15 @@ export function CreateUserDialog({
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Email *</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3 py-2 border rounded-md"
-                placeholder="e.g., jane@company.com"
-              />
-            </div>
+            <InviteDeliveryFields
+              email={email}
+              phone={phone}
+              inviteDeliveryMethod={inviteDeliveryMethod}
+              onEmailChange={setEmail}
+              onPhoneChange={setPhone}
+              onDeliveryMethodChange={setInviteDeliveryMethod}
+              isContactRole={role === "Subcontractor"}
+            />
 
             <div>
               <label className="block text-sm font-medium mb-1">Role *</label>
@@ -209,9 +204,7 @@ export function CreateUserDialog({
 
             {role === "Subcontractor" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Vendor (company) *
-                </label>
+                <label className="block text-sm font-medium mb-1">Vendor (company) *</label>
                 <select
                   value={contractorId}
                   onChange={(e) => setContractorId(e.target.value)}
@@ -238,7 +231,11 @@ export function CreateUserDialog({
                 {error}
                 {upgradeHint && (
                   <span className="block mt-1">
-                    <Link href={upgradeHint} className="underline text-primary" onClick={() => onOpenChange(false)}>
+                    <Link
+                      href={upgradeHint}
+                      className="underline text-primary"
+                      onClick={() => onOpenChange(false)}
+                    >
                       Go to Billing
                     </Link>
                   </span>
@@ -248,11 +245,7 @@ export function CreateUserDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

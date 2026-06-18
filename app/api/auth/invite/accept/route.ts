@@ -14,6 +14,7 @@ const baseAcceptSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional(),
   smsConsent: z.boolean().optional(),
+  email: z.string().email().optional(),
 })
 
 const SMS_CONSENT_VERSION = "2026-02-26_v1"
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
     }
 
     const isSubcontractor = invite.user.role === "Subcontractor"
+    const { isSyntheticInviteEmail } = await import("@/lib/invite-email")
+    const needsRealEmail = isSyntheticInviteEmail(invite.user.email)
 
     if (isSubcontractor) {
       if (!data.phone || typeof data.smsConsent !== "boolean") {
@@ -77,12 +80,29 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+      if (needsRealEmail && !data.email?.trim()) {
+        return NextResponse.json(
+          { error: "Email address is required to finish setting up your account." },
+          { status: 400 }
+        )
+      }
       const phoneE164 = parseAndNormalizePhone(data.phone)
       if (!phoneE164) {
         return NextResponse.json(
           { error: "Please enter a valid mobile phone number." },
           { status: 400 }
         )
+      }
+
+      const realEmail = needsRealEmail ? data.email!.trim().toLowerCase() : invite.user.email
+      if (needsRealEmail) {
+        const emailTaken = await prisma.user.findUnique({ where: { email: realEmail } })
+        if (emailTaken && emailTaken.id !== invite.userId) {
+          return NextResponse.json(
+            { error: "That email address is already in use." },
+            { status: 400 }
+          )
+        }
       }
 
       const passwordHash = await bcrypt.hash(data.password, 10)
@@ -93,6 +113,7 @@ export async function POST(request: NextRequest) {
           data: {
             passwordHash,
             status: "ACTIVE",
+            email: realEmail,
             phoneE164,
             smsConsent: true,
             smsConsentTimestamp: now,
@@ -105,12 +126,11 @@ export async function POST(request: NextRequest) {
           where: { id: invite.id },
           data: { usedAt: now },
         })
-        // SMS is sent to contact (User) phone only; vendor office phone is never used for SMS
       })
 
       await createAuditLog(invite.userId, "UserInvite", invite.id, "INVITE_ACCEPTED", null, {
         userId: invite.userId,
-        email: invite.email,
+        email: realEmail,
         phoneE164,
         smsConsent: true,
       })
@@ -119,6 +139,45 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10)
+
+    if (needsRealEmail) {
+      if (!data.email?.trim()) {
+        return NextResponse.json(
+          { error: "Email address is required to finish setting up your account." },
+          { status: 400 }
+        )
+      }
+      const realEmail = data.email.trim().toLowerCase()
+      const emailTaken = await prisma.user.findUnique({ where: { email: realEmail } })
+      if (emailTaken && emailTaken.id !== invite.userId) {
+        return NextResponse.json(
+          { error: "That email address is already in use." },
+          { status: 400 }
+        )
+      }
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: invite.userId },
+          data: {
+            passwordHash,
+            status: "ACTIVE",
+            email: realEmail,
+          },
+        }),
+        prisma.userInvite.update({
+          where: { id: invite.id },
+          data: { usedAt: now },
+        }),
+      ])
+
+      await createAuditLog(invite.userId, "UserInvite", invite.id, "INVITE_ACCEPTED", null, {
+        userId: invite.userId,
+        email: realEmail,
+      })
+
+      return NextResponse.json({ success: true })
+    }
 
     await prisma.$transaction([
       prisma.user.update({

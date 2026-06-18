@@ -7,11 +7,10 @@ export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const inviteUserSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  role: z.enum(["Admin", "Superintendent", "Manager"]),
-})
+function roleLabel(role: string): string {
+  if (role === "Subcontractor") return "Contact"
+  return role
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,12 +19,15 @@ export async function POST(request: NextRequest) {
     const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
     const {
+      parseStaffInviteInput,
       generateInviteToken,
       hashInviteToken,
       getInviteExpiresAt,
       buildInviteLink,
-      sendInviteEmailWithIdempotency,
-    } = await import("@/lib/invite")
+      deliverInviteNotifications,
+      findUserByEmailOrPhone,
+      toPrismaDeliveryMethod,
+    } = await import("@/lib/invite-delivery")
 
     const ctx = await requireTenantPermission("users:write")
     const { canCreateUser } = await import("@/lib/entitlements")
@@ -36,15 +38,24 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
-    const body = await request.json()
-    const data = inviteUserSchema.parse(body)
 
-    const existing = await prisma.user.findUnique({
-      where: { email: data.email },
+    const data = parseStaffInviteInput(await request.json())
+    if (!data.email) {
+      return NextResponse.json({ error: "Email address is required." }, { status: 400 })
+    }
+
+    const existing = await findUserByEmailOrPhone(prisma, {
+      email: data.email,
+      phoneE164: data.phoneE164,
+      companyId: ctx.companyId,
     })
     if (existing) {
       return NextResponse.json(
-        { error: "A user with this email already exists" },
+        {
+          error: existing.email === data.email
+            ? "A user with this email already exists"
+            : "A user with this mobile phone number already exists",
+        },
         { status: 400 }
       )
     }
@@ -63,6 +74,7 @@ export async function POST(request: NextRequest) {
         status: "INVITED",
         contractorId: null,
         isActive: true,
+        ...(data.phoneE164 ? { phoneE164: data.phoneE164 } : {}),
       },
     })
 
@@ -71,6 +83,8 @@ export async function POST(request: NextRequest) {
         companyId: ctx.companyId,
         userId: newUser.id,
         email: data.email,
+        phoneE164: data.phoneE164,
+        inviteDeliveryMethod: toPrismaDeliveryMethod(data.inviteDeliveryMethod),
         tokenHash,
         expiresAt,
         createdByUserId: ctx.userId,
@@ -79,82 +93,71 @@ export async function POST(request: NextRequest) {
 
     const { getBaseUrl, ensureAbsoluteInviteUrl } = await import("@/lib/url")
     const inviteLink = ensureAbsoluteInviteUrl(buildInviteLink(getBaseUrl(), token))
-    const idempotencyKey = `invite:${ctx.companyId ?? ""}:${newUser.id}`
 
-    const emailResult = await sendInviteEmailWithIdempotency(prisma, {
-      idempotencyKey,
+    const delivery = await deliverInviteNotifications({
+      prisma,
       companyId: ctx.companyId,
       userId: newUser.id,
-      email: data.email,
-      to: data.email,
+      userInviteId: userInvite.id,
       name: data.name,
+      email: data.email,
+      phoneE164: data.phoneE164,
+      roleLabel: roleLabel(data.role),
       inviteLink,
       expiresAt,
       invitingCompanyName: ctx.companyName,
+      deliveryMethod: data.inviteDeliveryMethod,
+      idempotencyKeyBase: `invite:${ctx.companyId ?? ""}:${newUser.id}`,
     })
 
-    if (emailResult.rateLimit) {
-      await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
-        userId: newUser.id,
-        email: data.email,
-        emailError: emailResult.error,
-      }, ctx.companyId)
-      return NextResponse.json(
-        { error: emailResult.error ?? "Resend rate limit reached" },
-        { status: 429 }
-      )
+    if (delivery.emailError && delivery.emailOk === false && delivery.emailError.includes("rate limit")) {
+      return NextResponse.json({ error: delivery.emailError }, { status: 429 })
     }
 
-    if (!emailResult.ok) {
-      await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
+    await createAuditLog(
+      ctx.userId,
+      "UserInvite",
+      userInvite.id,
+      "INVITE_SENT",
+      null,
+      {
         userId: newUser.id,
         email: data.email,
-        emailError: emailResult.error,
-      }, ctx.companyId)
-      return NextResponse.json(
-        {
-          user: {
-            id: newUser.id,
-            name: newUser.name,
-            email: newUser.email,
-            role: newUser.role,
-            status: newUser.status,
-          },
-          warning: `User created but email failed: ${emailResult.error}. Share this link manually: ${inviteLink}`,
-        },
-        { status: 201 }
-      )
-    }
-
-    await createAuditLog(ctx.userId, "UserInvite", userInvite.id, "INVITE_SENT", null, {
-      userId: newUser.id,
-      email: data.email,
-    }, ctx.companyId)
+        phoneE164: data.phoneE164,
+        inviteDeliveryMethod: data.inviteDeliveryMethod,
+        emailOk: delivery.emailOk,
+        smsOk: delivery.smsOk,
+        emailError: delivery.emailError,
+        smsError: delivery.smsError,
+      },
+      ctx.companyId
+    )
 
     const { passwordHash: _, ...safeUser } = newUser
+    if (delivery.warning) {
+      return NextResponse.json({ user: safeUser, warning: delivery.warning }, { status: 201 })
+    }
     return NextResponse.json(safeUser, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.errors.map((e) => e.message).join(", ") },
         { status: 400 }
       )
     }
-    if (error?.code === "P2002") {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 400 }
-      )
+    const err = error as { code?: string; message?: string }
+    if (err?.code === "P2002") {
+      return NextResponse.json({ error: "Email or phone already exists" }, { status: 400 })
     }
-    if (error?.message === "Unauthorized" || error?.message === "Forbidden") {
+    if (err?.message === "Unauthorized" || err?.message === "Forbidden") {
       return NextResponse.json(
-        { error: error.message },
-        { status: error.message === "Unauthorized" ? 401 : 403 }
+        { error: err.message },
+        { status: err.message === "Unauthorized" ? 401 : 403 }
       )
     }
     console.error("User invite error:", error)
     return NextResponse.json(
-      { error: error?.message || "Failed to send invite" },
+      { error: err?.message || "Failed to send invite" },
       { status: 500 }
     )
   }

@@ -639,6 +639,90 @@ export async function sendPunchListSMS(
   }
 }
 
+/** Invite SMS for new user onboarding (same secure link as email invite). */
+export function buildInviteSmsBody(params: {
+  builderName: string
+  role?: string
+  inviteLink: string
+}): string {
+  const { builderName, role, inviteLink } = params
+  const short = `${builderName} invited you to Phase. Create your account: ${inviteLink}`
+  if (!role?.trim()) return short
+  const withRole = `${builderName} invited you to Phase.\n\nRole: ${role}\n\nCreate your account:\n${inviteLink}`
+  return withRole.length <= 320 ? withRole : short
+}
+
+export type SendInviteSmsResult = {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Sends a user invite SMS via Twilio. Logs to SmsMessage; does not throw.
+ */
+export async function sendInviteSMS(params: {
+  toPhoneE164: string
+  body: string
+  companyId: string | null
+  recipientName?: string
+}): Promise<SendInviteSmsResult> {
+  const sid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim()
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const fromNum = process.env.TWILIO_PHONE_NUMBER?.trim()
+  if (!sid || !token || !fromNum) {
+    console.error("[invite SMS] Twilio not configured")
+    return { ok: false, error: "SMS is not configured on this server." }
+  }
+
+  try {
+    const twilioMessage = await getClient().messages.create({
+      body: params.body,
+      from: fromNum,
+      to: params.toPhoneE164,
+    })
+
+    try {
+      await prisma.smsMessage.create({
+        data: {
+          companyId: params.companyId,
+          direction: "Outbound",
+          to: params.toPhoneE164,
+          from: fromNum,
+          body: params.body,
+          status: "Sent",
+          messageType: "general",
+          recipientName: params.recipientName?.trim() || null,
+        },
+      })
+    } catch (logErr) {
+      console.error("[invite SMS] failed to persist outbound row", logErr)
+    }
+
+    console.info("[invite SMS] sent", { to: params.toPhoneE164, sid: twilioMessage.sid })
+    return { ok: true }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to send SMS"
+    console.error("[invite SMS] Twilio send failed", err)
+    try {
+      await prisma.smsMessage.create({
+        data: {
+          companyId: params.companyId,
+          direction: "Outbound",
+          to: params.toPhoneE164,
+          from: fromNum,
+          body: params.body,
+          status: "Failed",
+          messageType: "general",
+          recipientName: params.recipientName?.trim() || null,
+        },
+      })
+    } catch (logErr) {
+      console.error("[invite SMS] failed to persist failed row", logErr)
+    }
+    return { ok: false, error: message }
+  }
+}
+
 /** First name for SMS greeting; null if unusable (fallback body used). */
 export function extractFirstNameForFoundersSms(fullName: string): string | null {
   const trimmed = fullName.trim()

@@ -14,12 +14,17 @@ export type AcceptInviteFormValues = {
   phone: string
   smsConsent: boolean
   termsAccepted: boolean
+  accountEmail?: string
 }
 
 export type AcceptInviteFormProps = {
   mode: "real" | "demo"
   invitedName: string
-  invitedEmail: string
+  invitedEmail?: string
+  /** Prefill mobile from SMS invite */
+  initialPhone?: string
+  /** SMS-only invite: collect real email at accept */
+  requiresRealEmail?: boolean
   /** When true, show phone + SMS consent + Terms (subcontractor flow). In demo mode typically true. */
   showSubcontractorFields: boolean
   onSubmit: (values: AcceptInviteFormValues) => void | Promise<void>
@@ -38,6 +43,8 @@ export function AcceptInviteForm({
   mode,
   invitedName,
   invitedEmail,
+  initialPhone = "",
+  requiresRealEmail = false,
   showSubcontractorFields,
   onSubmit,
   loading = false,
@@ -50,7 +57,8 @@ export function AcceptInviteForm({
 }: AcceptInviteFormProps) {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [phone, setPhone] = useState("")
+  const [phone, setPhone] = useState(initialPhone)
+  const [accountEmail, setAccountEmail] = useState("")
   const [smsConsent, setSmsConsent] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [phoneError, setPhoneError] = useState("")
@@ -69,6 +77,11 @@ export function AcceptInviteForm({
     }
     if (password.length < 6) {
       setFormError("Password must be at least 6 characters")
+      return
+    }
+
+    if (requiresRealEmail && !accountEmail.trim()) {
+      setFormError("Email address is required to finish setting up your account.")
       return
     }
 
@@ -99,6 +112,7 @@ export function AcceptInviteForm({
       phone,
       smsConsent,
       termsAccepted,
+      accountEmail: requiresRealEmail ? accountEmail.trim() : undefined,
     })
   }
 
@@ -117,7 +131,11 @@ export function AcceptInviteForm({
       )}
       <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
         <p className="font-medium text-foreground">{invitedName}</p>
-        <p className="text-muted-foreground">{invitedEmail}</p>
+        {invitedEmail ? (
+          <p className="text-muted-foreground">{invitedEmail}</p>
+        ) : initialPhone ? (
+          <p className="text-muted-foreground">Invited via text to {initialPhone}</p>
+        ) : null}
       </div>
       <div>
         <label htmlFor="accept-invite-password" className="block text-sm font-medium mb-1">
@@ -151,6 +169,23 @@ export function AcceptInviteForm({
           autoComplete={mode === "demo" ? "off" : "new-password"}
         />
       </div>
+      {requiresRealEmail && (
+        <div>
+          <label htmlFor="accept-invite-email" className="block text-sm font-medium mb-1">
+            Email address *
+          </label>
+          <input
+            id="accept-invite-email"
+            type="email"
+            value={accountEmail}
+            onChange={(e) => setAccountEmail(e.target.value)}
+            required
+            className="w-full px-3 py-2 border rounded-md"
+            placeholder="you@example.com"
+            autoComplete={mode === "demo" ? "off" : "email"}
+          />
+        </div>
+      )}
       {showSubcontractorFields && (
         <>
           <div>

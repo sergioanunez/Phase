@@ -13,7 +13,15 @@ import { parseAndNormalizePhone } from "@/lib/phone"
 type ValidateState =
   | { status: "loading" }
   | { status: "invalid" }
-  | { status: "valid"; email: string; name: string; role?: string; contractorId?: string }
+  | {
+      status: "valid"
+      email?: string
+      name: string
+      role?: string
+      contractorId?: string
+      phoneE164?: string
+      requiresRealEmail?: boolean
+    }
 
 const isSubcontractor = (state: ValidateState) =>
   state.status === "valid" && state.role === "Subcontractor"
@@ -32,13 +40,15 @@ export default function AcceptInvitePage() {
     try {
       const res = await fetch(`/api/auth/invite/validate?token=${encodeURIComponent(t)}`)
       const data = await res.json()
-      if (data.valid && data.email && data.name) {
+      if (data.valid && data.name) {
         setValidateState({
           status: "valid",
           email: data.email,
           name: data.name,
           role: data.role,
           contractorId: data.contractorId,
+          phoneE164: data.phoneE164,
+          requiresRealEmail: !!data.requiresRealEmail,
         })
       } else {
         setValidateState({ status: "invalid" })
@@ -62,19 +72,29 @@ export default function AcceptInvitePage() {
     phone: string
     smsConsent: boolean
     termsAccepted: boolean
+    accountEmail?: string
   }) => {
     if (!token) return
     setError("")
     setLoading(true)
     try {
       const sub = isSubcontractor(validateState)
-      const body: { token: string; password: string; phone?: string; smsConsent?: boolean } = {
+      const body: {
+        token: string
+        password: string
+        phone?: string
+        smsConsent?: boolean
+        email?: string
+      } = {
         token,
         password: values.password,
       }
       if (sub) {
         body.phone = parseAndNormalizePhone(values.phone.trim())!
         body.smsConsent = true
+      }
+      if (validateState.status === "valid" && validateState.requiresRealEmail && values.accountEmail) {
+        body.email = values.accountEmail.trim().toLowerCase()
       }
       const res = await fetch("/api/auth/invite/accept", {
         method: "POST",
@@ -144,6 +164,8 @@ export default function AcceptInvitePage() {
                 mode="real"
                 invitedName={validateState.name}
                 invitedEmail={validateState.email}
+                initialPhone={validateState.phoneE164}
+                requiresRealEmail={validateState.requiresRealEmail}
                 showSubcontractorFields={isSubcontractor(validateState)}
                 onSubmit={handleRealSubmit}
                 loading={loading}

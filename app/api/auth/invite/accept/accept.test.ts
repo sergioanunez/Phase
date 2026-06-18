@@ -11,6 +11,9 @@ vi.mock("@/lib/prisma", () => ({
   },
 }))
 vi.mock("@/lib/invite", () => ({ hashInviteToken: vi.fn((t: string) => `hash-${t}`) }))
+vi.mock("@/lib/invite-email", () => ({
+  isSyntheticInviteEmail: vi.fn((email: string) => email.includes("@sms.usephase.app")),
+}))
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn() }))
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(() => Promise.resolve("hashed")) } }))
 
@@ -36,7 +39,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
       email: "sub@example.com",
       usedAt: null,
       expiresAt: new Date(Date.now() + 86400000),
-      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1" },
+      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1", email: "sub@example.com" },
     } as any)
 
     const { POST } = await import("./route")
@@ -59,7 +62,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
       email: "sub@example.com",
       usedAt: null,
       expiresAt: new Date(Date.now() + 86400000),
-      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1" },
+      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1", email: "sub@example.com" },
     } as any)
 
     const { POST } = await import("./route")
@@ -87,7 +90,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
       email: "sub@example.com",
       usedAt: null,
       expiresAt: new Date(Date.now() + 86400000),
-      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1" },
+      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1", email: "sub@example.com" },
     } as any)
 
     const { POST } = await import("./route")
@@ -115,7 +118,7 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
       email: "sub@example.com",
       usedAt: null,
       expiresAt: new Date(Date.now() + 86400000),
-      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1" },
+      user: { id: "user-1", role: "Subcontractor", contractorId: "con-1", email: "sub@example.com" },
     } as any)
 
     let capturedUserUpdate: any
@@ -149,5 +152,38 @@ describe("POST /api/auth/invite/accept (subcontractor)", () => {
     expect(capturedUserUpdate.data.smsConsentSource).toBe("invite_accept_web")
     expect(capturedUserUpdate.data.smsConsentVersion).toBe("2026-02-26_v1")
     expect(capturedUserUpdate.data.smsOptOutAt).toBe(null)
+  })
+
+  it("returns 400 for SMS-only subcontractor invite without real email", async () => {
+    vi.mocked(prisma.userInvite.findFirst).mockResolvedValue({
+      id: "inv-1",
+      userId: "user-1",
+      email: "invite+19155551234@sms.usephase.app",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 86400000),
+      user: {
+        id: "user-1",
+        role: "Subcontractor",
+        contractorId: "con-1",
+        email: "invite+19155551234@sms.usephase.app",
+      },
+    } as any)
+
+    const { POST } = await import("./route")
+    const res = await POST(
+      new NextRequest("http://localhost/api/auth/invite/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: "valid-token",
+          password: "password123",
+          phone: "+19155551234",
+          smsConsent: true,
+        }),
+      })
+    )
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toContain("Email address is required")
   })
 })
