@@ -12,6 +12,7 @@ const SIGNED_URL_EXPIRES_IN = 60 * 15 // 15 minutes
 /**
  * GET /api/homes/:homeId/plan
  * Optional query: planId — `legacy` or a HomePlan cuid. If omitted, uses legacy path when set, else latest HomePlan.
+ * Optional query: open=1 — redirect to a fresh signed URL (for direct anchor navigation on iOS/iPad).
  */
 export async function GET(
   request: NextRequest,
@@ -104,6 +105,10 @@ export async function GET(
     if (signedError || !signed?.signedUrl) {
       console.error("Supabase signed URL error:", signedError)
       return NextResponse.json({ error: "Failed to generate plan link" }, { status: 500 })
+    }
+
+    if (request.nextUrl.searchParams.get("open") === "1") {
+      return NextResponse.redirect(signed.signedUrl, 302)
     }
 
     return NextResponse.json({

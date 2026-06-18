@@ -224,16 +224,10 @@ export default function HomeDetailPage() {
     if (listedPlans.length <= 1) setPlansPanelOpen(false)
   }, [listedPlans.length])
 
-  const openPlanInNewTab = async (planId: string) => {
-    if (!home?.id) return
-    try {
-      const res = await fetch(`/api/homes/${home.id}/plan?planId=${encodeURIComponent(planId)}`)
-      const j = await res.json()
-      if (j.signedUrl) window.open(j.signedUrl, "_blank", "noopener,noreferrer")
-    } catch (e) {
-      console.error(e)
-    }
-  }
+  const planOpenHref = (planId: string) =>
+    home?.id
+      ? `/api/homes/${home.id}/plan?planId=${encodeURIComponent(planId)}&open=1`
+      : "#"
 
   const legacyPlanHint =
     !!(home?.planStoragePath || home?.planName || home?.planVariant || home?.hasPlan)
@@ -740,13 +734,18 @@ export default function HomeDetailPage() {
                                   {p.planFileType === "PDF" ? " (PDF)" : ""}
                                 </span>
                                 <Button
-                                  type="button"
+                                  asChild
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 shrink-0 px-2 text-primary"
-                                  onClick={() => openPlanInNewTab(p.id)}
                                 >
-                                  Open
+                                  <a
+                                    href={planOpenHref(p.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Open
+                                  </a>
                                 </Button>
                               </li>
                             ))}
