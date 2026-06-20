@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
+import { calendarDateInputToIso, formatScheduledDateInput, normalizeStoredScheduledDate, parseCalendarDateInput } from "@/lib/calendar-date"
 import { Loader2 } from "lucide-react"
 import {
   TASK_RESCHEDULE_REASON_OPTIONS,
@@ -85,13 +86,13 @@ export function RescheduleTaskDialog({
     }
   }, [open, task.id])
 
-  const currentDateStr = task.scheduledDate
-    ? format(new Date(task.scheduledDate), "yyyy-MM-dd")
-    : ""
+  const currentDateStr = formatScheduledDateInput(task.scheduledDate)
   const currentLabel = task.scheduledDate
-    ? format(new Date(task.scheduledDate), "MMM d")
+    ? format(normalizeStoredScheduledDate(new Date(task.scheduledDate)), "MMM d")
     : "—"
-  const newLabel = newDateStr ? format(new Date(`${newDateStr}T12:00:00`), "MMM d") : "—"
+  const newLabel = newDateStr
+    ? format(normalizeStoredScheduledDate(parseCalendarDateInput(newDateStr)), "MMM d")
+    : "—"
 
   const canSubmit =
     Boolean(newDateStr) &&
@@ -108,7 +109,7 @@ export function RescheduleTaskDialog({
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          scheduledDate: new Date(`${newDateStr}T12:00:00`).toISOString(),
+          scheduledDate: calendarDateInputToIso(newDateStr),
           contractorId: contractorId ?? null,
           reason,
           note: reason === "other" ? note.trim() : null,

@@ -11,6 +11,7 @@ import { TaskModal } from "@/components/task-modal"
 import { PunchItemsList } from "@/components/punch-items-list"
 import { TaskStatus } from "@prisma/client"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
+import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { ProgressBar } from "@/components/homes/progress-bar"
 import { getScheduleStatus as getBarScheduleStatus } from "@/lib/schedule-status"
@@ -961,7 +962,7 @@ export function HomeDetailPage() {
                               {task.scheduledDate && (
                                 <>
                                   <span className="text-gray-300">•</span>
-                                  <span>Scheduled: {format(new Date(task.scheduledDate), "MM/dd/yyyy")}</span>
+                                  <span>Scheduled: {format(normalizeStoredScheduledDate(new Date(task.scheduledDate)), "MM/dd/yyyy")}</span>
                                 </>
                               )}
                               {task.completedAt && (

@@ -6,6 +6,7 @@ import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
+import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
 
 // #region agent log
 function debugLog(payload: Record<string, unknown>) {
@@ -302,7 +303,7 @@ export async function PATCH(
     const updateData: any = {}
     if (data.scheduledDate !== undefined) {
       updateData.scheduledDate = data.scheduledDate
-        ? new Date(data.scheduledDate)
+        ? normalizeStoredScheduledDate(new Date(data.scheduledDate))
         : null
       // Auto-set status to Scheduled if date is set
       if (data.scheduledDate && before.status === "Unscheduled") {

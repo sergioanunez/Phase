@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { TaskRescheduleReason, TaskStatus } from "@prisma/client"
 import { z } from "zod"
+import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
 import { sendTaskConfirmationInternal } from "@/lib/send-task-confirmation-internal"
 
 export const dynamic = "force-dynamic"
@@ -108,7 +109,7 @@ export async function POST(
       )
     }
 
-    const newScheduledDate = new Date(data.scheduledDate)
+    const newScheduledDate = normalizeStoredScheduledDate(new Date(data.scheduledDate))
     const previousScheduledDate = before.scheduledDate
     if (newScheduledDate.getTime() === previousScheduledDate.getTime()) {
       return NextResponse.json({ error: "New date must differ from the current scheduled date" }, { status: 400 })

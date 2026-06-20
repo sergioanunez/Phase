@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
+import { calendarDateInputToIso, formatScheduledDateInput } from "@/lib/calendar-date"
 import Link from "next/link"
 import { Loader2, Calendar, MessageCircle, Package, Play, ExternalLink } from "lucide-react"
 import type { FlowAction } from "@/lib/flow/types"
@@ -66,7 +67,7 @@ export function TaskActionSheet({
         if (data) {
           setTask(data)
           setScheduledDate(
-            data.scheduledDate ? format(new Date(data.scheduledDate), "yyyy-MM-dd") : ""
+            data.scheduledDate ? formatScheduledDateInput(data.scheduledDate) : ""
           )
           setContractorId(data.contractorId || "")
         }
@@ -129,7 +130,7 @@ export function TaskActionSheet({
     setActionLoading("schedule")
     try {
       const body: { scheduledDate?: string; contractorId?: string | null } = {}
-      if (scheduledDate) body.scheduledDate = new Date(scheduledDate).toISOString()
+      if (scheduledDate) body.scheduledDate = calendarDateInputToIso(scheduledDate)
       body.contractorId = contractorId || null
       const res = await fetch(`/api/tasks/${flowAction.taskInstanceId}`, {
         method: "PATCH",

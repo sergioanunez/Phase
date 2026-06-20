@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { TaskStatus } from "@prisma/client"
 import { format } from "date-fns"
+import {
+  calendarDateInputToIso,
+  formatScheduledDateInput,
+  normalizeStoredScheduledDate,
+} from "@/lib/calendar-date"
 import { MessageCircle, CalendarX, Loader2, CheckCircle, PlayCircle } from "lucide-react"
 import { RescheduleTaskDialog } from "@/components/reschedule-task-dialog"
 import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
@@ -63,9 +68,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
   const { data: session } = useSession()
   const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
   const [contractors, setContractors] = useState<Contractor[]>([])
-  const [scheduledDate, setScheduledDate] = useState(
-    task.scheduledDate ? format(new Date(task.scheduledDate), "yyyy-MM-dd") : ""
-  )
+  const [scheduledDate, setScheduledDate] = useState(formatScheduledDateInput(task.scheduledDate))
   const [contractorId, setContractorId] = useState(task.contractorId || "")
   const [notes, setNotes] = useState(task.notes || "")
   const [markConfirmedManual, setMarkConfirmedManual] = useState(false)
@@ -82,7 +85,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
 
   useEffect(() => {
     setCurrentTask(task)
-    setScheduledDate(task.scheduledDate ? format(new Date(task.scheduledDate), "yyyy-MM-dd") : "")
+    setScheduledDate(formatScheduledDateInput(task.scheduledDate))
     setContractorId(task.contractorId || "")
     setNotes(task.notes || "")
   }, [task])
@@ -141,7 +144,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
     try {
       const updateData: any = {}
       if (scheduledDate) {
-        updateData.scheduledDate = new Date(scheduledDate).toISOString()
+        updateData.scheduledDate = calendarDateInputToIso(scheduledDate)
       } else {
         // Explicitly set to null if empty and change status to Unscheduled
         updateData.scheduledDate = null
@@ -202,7 +205,8 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
 
   const handleSendConfirmation = async () => {
     const effectiveContractorId = contractorId || currentTask.contractorId
-    const effectiveScheduledDate = scheduledDate || (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "")
+    const effectiveScheduledDate =
+      scheduledDate || formatScheduledDateInput(currentTask.scheduledDate)
     
     if (!effectiveContractorId || !effectiveScheduledDate) {
       alert("Task must have a contractor and scheduled date")
@@ -215,12 +219,12 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
       const needsSave =
         currentTask.status === "Unscheduled" ||
         !currentTask.scheduledDate ||
-        (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "") !== effectiveScheduledDate ||
+        formatScheduledDateInput(currentTask.scheduledDate) !== effectiveScheduledDate ||
         (currentTask.contractorId || "") !== effectiveContractorId
 
       if (needsSave) {
         const patchBody: Record<string, unknown> = {
-          scheduledDate: new Date(effectiveScheduledDate).toISOString(),
+          scheduledDate: calendarDateInputToIso(effectiveScheduledDate),
           contractorId: effectiveContractorId,
           notes: notes !== undefined ? notes : currentTask.notes,
         }
@@ -401,7 +405,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
                   <span className="text-muted-foreground">From:</span>{" "}
                   {format(new Date(currentTask.lastPreviousScheduledDate), "MMM d")}
                   <span className="text-muted-foreground"> → To:</span>{" "}
-                  {format(new Date(currentTask.scheduledDate), "MMM d")}
+                  {format(normalizeStoredScheduledDate(new Date(currentTask.scheduledDate)), "MMM d")}
                 </p>
               )}
               <p>
@@ -505,7 +509,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
                   </Button>
                   {(currentTask.status === "Scheduled" || currentTask.status === "Confirmed") &&
                     scheduledDate &&
-                    scheduledDate !== (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "") && (
+                    scheduledDate !== formatScheduledDateInput(currentTask.scheduledDate) && (
                     <Button
                       onClick={() => setRescheduleDialogOpen(true)}
                       disabled={loading}
@@ -594,18 +598,19 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
       task={currentTask}
       homeLabel={homeLabel || "Home"}
       newDateStr={
-        scheduledDate ||
-        (currentTask.scheduledDate ? format(new Date(currentTask.scheduledDate), "yyyy-MM-dd") : "")
+        scheduledDate || formatScheduledDateInput(currentTask.scheduledDate)
       }
       contractorId={contractorId || currentTask.contractorId}
       onSuccess={({ task: updated, smsResent, warnings, reasonLabel }) => {
         const t = updated as Task
         setCurrentTask(t)
         const nextDate =
-          t.scheduledDate != null ? format(new Date(t.scheduledDate), "yyyy-MM-dd") : ""
+          t.scheduledDate != null ? formatScheduledDateInput(t.scheduledDate) : ""
         if (nextDate) setScheduledDate(nextDate)
         const dateShown =
-          t.scheduledDate != null ? format(new Date(t.scheduledDate), "MMM d") : nextDate
+          t.scheduledDate != null
+            ? format(normalizeStoredScheduledDate(new Date(t.scheduledDate)), "MMM d")
+            : nextDate
         let msg = `${t.nameSnapshot} rescheduled to ${dateShown}. Reason: ${reasonLabel}.`
         msg += smsResent ? " Confirmation resent." : ""
         if (warnings.length) msg += "\n\n" + warnings.join("\n")
