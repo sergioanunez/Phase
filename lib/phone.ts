@@ -16,3 +16,15 @@ export function parseAndNormalizePhone(input: string): string | null {
 export function isValidPhone(input: string): boolean {
   return parseAndNormalizePhone(input) !== null
 }
+
+/** Last 10 US digits for comparing +1XXXXXXXXXX, XXXXXXXXXX, and formatted numbers. */
+export function phoneDigits10(input: string): string {
+  const digits = (input ?? "").replace(/\D/g, "")
+  return digits.length >= 10 ? digits.slice(-10) : digits
+}
+
+export function phonesMatch(a: string, b: string): boolean {
+  const da = phoneDigits10(a)
+  const db = phoneDigits10(b)
+  return da.length === 10 && db.length === 10 && da === db
+}

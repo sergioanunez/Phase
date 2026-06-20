@@ -40,10 +40,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const message =
-      result.action === "opt_out"
-        ? "You have been unsubscribed from SMS notifications."
-        : "Thank you for your confirmation."
+    const { inboundSmsReplyMessage } = await import("@/lib/sms-inbound")
+    const message = result.replyMessage || inboundSmsReplyMessage(result)
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

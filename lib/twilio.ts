@@ -4,6 +4,14 @@ import { generateConfirmationCode } from "./utils"
 import { TaskStatus, PricingTier } from "@prisma/client"
 import { parseAndNormalizePhone } from "@/lib/phone"
 import {
+  extractConfirmationCode,
+  findPendingConfirmationForPhone,
+  inboundSmsReplyMessage,
+  parseInboundSmsReply,
+  updateSmsOptOutByPhone,
+  type InboundSmsResult,
+} from "@/lib/sms-inbound"
+import {
   buildScheduledSms,
   buildCancelledSms,
   buildPunchlistSms,
@@ -313,15 +321,7 @@ export async function sendCancellationSMS(
   }
 }
 
-/** Normalize Twilio "From" to E.164 for matching User.phoneE164 */
-function inboundFromToE164(from: string): string {
-  const digits = from.replace(/\D/g, "")
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
-  return from.startsWith("+") ? from : `+${digits}`
-}
-
-/** Last 10 digits for US number comparison (handles +1XXXXXXXXXX vs XXXXXXXXXX) */
+/** @deprecated Use phonesMatch from @/lib/phone */
 function phoneDigitsForMatch(phone: string): string {
   const d = (phone || "").replace(/\D/g, "")
   return d.length >= 10 ? d.slice(-10) : d
@@ -331,143 +331,74 @@ export async function handleInboundSMS(
   from: string,
   to: string,
   body: string
-): Promise<{ processed: boolean; action?: string; reason?: string; taskId?: string }> {
+): Promise<InboundSmsResult> {
   const normalizedFrom = from.replace(/\D/g, "")
   const normalizedTo = to.replace(/\D/g, "")
-  const fromE164 = inboundFromToE164(from)
-
-  // Handle STOP (opt-out)
-  const bodyUpper = body.trim().toUpperCase()
-  if (bodyUpper === "STOP" || bodyUpper === "STOPALL" || bodyUpper === "UNSUBSCRIBE") {
-    const updated = await prisma.user.updateMany({
-      where: { phoneE164: fromE164 },
-      data: { smsOptOutAt: new Date() },
-    })
-    if (updated.count > 0) {
-      return { processed: true, action: "opt_out" }
-    }
-  }
-
-  // Store inbound SMS
-  const smsMessage = await prisma.smsMessage.create({
-    data: {
-      direction: "Inbound",
-      to: normalizedTo,
-      from: normalizedFrom,
-      body: body,
-      status: "Received",
-    },
-  })
-
-  // Try to extract confirmation/reference code (Ref: in new format, Code: legacy)
-  const refMatch = body.match(/Ref:\s*(\w+)/i)
-  const codeMatch = body.match(/[Cc]ode:\s*(\w+)/i)
-  const confirmationCode = refMatch ? refMatch[1].toUpperCase() : codeMatch ? codeMatch[1].toUpperCase() : null
+  const replyKind = parseInboundSmsReply(body)
   const fromDigits10 = phoneDigitsForMatch(from)
 
-  // Find task by confirmation code (primary method)
-  let homeTask = confirmationCode
-    ? await prisma.homeTask.findFirst({
-        where: {
-          status: "PendingConfirm",
-          smsMessages: {
-            some: {
-              confirmationCode: confirmationCode,
-              direction: "Outbound",
-            },
-          },
-        },
-        include: {
-          contractor: true,
-          home: {
-            include: {
-              subdivision: true,
-            },
-          },
-        },
-      })
-    : null
-  if (homeTask && process.env.NODE_ENV !== "test") {
-    console.log("[sms] confirmation matched by code", { taskId: homeTask.id, from: fromDigits10 })
-  }
-
-  // Fallback 1: find PendingConfirm task whose outbound confirmation was sent TO this number (most reliable)
-  if (!homeTask) {
-    const recentPending = await prisma.homeTask.findMany({
-      where: { status: "PendingConfirm" },
-      orderBy: { lastConfirmationAt: "desc" },
-      take: 50,
-      include: {
-        smsMessages: {
-          where: { direction: "Outbound", confirmationCode: { not: null } },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
+  const storeInbound = () =>
+    prisma.smsMessage.create({
+      data: {
+        direction: "Inbound",
+        to: normalizedTo,
+        from: normalizedFrom,
+        body,
+        status: "Received",
       },
     })
-    for (const task of recentPending) {
-      const outbound = task.smsMessages[0]
-      if (outbound && phoneDigitsForMatch(outbound.to) === fromDigits10) {
-        homeTask = await prisma.homeTask.findUnique({
-          where: { id: task.id },
-          include: {
-            contractor: true,
-            home: { include: { subdivision: true } },
-          },
-        })
-        if (homeTask && process.env.NODE_ENV !== "test") {
-          console.log("[sms] confirmation matched by outbound To", { taskId: homeTask.id, from: fromDigits10 })
-        }
-        break
-      }
+
+  if (replyKind === "stop") {
+    const optedOutUsers = await updateSmsOptOutByPhone(from, true)
+    await storeInbound()
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms] opt-out", { fromLast4: fromDigits10.slice(-4), usersUpdated: optedOutUsers })
+    }
+    return {
+      processed: true,
+      action: "opt_out",
+      replyMessage: inboundSmsReplyMessage({ processed: true, action: "opt_out", replyMessage: "" }),
     }
   }
 
-  // Fallback 2: find contact User by phone (digits-only match) then latest PendingConfirm for that contractor
-  if (!homeTask) {
-    const contractorContacts = await prisma.user.findMany({
-      where: { contractorId: { not: null }, phoneE164: { not: null } },
-      select: { contractorId: true, phoneE164: true },
-    })
-    const contactUser = contractorContacts.find(
-      (u) => u.phoneE164 && phoneDigitsForMatch(u.phoneE164) === fromDigits10
-    )
-    if (contactUser?.contractorId) {
-      homeTask = await prisma.homeTask.findFirst({
-        where: {
-          contractorId: contactUser.contractorId,
-          status: "PendingConfirm",
-        },
-        orderBy: { lastConfirmationAt: "desc" },
-        include: {
-          contractor: true,
-          home: { include: { subdivision: true } },
-        },
-      })
-      if (homeTask && process.env.NODE_ENV !== "test") {
-        console.log("[sms] confirmation matched by contact phoneE164", { taskId: homeTask.id, from: fromDigits10 })
-      }
+  if (replyKind === "start") {
+    const optedInUsers = await updateSmsOptOutByPhone(from, false)
+    await storeInbound()
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms] opt-in recovery", { fromLast4: fromDigits10.slice(-4), usersUpdated: optedInUsers })
     }
-    // Legacy: match by contractor office phone
-    if (!homeTask) {
-      const contractor = await prisma.contractor.findFirst({
-        where: { phone: { contains: fromDigits10 } },
-      })
-      if (contractor) {
-        homeTask = await prisma.homeTask.findFirst({
-          where: {
-            contractorId: contractor.id,
-            status: "PendingConfirm",
-          },
-          orderBy: { lastConfirmationAt: "desc" },
-          include: {
-            contractor: true,
-            home: { include: { subdivision: true } },
-          },
-        })
-      }
+    return {
+      processed: true,
+      action: "opt_in",
+      replyMessage: inboundSmsReplyMessage({ processed: true, action: "opt_in", replyMessage: "" }),
     }
   }
+
+  if (replyKind === "help") {
+    await storeInbound()
+    return {
+      processed: true,
+      action: "help",
+      replyMessage: inboundSmsReplyMessage({ processed: true, action: "help", replyMessage: "" }),
+    }
+  }
+
+  if (replyKind !== "yes" && replyKind !== "no") {
+    await storeInbound()
+    return {
+      processed: false,
+      reason: "not_confirmation_reply",
+      replyMessage: inboundSmsReplyMessage({
+        processed: false,
+        reason: "not_confirmation_reply",
+        replyMessage: "",
+      }),
+    }
+  }
+
+  const smsMessage = await storeInbound()
+  const confirmationCode = extractConfirmationCode(body)
+  const homeTask = await findPendingConfirmationForPhone(from, confirmationCode)
 
   if (!homeTask) {
     if (process.env.NODE_ENV !== "test") {
@@ -479,21 +410,31 @@ export async function handleInboundSMS(
         pendingConfirmTaskCount: recentCount,
       })
     }
-    return { processed: false, reason: "No matching task found" }
+    return {
+      processed: false,
+      reason: "no_pending_confirmation",
+      replyMessage: inboundSmsReplyMessage({
+        processed: false,
+        reason: "no_pending_confirmation",
+        replyMessage: "",
+      }),
+    }
   }
 
-  // Link SMS to task
+  if (process.env.NODE_ENV !== "test") {
+    console.log("[sms] confirmation matched", {
+      taskId: homeTask.id,
+      fromLast4: fromDigits10.slice(-4),
+      confirmationCode,
+    })
+  }
+
   await prisma.smsMessage.update({
     where: { id: smsMessage.id },
     data: { homeTaskId: homeTask.id },
   })
 
-  // Parse response (lenient: trim, collapse whitespace, strip non-ASCII so "Y" / "YES" always recognized)
-  const response = (body || "").replace(/\s+/g, " ").trim().toUpperCase().replace(/[^\x20-\x7E]/g, "")
-  const isYes = response === "Y" || response.startsWith("YES")
-  const isNo = response === "N" || response.startsWith("NO")
-
-  if (isYes) {
+  if (replyKind === "yes") {
     await prisma.homeTask.update({
       where: { id: homeTask.id },
       data: {
@@ -504,44 +445,50 @@ export async function handleInboundSMS(
       },
     })
     if (process.env.NODE_ENV !== "test") {
-      console.log("[sms] task confirmed", { taskId: homeTask.id, from: fromDigits10 })
+      console.log("[sms] task confirmed", { taskId: homeTask.id, fromLast4: fromDigits10.slice(-4) })
     }
-    const companyId = homeTask.companyId ?? (homeTask.home as { companyId?: string } | null)?.companyId
+    const companyId = homeTask.companyId ?? homeTask.home?.companyId
     if (companyId && homeTask.home) {
-      const home = homeTask.home as { addressOrLot?: string }
       const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
       await notifySmsConfirmationReceived({
         companyId,
         homeId: homeTask.homeId,
         taskId: homeTask.id,
         taskName: homeTask.nameSnapshot,
-        homeLabel: home.addressOrLot ?? "Home",
+        homeLabel: homeTask.home.addressOrLot ?? "Home",
         confirmed: true,
       }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
     }
-    return { processed: true, action: "confirmed", taskId: homeTask.id }
-  } else if (isNo) {
-    await prisma.homeTask.update({
-      where: { id: homeTask.id },
-      data: { status: "Declined" },
-    })
-    const companyId = homeTask.companyId ?? (homeTask.home as { companyId?: string } | null)?.companyId
-    if (companyId && homeTask.home) {
-      const home = homeTask.home as { addressOrLot?: string }
-      const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
-      await notifySmsConfirmationReceived({
-        companyId,
-        homeId: homeTask.homeId,
-        taskId: homeTask.id,
-        taskName: homeTask.nameSnapshot,
-        homeLabel: home.addressOrLot ?? "Home",
-        confirmed: false,
-      }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
+    return {
+      processed: true,
+      action: "confirmed",
+      taskId: homeTask.id,
+      replyMessage: inboundSmsReplyMessage({ processed: true, action: "confirmed", replyMessage: "" }),
     }
-    return { processed: true, action: "declined", taskId: homeTask.id }
   }
 
-  return { processed: false, reason: "Invalid response format" }
+  await prisma.homeTask.update({
+    where: { id: homeTask.id },
+    data: { status: "Declined" },
+  })
+  const companyId = homeTask.companyId ?? homeTask.home?.companyId
+  if (companyId && homeTask.home) {
+    const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
+    await notifySmsConfirmationReceived({
+      companyId,
+      homeId: homeTask.homeId,
+      taskId: homeTask.id,
+      taskName: homeTask.nameSnapshot,
+      homeLabel: homeTask.home.addressOrLot ?? "Home",
+      confirmed: false,
+    }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
+  }
+  return {
+    processed: true,
+    action: "declined",
+    taskId: homeTask.id,
+    replyMessage: inboundSmsReplyMessage({ processed: true, action: "declined", replyMessage: "" }),
+  }
 }
 
 export async function sendPunchListSMS(
