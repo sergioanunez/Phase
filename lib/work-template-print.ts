@@ -311,22 +311,51 @@ export function buildWorkTemplatePrintDocument(data: WorkTemplatePrintData): str
   </div>
   ${emptyBody}
   <div class="footer">Work Items Template · ${escapeHtml(data.companyName)} · ${escapeHtml(data.generatedAt)}</div>
-  <script>
-    window.addEventListener("load", function () {
-      setTimeout(function () { window.print(); }, 300);
-    });
-  </script>
 </body>
 </html>`
 }
 
-export function openWorkTemplatePrintWindow(params: {
+/** Print HTML via a hidden iframe — avoids pop-up blockers from window.open(). */
+export function printHtmlInHiddenFrame(html: string): void {
+  if (typeof document === "undefined") return
+
+  const iframe = document.createElement("iframe")
+  iframe.setAttribute("title", "Work Items Template print preview")
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;"
+  document.body.appendChild(iframe)
+
+  const frameWindow = iframe.contentWindow
+  const doc = frameWindow?.document
+  if (!doc || !frameWindow) {
+    iframe.remove()
+    throw new Error("Could not create print frame.")
+  }
+
+  const cleanup = () => {
+    setTimeout(() => iframe.remove(), 1000)
+  }
+
+  const triggerPrint = () => {
+    frameWindow.focus()
+    frameWindow.print()
+    cleanup()
+  }
+
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  setTimeout(triggerPrint, 300)
+}
+
+export function printWorkTemplate(params: {
   companyName: string
   mode: WorkTemplatePrintMode
   templateCategoryRows: WorkTemplatePrintCategoryRow[]
   templates: WorkTemplatePrintItem[]
   criticalTemplateIds?: string[]
-}): boolean {
+}): void {
   const summary = buildWorkTemplatePrintBlocks(params.templateCategoryRows, params.templates)
   const data: WorkTemplatePrintData = {
     companyName: params.companyName,
@@ -336,11 +365,17 @@ export function openWorkTemplatePrintWindow(params: {
     ...summary,
   }
 
-  const html = buildWorkTemplatePrintDocument(data)
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700")
-  if (!win) return false
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
-  return true
+  printHtmlInHiddenFrame(buildWorkTemplatePrintDocument(data))
+}
+
+/** @deprecated Use printWorkTemplate — kept for compatibility. */
+export function openWorkTemplatePrintWindow(
+  params: Parameters<typeof printWorkTemplate>[0]
+): boolean {
+  try {
+    printWorkTemplate(params)
+    return true
+  } catch {
+    return false
+  }
 }

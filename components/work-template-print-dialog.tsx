@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { FileText, List, AlertCircle } from "lucide-react"
 import {
-  openWorkTemplatePrintWindow,
+  printWorkTemplate,
   type WorkTemplatePrintCategoryRow,
   type WorkTemplatePrintItem,
   type WorkTemplatePrintMode,
@@ -36,18 +36,18 @@ export function WorkTemplatePrintDialog({
   const isEmpty = templates.length === 0
 
   const handlePrint = (mode: WorkTemplatePrintMode) => {
-    const ok = openWorkTemplatePrintWindow({
-      companyName,
-      mode,
-      templateCategoryRows,
-      templates,
-      criticalTemplateIds,
-    })
-    if (!ok) {
-      alert("Pop-up blocked. Allow pop-ups for this site to print or save as PDF.")
-      return
+    try {
+      printWorkTemplate({
+        companyName,
+        mode,
+        templateCategoryRows,
+        templates,
+        criticalTemplateIds,
+      })
+      onOpenChange(false)
+    } catch {
+      alert("Could not open the print dialog. Please try again.")
     }
-    onOpenChange(false)
   }
 
   return (
@@ -56,7 +56,7 @@ export function WorkTemplatePrintDialog({
         <DialogHeader>
           <DialogTitle>Print / Export PDF</DialogTitle>
           <DialogDescription>
-            Opens a print-friendly view. Use your browser&apos;s print dialog to print or save as PDF.
+            Opens your browser&apos;s print dialog so you can print or save as PDF.
           </DialogDescription>
         </DialogHeader>
 
