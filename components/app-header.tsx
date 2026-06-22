@@ -111,7 +111,10 @@ export function AppHeader() {
   const isGanttPage = pathname === "/admin/templates/gantt"
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm">
+    <header
+      id="app-header"
+      className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white shadow-sm"
+    >
       <TrialBanner />
       <div className="app-header-nav-width mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 md:px-8">
         <div className="flex flex-shrink-0 items-center gap-3">
