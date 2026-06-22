@@ -163,8 +163,19 @@ export async function GET(request: NextRequest) {
       phaseData = await getTenantTemplateForecastPhaseData(prisma, ctx.companyId, [...nameSet])
     }
 
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server")
+    const { signHomeCardThumbnailUrls } = await import("@/lib/home-card-thumbnail")
+    const supabase = createSupabaseServerClient()
+    const cardThumbnailUrls = await signHomeCardThumbnailUrls(supabase, homesForSerialization)
+
     const serialized = homesForSerialization.map((h) => {
-      const { planStoragePath: _p, thumbnailStoragePath: _t, _count, ...rest } = h
+      const {
+        planStoragePath: _p,
+        thumbnailStoragePath: _t,
+        cardThumbnailStoragePath: _c,
+        _count,
+        ...rest
+      } = h
       let forecastCompletionDate = rest.forecastCompletionDate
       let forecastTotalWorkingDays = rest.forecastTotalWorkingDays
       let criticalPathTaskIds: string[] = []
@@ -239,7 +250,8 @@ export async function GET(request: NextRequest) {
         forecastTotalWorkingDays: forecastTotalWorkingDays ?? rest.forecastTotalWorkingDays,
         criticalPathTaskIds,
         hasPlan: !!h.planStoragePath || (_count?.homePlans ?? 0) > 0,
-        hasThumbnail: !!h.thumbnailStoragePath,
+        hasThumbnail: !!h.cardThumbnailStoragePath,
+        thumbnailUrl: cardThumbnailUrls.get(h.id) ?? null,
       }
     })
     return NextResponse.json(serialized)

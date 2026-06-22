@@ -7,6 +7,7 @@ import {
   validatePlanFile,
 } from "@/lib/home-plan-files"
 import { nextHomePlanStoragePath, parsePlanTag } from "@/lib/home-plans"
+import { persistHomeCardThumbnail } from "@/lib/home-card-thumbnail"
 import { createSupabaseServerClient, HOME_PLANS_BUCKET } from "@/lib/supabase/server"
 
 type HomeForPlan = {
@@ -100,6 +101,18 @@ export async function uploadLegacySinglePlan(params: {
     })
   if (uploadError) throw new Error(uploadError.message || "Failed to upload plan")
 
+  try {
+    await persistHomeCardThumbnail({
+      supabase,
+      prisma,
+      homeId,
+      sourceBuffer: buffer,
+      mimeType,
+    })
+  } catch (thumbError) {
+    console.error("Failed to generate card thumbnail from plan upload:", thumbError)
+  }
+
   const updated = await prisma.home.update({
     where: { id: homeId },
     data: {
@@ -143,7 +156,7 @@ export async function uploadMultiHomePlans(params: {
   const supabase = createSupabaseServerClient()
   const created: MultiPlanUploadResult["created"] = []
 
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     const valid = validatePlanFile(file)
     if (!valid.ok) throw new Error(valid.error)
     if (file.size > MAX_PLAN_FILE_SIZE) throw new Error("File exceeds 20 MB limit")
@@ -162,6 +175,20 @@ export async function uploadMultiHomePlans(params: {
         upsert: false,
       })
     if (uploadError) throw new Error(uploadError.message || "Failed to upload plan")
+
+    if (index === 0) {
+      try {
+        await persistHomeCardThumbnail({
+          supabase,
+          prisma,
+          homeId,
+          sourceBuffer: buffer,
+          mimeType,
+        })
+      } catch (thumbError) {
+        console.error("Failed to generate card thumbnail from multi-plan upload:", thumbError)
+      }
+    }
 
     const row = await prisma.homePlan.create({
       data: {

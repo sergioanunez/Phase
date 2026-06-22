@@ -28,6 +28,7 @@ interface Home {
   criticalPathTaskIds?: string[]
   hasPlan?: boolean
   hasThumbnail?: boolean
+  thumbnailUrl?: string | null
   planName?: string | null
   planVariant?: string | null
   planUploadedAt?: string | null
@@ -75,6 +76,7 @@ function toCommunityHome(home: Home): CommunityHome {
     planName: home.planName,
     planVariant: home.planVariant,
     hasThumbnail: home.hasThumbnail,
+    thumbnailUrl: home.thumbnailUrl,
     subdivision: home.subdivision ?? { id: "", name: "" },
     criticalPathTaskIds: home.criticalPathTaskIds ?? [],
     tasks: tasks.map((t) => ({

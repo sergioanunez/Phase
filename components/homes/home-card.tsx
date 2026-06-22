@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { format } from "date-fns"
+import { Home } from "lucide-react"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import { StatusPill } from "./status-pill"
 import { ProgressBar } from "./progress-bar"
@@ -12,47 +13,35 @@ function formatFloorPlanLabel(planName?: string | null, planVariant?: string | n
   return label || null
 }
 
-function HomeCardThumbnail({
-  homeId,
-  hasThumbnail,
-}: {
-  homeId: string
-  hasThumbnail?: boolean
-}) {
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!hasThumbnail) {
-      setUrl(null)
-      return
-    }
-    let cancelled = false
-    fetch(`/api/homes/${homeId}/thumbnail`)
-      .then((res) => res.json())
-      .then((data: { exists?: boolean; signedUrl?: string }) => {
-        if (!cancelled && data.exists && data.signedUrl) {
-          setUrl(data.signedUrl)
-        }
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [homeId, hasThumbnail])
-
-  if (!hasThumbnail) return null
+function HomeCardThumbnail({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const showImage = !!thumbnailUrl && !failed
 
   return (
-    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E6E8EF] bg-muted/30">
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+    <div
+      className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E6E8EF] bg-muted/30"
+      aria-hidden
+    >
+      {showImage ? (
+        <>
+          {!loaded && (
+            <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />
+          )}
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="pointer-events-none h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+          />
+        </>
       ) : (
-        <div className="h-full w-full animate-pulse bg-muted" aria-hidden />
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground/70">
+          <Home className="h-6 w-6" strokeWidth={1.75} />
+        </div>
       )}
     </div>
   )
@@ -67,6 +56,7 @@ export interface HomeCardHome {
   planName?: string | null
   planVariant?: string | null
   hasThumbnail?: boolean
+  thumbnailUrl?: string | null
   criticalPathTaskIds?: string[]
   tasks: Array<{
     id: string
@@ -113,7 +103,7 @@ export function HomeCard({ home, status, progress, onNavigate }: HomeCardProps) 
       {/* Top row: thumbnail, address, status */}
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <HomeCardThumbnail homeId={home.id} hasThumbnail={home.hasThumbnail} />
+          <HomeCardThumbnail thumbnailUrl={home.thumbnailUrl} />
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-bold leading-tight text-foreground">
               {home.addressOrLot}

@@ -60,6 +60,7 @@ const homesListSelectWithoutDisplayOrder = {
   planUploadedByUserId: true,
   thumbnailStoragePath: true,
   thumbnailFileName: true,
+  cardThumbnailStoragePath: true,
   isComplete: true,
   completedAt: true,
   isDemo: true,

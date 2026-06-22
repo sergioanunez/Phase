@@ -486,6 +486,8 @@ model Home {
   thumbnailStoragePath String?
   /// Original filename of uploaded thumbnail (for display only).
   thumbnailFileName    String?
+  /// Optimized WebP card thumbnail for Homes list (~200px wide, Supabase Storage path only).
+  cardThumbnailStoragePath String?
   /// True when all schedule tasks for this home are Completed. Used for billing (active homes = !isComplete).
   isComplete           Boolean     @default(false)
   completedAt         DateTime?

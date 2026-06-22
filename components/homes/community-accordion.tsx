@@ -19,6 +19,7 @@ export interface CommunityHome {
   planName?: string | null
   planVariant?: string | null
   hasThumbnail?: boolean
+  thumbnailUrl?: string | null
   subdivision: { id: string; name: string }
   criticalPathTaskIds?: string[]
   tasks: Array<{

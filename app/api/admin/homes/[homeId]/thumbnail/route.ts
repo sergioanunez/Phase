@@ -46,6 +46,7 @@ export async function POST(
     const { prisma } = await import("@/lib/prisma")
     const { createAuditLog } = await import("@/lib/audit")
     const { createSupabaseServerClient, HOME_PLANS_BUCKET } = await import("@/lib/supabase/server")
+    const { persistHomeCardThumbnail } = await import("@/lib/home-card-thumbnail")
 
     const resolved = await Promise.resolve(params)
     const homeId = resolved?.homeId
@@ -110,6 +111,18 @@ export async function POST(
       )
     }
 
+    try {
+      await persistHomeCardThumbnail({
+        supabase,
+        prisma,
+        homeId,
+        sourceBuffer: buffer,
+        mimeType,
+      })
+    } catch (thumbError) {
+      console.error("Failed to generate card thumbnail from house thumbnail upload:", thumbError)
+    }
+
     const before = {
       thumbnailStoragePath: home.thumbnailStoragePath,
       thumbnailFileName: home.thumbnailFileName,
@@ -172,9 +185,7 @@ export async function DELETE(
 
     if (home.thumbnailStoragePath) {
       const supabase = createSupabaseServerClient()
-      await supabase.storage
-        .from(HOME_PLANS_BUCKET)
-        .remove([home.thumbnailStoragePath])
+      await supabase.storage.from(HOME_PLANS_BUCKET).remove([home.thumbnailStoragePath])
     }
 
     const before = {
@@ -184,7 +195,10 @@ export async function DELETE(
 
     await prisma.home.update({
       where: { id: homeId },
-      data: { thumbnailStoragePath: null, thumbnailFileName: null },
+      data: {
+        thumbnailStoragePath: null,
+        thumbnailFileName: null,
+      },
     })
 
     await createAuditLog(
