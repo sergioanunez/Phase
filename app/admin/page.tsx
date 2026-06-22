@@ -19,8 +19,9 @@ import { InviteDeliveryFields } from "@/components/invites/invite-delivery-field
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
 import { SettingsNav } from "@/components/settings-nav"
-import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart, Link2 } from "lucide-react"
+import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart, Link2, Printer } from "lucide-react"
 import { TemplateSummaryCard } from "@/components/template-summary-card"
+import { WorkTemplatePrintDialog } from "@/components/work-template-print-dialog"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
 import { useRef, useMemo } from "react"
@@ -186,6 +187,7 @@ export default function AdminPage() {
   const [createSubdivisionOpen, setCreateSubdivisionOpen] = useState(false)
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false)
   const [importTemplatesOpen, setImportTemplatesOpen] = useState(false)
+  const [workTemplatePrintOpen, setWorkTemplatePrintOpen] = useState(false)
   const [createContractorOpen, setCreateContractorOpen] = useState(false)
   const [importContractorsOpen, setImportContractorsOpen] = useState(false)
   const [createUserOpen, setCreateUserOpen] = useState(false)
@@ -2296,7 +2298,28 @@ export default function AdminPage() {
                   <GanttChart className="h-4 w-4 mr-1" />
                   View Gantt
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWorkTemplatePrintOpen(true)}
+                >
+                  <Printer className="h-4 w-4 mr-1" />
+                  Print / Export PDF
+                </Button>
               </div>
+
+              <WorkTemplatePrintDialog
+                open={workTemplatePrintOpen}
+                onOpenChange={setWorkTemplatePrintOpen}
+                companyName={
+                  companyBranding?.brandAppName?.trim() ||
+                  companyBranding?.name ||
+                  "Your Company"
+                }
+                templateCategoryRows={templateCategoryRows}
+                templates={templates}
+                criticalTemplateIds={criticalTemplateIds}
+              />
 
               {workTemplatesApiError ? (
                 <div
