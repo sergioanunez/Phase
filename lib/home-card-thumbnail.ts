@@ -24,12 +24,15 @@ export async function buildCardThumbnailFromImage(input: Buffer): Promise<Buffer
 
 export async function buildCardThumbnailFromPdf(pdfBuffer: Buffer): Promise<Buffer | null> {
   try {
-    const { pdf } = await import("pdf-to-img")
-    const document = await pdf(pdfBuffer, { scale: 1.5 })
-    for await (const page of document) {
-      return buildCardThumbnailFromImage(page)
-    }
-    return null
+    const sharp = (await import("sharp")).default
+    return sharp(pdfBuffer, { page: 0, density: 150 })
+      .rotate()
+      .resize(CARD_THUMBNAIL_MAX_WIDTH, CARD_THUMBNAIL_MAX_WIDTH, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp(WEBP_OPTIONS)
+      .toBuffer()
   } catch (error) {
     console.error("PDF card thumbnail generation failed:", error)
     return null
