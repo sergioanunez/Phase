@@ -9,21 +9,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["sharp"],
-    /** Prevent trace collector stack overflow from sharp's per-platform optional deps. */
-    outputFileTracingExcludes: {
-      "*": [
-        "node_modules/@img/sharp-darwin-x64/**",
-        "node_modules/@img/sharp-darwin-arm64/**",
-        "node_modules/@img/sharp-win32-x64/**",
-        "node_modules/@img/sharp-win32-ia32/**",
-        "node_modules/@img/sharp-libvips-darwin-x64/**",
-        "node_modules/@img/sharp-libvips-darwin-arm64/**",
-        "node_modules/@img/sharp-libvips-win32-x64/**",
-      ],
-    },
-  },
   images: {
     unoptimized: true,
   },

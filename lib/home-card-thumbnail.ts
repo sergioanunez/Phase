@@ -6,37 +6,28 @@ import { HOME_PLANS_BUCKET } from "@/lib/supabase/server"
 export const CARD_THUMBNAIL_MAX_WIDTH = 200
 
 export const CARD_THUMBNAIL_STORAGE_PATH = (homeId: string) =>
-  `homes/${homeId}/card-thumbnail.webp`
+  `homes/${homeId}/card-thumbnail.jpg`
 
-const WEBP_OPTIONS = { quality: 72, effort: 4 } as const
+const JPEG_QUALITY = 72
 
-export async function buildCardThumbnailFromImage(input: Buffer): Promise<Buffer> {
-  const sharp = (await import("sharp")).default
-  return sharp(input)
-    .rotate()
-    .resize(CARD_THUMBNAIL_MAX_WIDTH, CARD_THUMBNAIL_MAX_WIDTH, {
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp(WEBP_OPTIONS)
-    .toBuffer()
+async function resizeImageBuffer(input: Buffer): Promise<Buffer> {
+  const { Jimp } = await import("jimp")
+  const image = await Jimp.fromBuffer(input)
+
+  if (image.width > CARD_THUMBNAIL_MAX_WIDTH || image.height > CARD_THUMBNAIL_MAX_WIDTH) {
+    image.scaleToFit({ w: CARD_THUMBNAIL_MAX_WIDTH, h: CARD_THUMBNAIL_MAX_WIDTH })
+  }
+
+  return image.getBuffer("image/jpeg", { quality: JPEG_QUALITY })
 }
 
-export async function buildCardThumbnailFromPdf(pdfBuffer: Buffer): Promise<Buffer | null> {
-  try {
-    const sharp = (await import("sharp")).default
-    return sharp(pdfBuffer, { page: 0, density: 150 })
-      .rotate()
-      .resize(CARD_THUMBNAIL_MAX_WIDTH, CARD_THUMBNAIL_MAX_WIDTH, {
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .webp(WEBP_OPTIONS)
-      .toBuffer()
-  } catch (error) {
-    console.error("PDF card thumbnail generation failed:", error)
-    return null
-  }
+export async function buildCardThumbnailFromImage(input: Buffer): Promise<Buffer> {
+  return resizeImageBuffer(input)
+}
+
+export async function buildCardThumbnailFromPdf(_pdfBuffer: Buffer): Promise<Buffer | null> {
+  // PDF preview needs native bindings that break Vercel builds; use image uploads for card previews.
+  return null
 }
 
 export async function buildCardThumbnailWebp(
@@ -61,12 +52,12 @@ export async function persistHomeCardThumbnail(params: {
   mimeType: string
 }): Promise<string | null> {
   const { supabase, prisma, homeId, sourceBuffer, mimeType } = params
-  const webp = await buildCardThumbnailWebp(sourceBuffer, mimeType)
-  if (!webp) return null
+  const jpeg = await buildCardThumbnailWebp(sourceBuffer, mimeType)
+  if (!jpeg) return null
 
   const storagePath = CARD_THUMBNAIL_STORAGE_PATH(homeId)
-  const { error } = await supabase.storage.from(HOME_PLANS_BUCKET).upload(storagePath, webp, {
-    contentType: "image/webp",
+  const { error } = await supabase.storage.from(HOME_PLANS_BUCKET).upload(storagePath, jpeg, {
+    contentType: "image/jpeg",
     upsert: true,
   })
   if (error) {

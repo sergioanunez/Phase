@@ -7,7 +7,6 @@ import {
   validatePlanFile,
 } from "@/lib/home-plan-files"
 import { nextHomePlanStoragePath, parsePlanTag } from "@/lib/home-plans"
-import { persistHomeCardThumbnail } from "@/lib/home-card-thumbnail"
 import { createSupabaseServerClient, HOME_PLANS_BUCKET } from "@/lib/supabase/server"
 
 type HomeForPlan = {
@@ -102,6 +101,7 @@ export async function uploadLegacySinglePlan(params: {
   if (uploadError) throw new Error(uploadError.message || "Failed to upload plan")
 
   try {
+    const { persistHomeCardThumbnail } = await import("@/lib/home-card-thumbnail")
     await persistHomeCardThumbnail({
       supabase,
       prisma,
@@ -178,6 +178,7 @@ export async function uploadMultiHomePlans(params: {
 
     if (index === 0) {
       try {
+        const { persistHomeCardThumbnail } = await import("@/lib/home-card-thumbnail")
         await persistHomeCardThumbnail({
           supabase,
           prisma,
