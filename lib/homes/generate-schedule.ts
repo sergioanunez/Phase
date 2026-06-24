@@ -5,6 +5,7 @@ import {
   taskFinishFromDuration,
   workingDaysBetween,
 } from "@/lib/forecast"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 
 export type GenerateScheduleMode = "critical" | "all"
 
@@ -69,7 +70,7 @@ export function isScheduleTaskCompleted(task: Pick<ScheduleTaskInput, "status">)
 }
 
 export function isScheduleTaskEligible(task: Pick<ScheduleTaskInput, "status">): boolean {
-  return task.status !== "Completed" && task.status !== "Canceled"
+  return isTaskIncompleteForProgress(task.status)
 }
 
 /**

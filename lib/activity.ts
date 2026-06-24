@@ -269,3 +269,51 @@ export async function createTaskRescheduledEvent(params: {
     },
   })
 }
+
+export async function createTaskNotApplicableEvent(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  reason: string
+  note?: string | null
+  actorName?: string | null
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "task_not_applicable",
+    title: "Task marked not applicable",
+    description: params.taskName,
+    actorName: params.actorName,
+    metadata: {
+      reason: params.reason,
+      note: params.note ?? undefined,
+      timestamp: new Date().toISOString(),
+    },
+  })
+}
+
+export async function createTaskMarkedApplicableEvent(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  restoredStatus: string
+  actorName?: string | null
+}): Promise<void> {
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    taskId: params.taskId,
+    eventType: "task_marked_applicable",
+    title: "Task marked applicable again",
+    description: params.taskName,
+    actorName: params.actorName,
+    metadata: {
+      restoredStatus: params.restoredStatus,
+      timestamp: new Date().toISOString(),
+    },
+  })
+}

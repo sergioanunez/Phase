@@ -21,8 +21,11 @@ import {
 } from "@/lib/calendar-date"
 import { MessageCircle, CalendarX, Loader2, CheckCircle, PlayCircle } from "lucide-react"
 import { RescheduleTaskDialog } from "@/components/reschedule-task-dialog"
+import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog"
 import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
-import type { TaskRescheduleReason } from "@prisma/client"
+import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
+import { badgeLabelForTaskStatus } from "@/lib/task-status"
+import type { TaskRescheduleReason, TaskNotApplicableReason } from "@prisma/client"
 
 interface Contractor {
   id: string
@@ -51,6 +54,10 @@ interface Task {
   reportedCompleteAt?: string | null
   reportedCompleteNote?: string | null
   reportedCompleteBy?: { id: string; name: string | null } | null
+  notApplicableReason?: TaskNotApplicableReason | null
+  notApplicableNote?: string | null
+  notApplicableAt?: string | null
+  notApplicableBy?: { id: string; name: string | null } | null
 }
 
 interface TaskModalProps {
@@ -63,10 +70,12 @@ interface TaskModalProps {
 }
 
 const BUILDER_ROLES_MANUAL_CONFIRM = new Set(["Admin", "Manager", "Superintendent"])
+const BUILDER_ROLES_TASK_WRITE = BUILDER_ROLES_MANUAL_CONFIRM
 
 export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }: TaskModalProps) {
   const { data: session } = useSession()
   const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
+  const canMarkNotApplicable = BUILDER_ROLES_TASK_WRITE.has(session?.user?.role ?? "")
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [scheduledDate, setScheduledDate] = useState(formatScheduledDateInput(task.scheduledDate))
   const [contractorId, setContractorId] = useState(task.contractorId || "")
@@ -76,6 +85,8 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
   const [sendingSMS, setSendingSMS] = useState(false)
   const [currentTask, setCurrentTask] = useState(task)
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false)
+  const [markNaDialogOpen, setMarkNaDialogOpen] = useState(false)
+  const [revertingApplicable, setRevertingApplicable] = useState(false)
 
   useEffect(() => {
     fetch("/api/contractors")
@@ -303,6 +314,31 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
     }
   }
 
+  const handleMarkApplicable = async () => {
+    if (!confirm("Reopen this task for scheduling and completion?")) return
+    setRevertingApplicable(true)
+    try {
+      const res = await fetch(`/api/tasks/${currentTask.id}/mark-applicable`, {
+        method: "POST",
+        credentials: "same-origin",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data?.error || "Failed to mark task applicable")
+        return
+      }
+      setCurrentTask(data)
+      onUpdate()
+    } catch (error) {
+      console.error(error)
+      alert("Failed to mark task applicable")
+    } finally {
+      setRevertingApplicable(false)
+    }
+  }
+
+  const isNotApplicable = currentTask.status === "NotApplicable"
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -310,7 +346,15 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         <DialogHeader>
           <DialogTitle>{currentTask.nameSnapshot}</DialogTitle>
           <DialogDescription className="flex flex-col items-start gap-1">
-            <Badge>{currentTask.status}</Badge>
+            <Badge
+              className={
+                isNotApplicable
+                  ? "bg-gray-100 text-gray-700 border-gray-200"
+                  : undefined
+              }
+            >
+              {badgeLabelForTaskStatus(currentTask.status)}
+            </Badge>
             {currentTask.status === "Confirmed" &&
               (currentTask.confirmationSource === "Manual" ||
                 currentTask.confirmationSource === "Sms") && (
@@ -324,6 +368,31 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {isNotApplicable && currentTask.notApplicableReason && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-3 space-y-1 text-sm">
+              <p className="font-medium text-gray-800">Not applicable for this house</p>
+              <p className="text-muted-foreground">
+                {labelForNotApplicableReason(currentTask.notApplicableReason)}
+                {currentTask.notApplicableReason === "other" && currentTask.notApplicableNote
+                  ? ` — ${currentTask.notApplicableNote}`
+                  : ""}
+              </p>
+              {(currentTask.notApplicableBy?.name || currentTask.notApplicableAt) && (
+                <p className="text-xs text-muted-foreground">
+                  {currentTask.notApplicableBy?.name && (
+                    <span>By {currentTask.notApplicableBy.name}</span>
+                  )}
+                  {currentTask.notApplicableAt && (
+                    <span>
+                      {currentTask.notApplicableBy?.name ? " · " : ""}
+                      {format(new Date(currentTask.notApplicableAt), "MMM d, h:mm a")}
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium mb-1">
               Scheduled Date
@@ -333,6 +402,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
               className="w-full px-3 py-2 border rounded-md"
+              disabled={isNotApplicable}
             />
           </div>
 
@@ -344,6 +414,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
               className="w-full px-3 py-2 border rounded-md"
+              disabled={isNotApplicable}
             >
               <option value="">Select contractor</option>
               {contractors.map((contractor) => (
@@ -361,6 +432,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border rounded-md"
+              disabled={isNotApplicable}
             />
           </div>
 
@@ -433,7 +505,8 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
           {canManualConfirm &&
             (scheduledDate || currentTask.scheduledDate) &&
             currentTask.status !== "Completed" &&
-            currentTask.status !== "Canceled" && (
+            currentTask.status !== "Canceled" &&
+            !isNotApplicable && (
               <div className="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-2">
                 {currentTask.status === "Confirmed" ? (
                   <p className="text-sm text-foreground">
@@ -528,7 +601,32 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
 
         <DialogFooter className="flex-row items-center justify-between gap-2 border-t pt-3">
           <div className="flex flex-wrap items-center gap-2">
-            {(currentTask.status === "Scheduled" ||
+            {isNotApplicable && canMarkNotApplicable && (
+              <Button
+                onClick={handleMarkApplicable}
+                disabled={revertingApplicable}
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+              >
+                {revertingApplicable ? "Reopening…" : "Mark Applicable"}
+              </Button>
+            )}
+            {!isNotApplicable &&
+              canMarkNotApplicable &&
+              currentTask.status !== "Completed" && (
+                <Button
+                  onClick={() => setMarkNaDialogOpen(true)}
+                  disabled={loading}
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                >
+                  Mark N/A
+                </Button>
+              )}
+            {!isNotApplicable &&
+              (currentTask.status === "Scheduled" ||
               currentTask.status === "PendingConfirm" ||
               currentTask.status === "Confirmed" ||
               currentTask.status === "InProgress") && (
@@ -584,13 +682,23 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
             <Button variant="outline" onClick={() => onOpenChange(false)} size="sm">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={loading} size="sm">
+            <Button onClick={handleSave} disabled={loading || isNotApplicable} size="sm">
               {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <MarkNotApplicableDialog
+      open={markNaDialogOpen}
+      onOpenChange={setMarkNaDialogOpen}
+      task={currentTask}
+      onSuccess={(updated) => {
+        setCurrentTask(updated as Task)
+        onUpdate()
+      }}
+    />
 
     <RescheduleTaskDialog
       open={rescheduleDialogOpen}

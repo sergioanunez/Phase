@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { format, parseISO, startOfDay } from "date-fns"
+import { TaskStatus } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { handleApiError } from "@/lib/api-response"
 
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     const baseTaskWhere = {
       ...(ctx.companyId ? { companyId: ctx.companyId } : {}),
       scheduledDate: { gte: start, lte: end },
-      status: { notIn: ["Canceled" as const] },
+      status: { notIn: [TaskStatus.Canceled, TaskStatus.NotApplicable] },
       ...(allowedHomeIds !== null ? { homeId: { in: allowedHomeIds } } : {}),
     }
 

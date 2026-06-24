@@ -16,6 +16,7 @@ import {
   loadHomesListNavigationState,
   saveHomesListNavigationState,
 } from "@/lib/homes/list-navigation-state"
+import { isExcludedFromProgress } from "@/lib/task-status"
 
 interface Home {
   id: string
@@ -58,10 +59,10 @@ interface Subdivision {
 function calculateProgress(home: Home): number {
   const tasks = home.tasks ?? []
   const total = tasks.length
-  const canceled = tasks.filter((t) => t.status === "Canceled").length
+  const excluded = tasks.filter((t) => isExcludedFromProgress(t.status)).length
   const completed = tasks.filter((t) => t.status === "Completed").length
-  return total - canceled > 0
-    ? Math.round((completed / (total - canceled)) * 100)
+  return total - excluded > 0
+    ? Math.round((completed / (total - excluded)) * 100)
     : 0
 }
 

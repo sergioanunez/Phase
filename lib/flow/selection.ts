@@ -39,7 +39,7 @@ export function buildTaskMap<T extends FlowTaskForSelection>(tasks: T[]): Map<st
 }
 
 /**
- * True iff all dependency tasks have status COMPLETE.
+ * True iff all dependency tasks are resolved (completed or not applicable).
  */
 export function isExecutionReady(
   taskId: string,
@@ -50,7 +50,7 @@ export function isExecutionReady(
   if (depIds.length === 0) return true
   for (const depId of depIds) {
     const dep = taskMap.get(depId)
-    if (!dep || dep.status !== COMPLETED) return false
+    if (!dep || (dep.status !== COMPLETED && dep.status !== "NotApplicable")) return false
   }
   return true
 }
@@ -67,6 +67,8 @@ export function computeFrontierTasks<T extends FlowTaskForSelection>(
   return tasks.filter(
     (t) =>
       t.status !== completedStatus &&
+      t.status !== "NotApplicable" &&
+      t.status !== "Canceled" &&
       isExecutionReady(t.id, taskMap as Map<string, FlowTaskForSelection>, getDependencyIds)
   )
 }
@@ -85,7 +87,12 @@ export function computeBlockingFocusTask<T extends FlowTaskForSelection>(
   completedStatus: string = COMPLETED,
   inProgressStatus: string = IN_PROGRESS
 ): T | null {
-  const incomplete = tasks.filter((t) => t.status !== completedStatus)
+  const incomplete = tasks.filter(
+    (t) =>
+      t.status !== completedStatus &&
+      t.status !== "NotApplicable" &&
+      t.status !== "Canceled"
+  )
   if (incomplete.length === 0) return null
 
   const inProgress = incomplete.filter((t) => t.status === inProgressStatus)

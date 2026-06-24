@@ -7,6 +7,7 @@ import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { TaskStatus } from "@prisma/client"
 import { z } from "zod"
 import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 
 // #region agent log
 function debugLog(payload: Record<string, unknown>) {
@@ -40,6 +41,7 @@ const validTransitions: Record<TaskStatus, TaskStatus[]> = {
   InProgress: ["Completed", "Canceled"],
   Completed: ["Confirmed", "Scheduled", "InProgress"],
   Canceled: ["Unscheduled"],
+  NotApplicable: [],
 }
 
 function isValidTransition(from: TaskStatus, to: TaskStatus): boolean {
@@ -261,8 +263,8 @@ export async function PATCH(
               normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
           )
 
-          const incompleteGatedTasks = gatedCategoryTasks.filter(
-            (task) => task.status !== "Completed" && task.status !== "Canceled"
+          const incompleteGatedTasks = gatedCategoryTasks.filter((task) =>
+            isTaskIncompleteForProgress(task.status)
           )
 
           if (incompleteGatedTasks.length > 0) {

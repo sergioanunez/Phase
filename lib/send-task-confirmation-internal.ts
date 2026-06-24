@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client"
 import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 
 export type SendTaskConfirmationResult =
   | { ok: true }
@@ -133,7 +134,7 @@ export async function sendTaskConfirmationInternal(
       )
 
       const incompleteGatedTasks = gatedCategoryTasks.filter(
-        (t) => t.status !== "Completed" && t.status !== "Canceled"
+        (t) => isTaskIncompleteForProgress(t.status)
       )
 
       if (incompleteGatedTasks.length > 0) {

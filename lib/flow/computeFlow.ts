@@ -10,10 +10,12 @@ import {
 import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-order"
 import { homeOrderByDisplayOrder } from "@/lib/homes/display-order"
 import type { FlowAction, ComputeFlowInput, ComputeFlowResult } from "./types"
+import { isExcludedFromActiveWork, isTaskResolvedForScheduling } from "@/lib/task-status"
 
 const COMPLETED = "Completed"
 const IN_PROGRESS = "InProgress"
 const CANCELED = "Canceled"
+const NOT_APPLICABLE = "NotApplicable"
 
 type TaskStatus = string
 
@@ -204,7 +206,10 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       const task = taskById[taskId]
       if (!task) continue
       const preds = predecessors[taskId]
-      const duration = Math.max(0, task.durationDaysSnapshot)
+      const duration =
+        task.status === NOT_APPLICABLE || task.status === COMPLETED
+          ? 0
+          : Math.max(0, task.durationDaysSnapshot)
       if (preds.length === 0) {
         forecastStart[taskId] = homeStartDate
       } else {
@@ -256,6 +261,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         if (!task || !template) return null
 
         const status = task.status as TaskStatus
+        if (isExcludedFromActiveWork(status)) return null
         // In-progress tasks should still be handled by the execution branch below.
         if (status === IN_PROGRESS) return null
 
@@ -283,18 +289,21 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         const forecastFinishStr = toDateOnly(ff)
 
         const showPrep =
-          status !== COMPLETED && status !== CANCELED && prepStartStr <= today
+          status !== COMPLETED &&
+          !isExcludedFromActiveWork(status) &&
+          prepStartStr <= today
         if (!showPrep) return null
 
         const executionEligible =
-          preds.length === 0 || preds.every((p) => (taskById[p]?.status as TaskStatus) === COMPLETED)
+          preds.length === 0 ||
+          preds.every((p) => isTaskResolvedForScheduling(taskById[p]?.status as TaskStatus))
         const predecessorReadyForScheduling =
           preds.length === 0 ||
           preds.every((p) => {
             const predTask = taskById[p]
             if (!predTask) return false
             const predStatus = predTask.status as TaskStatus
-            return predStatus === COMPLETED || !!predTask.scheduledDate
+            return isTaskResolvedForScheduling(predStatus) || !!predTask.scheduledDate
           })
 
         // Only surface "schedule now" actions when execution is blocked.
@@ -302,7 +311,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
 
         const dependencyStatus = preds.map((p) => ({
           name: taskById[p]?.nameSnapshot ?? "?",
-          complete: (taskById[p]?.status as TaskStatus) === COMPLETED,
+          complete: isTaskResolvedForScheduling(taskById[p]?.status as TaskStatus),
         }))
 
         const contractorName =
@@ -384,6 +393,8 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       if (!task || !template) continue
 
       const status = task.status as TaskStatus
+      if (isExcludedFromActiveWork(status)) continue
+
       const preds = predecessors[task.id]
       const contractorLeadDays =
         template.contractorLeadOverrideDays != null
@@ -408,7 +419,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         template.contractor?.companyName ?? task.contractor?.companyName ?? undefined
       const dependencyStatus = preds.map((p) => ({
         name: taskById[p]?.nameSnapshot ?? "?",
-        complete: (taskById[p]?.status as TaskStatus) === COMPLETED,
+        complete: isTaskResolvedForScheduling(taskById[p]?.status as TaskStatus),
       }))
 
       if (status === IN_PROGRESS) {
@@ -446,7 +457,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       const prepStartDateOnly = toDateOnly(prepStart)
       const showPrep =
         status !== COMPLETED &&
-        status !== CANCELED &&
+        !isExcludedFromActiveWork(status) &&
         prepStartDateOnly <= today
 
       if (showPrep) {
@@ -526,6 +537,8 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
       if (!task || !template) continue
 
       const status = task.status as TaskStatus
+      if (isExcludedFromActiveWork(status)) continue
+
       const preds = predecessors[task.id]
       const fs = forecastStart[task.id]
       const ff = forecastFinish[task.id]
@@ -549,7 +562,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
         template.contractor?.companyName ?? task.contractor?.companyName ?? undefined
       const dependencyStatus = preds.map((p) => ({
         name: taskById[p]?.nameSnapshot ?? "?",
-        complete: (taskById[p]?.status as TaskStatus) === COMPLETED,
+        complete: isTaskResolvedForScheduling(taskById[p]?.status as TaskStatus),
       }))
       const actionDate = toDateOnly(fs)
       const isBlockingInProgress = status === IN_PROGRESS
@@ -559,7 +572,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
           const predTask = taskById[p]
           if (!predTask) return false
           const predStatus = predTask.status as TaskStatus
-          return predStatus === COMPLETED || !!predTask.scheduledDate
+          return isTaskResolvedForScheduling(predStatus) || !!predTask.scheduledDate
         })
 
       // Middle-ground behavior: don't show "schedule now" style blocked cards

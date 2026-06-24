@@ -1,5 +1,6 @@
 import { addDays, format, isSameDay, startOfDay } from "date-fns"
 import { isWorkingDay } from "@/lib/working-days"
+import { isExcludedFromActiveWork } from "@/lib/task-status"
 
 export type HouseScheduleTaskInput = {
   id: string
@@ -32,7 +33,7 @@ export type HouseScheduleStrip = {
   hasAnyScheduled: boolean
 }
 
-const TERMINAL_STATUSES = new Set(["Completed", "Canceled"])
+const TERMINAL_STATUSES = new Set(["Completed", "Canceled", "NotApplicable"])
 
 function parseScheduledDay(iso: string | null): Date | null {
   if (!iso) return null
@@ -84,7 +85,7 @@ export function buildHouseScheduleStrip(
     const dateKey = format(date, "yyyy-MM-dd")
     const weekend = !isWorkingDay(date)
     const dayTasks = tasksByDay.get(dateKey) ?? []
-    const activeTasks = dayTasks.filter((t) => t.status !== "Canceled")
+    const activeTasks = dayTasks.filter((t) => !isExcludedFromActiveWork(t.status))
     const scheduledCount = activeTasks.length
     const hasOverdue = activeTasks.some((t) => isOverdueTask(t, today))
     const allCompleted =

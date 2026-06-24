@@ -1,6 +1,7 @@
 import { prisma } from "./prisma"
 import { checkGateBlocking } from "./gates"
 import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 
 const CATEGORY_ORDER = [
   "Preliminary work",
@@ -82,7 +83,7 @@ export async function getTaskSchedulingBlockReason(
         normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
     )
     const incompleteGatedTasks = gatedCategoryTasks.filter(
-      (task) => task.status !== "Completed" && task.status !== "Canceled"
+      (task) => isTaskIncompleteForProgress(task.status)
     )
     if (incompleteGatedTasks.length > 0) {
       const gateName =
@@ -199,7 +200,7 @@ export async function getTaskSchedulingBlockReasonsBatch(
           normalizeCategory(task.templateItem?.optionalCategory ?? null) === gateCategoryNorm
       )
       const incompleteGatedTasks = gatedCategoryTasks.filter(
-        (task) => task.status !== "Completed" && task.status !== "Canceled"
+        (task) => isTaskIncompleteForProgress(task.status)
       )
       if (incompleteGatedTasks.length > 0) {
         const gateName =

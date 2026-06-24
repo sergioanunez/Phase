@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 import { format } from "date-fns"
 import { Home } from "lucide-react"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import { StatusPill } from "./status-pill"
 import { ProgressBar } from "./progress-bar"
+import Link from "next/link"
 
 function formatFloorPlanLabel(planName?: string | null, planVariant?: string | null): string | null {
   const label = [planName, planVariant].filter(Boolean).join(" – ")
@@ -81,7 +82,7 @@ export function HomeCard({ home, status, progress, onNavigate }: HomeCardProps) 
       (t) =>
         criticalIds.includes(t.id) &&
         t.scheduledDate &&
-        t.status !== "Completed"
+        isTaskIncompleteForProgress(t.status ?? "")
     )
     .sort((a, b) => new Date(b.scheduledDate!).getTime() - new Date(a.scheduledDate!).getTime())[0]
 

@@ -1,4 +1,5 @@
 import type { DashboardHomeForPhase } from "@/lib/dashboard/phaseDistribution"
+import { isTaskResolvedForScheduling } from "@/lib/task-status"
 import {
   COMPLETE_PHASE_KEY,
   NOT_STARTED_PHASE_KEY,
@@ -79,7 +80,7 @@ export function computePhaseBasedRemainingWorkingDays(
 
   let incompleteWdInCurrent = 0
   for (const t of home.tasks) {
-    if (t.status === "Completed") continue
+    if (isTaskResolvedForScheduling(t.status)) continue
     if (homeTaskCategory(t) !== phaseName) continue
     incompleteWdInCurrent += Math.max(0, t.durationDaysSnapshot)
   }

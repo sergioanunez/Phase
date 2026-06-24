@@ -1,5 +1,6 @@
 import { compareWorkTemplatesForDisplay, type WorkTemplateDisplaySortKey } from "@/lib/work-template-display-order"
 import { workingDaysBetween } from "@/lib/working-days"
+import { isTaskResolvedForScheduling } from "@/lib/task-status"
 
 export const NOT_STARTED_PHASE_KEY = "not_started"
 export const COMPLETE_PHASE_KEY = "complete"
@@ -127,7 +128,7 @@ export function computeCurrentPhaseForHome(
     const hasIncompleteInCategory = tasks.some(
       (t) =>
         homeTaskCategory(t) === categoryName &&
-        t.status !== "Completed"
+        !isTaskResolvedForScheduling(t.status)
     )
     if (hasIncompleteInCategory) {
       return { key: category.key, name: category.name }

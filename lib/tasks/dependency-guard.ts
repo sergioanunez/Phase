@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client"
+import { isTaskResolvedForScheduling } from "@/lib/task-status"
 
 type GetIncompletePrereqsInput = {
   prisma: PrismaClient
@@ -36,7 +37,7 @@ export async function getIncompletePrerequisiteDependencyNames({
   })
 
   return prereqTasks
-    .filter((t) => t.status !== "Completed")
+    .filter((t) => !isTaskResolvedForScheduling(t.status))
     .map((t) => t.nameSnapshot)
 }
 

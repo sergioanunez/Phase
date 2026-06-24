@@ -1,6 +1,7 @@
 import { prisma } from "./prisma"
 import { GateScope } from "@prisma/client"
 import { homeTaskOrderByTemplateSequence } from "./work-template-display-order"
+import { isTaskResolvedForScheduling } from "@/lib/task-status"
 
 export interface GateCheckResult {
   isBlocked: boolean
@@ -150,7 +151,7 @@ export async function checkGateBlocking(
         )
 
         const incompleteGatedTasks = gatedCategoryTasks.filter(
-          (t) => t.status !== "Completed" && t.status !== "Canceled"
+          (t) => !isTaskResolvedForScheduling(t.status) && t.status !== "Canceled"
         )
 
         if (incompleteGatedTasks.length > 0) {

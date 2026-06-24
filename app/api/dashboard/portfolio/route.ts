@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getScheduleStatus, type ScheduleStatus } from "@/lib/schedule-status"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     for (const home of homes) {
       for (const task of home.tasks) {
         if (
-          task.status !== "Completed" &&
+          isTaskIncompleteForProgress(task.status) &&
           task.scheduledDate &&
           new Date(task.scheduledDate) < today
         ) {
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
           task.scheduledDate &&
           new Date(task.scheduledDate) >= today &&
           new Date(task.scheduledDate) <= tenDaysFromNow &&
-          task.status !== "Completed"
+          isTaskIncompleteForProgress(task.status)
         ) {
           const typeLabel =
             cat.toLowerCase().includes("foundation")

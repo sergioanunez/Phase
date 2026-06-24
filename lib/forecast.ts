@@ -285,6 +285,7 @@ type HomeTaskRow = {
   status: string
   scheduledDate: Date | null
   completedAt: Date | null
+  notApplicableAt?: Date | null
   sortOrderSnapshot: number
   templateItem: {
     name: string
@@ -296,6 +297,7 @@ type HomeTaskRow = {
 
 function mapStatus(status: string): TaskStatusForForecast {
   if (status === "Completed") return "COMPLETE"
+  if (status === "NotApplicable") return "COMPLETE"
   if (status === "InProgress") return "IN_PROGRESS"
   return "NOT_STARTED"
 }
@@ -367,6 +369,7 @@ export async function computeHomeForecastAndPersist(homeId: string): Promise<voi
           status: true,
           scheduledDate: true,
           completedAt: true,
+          notApplicableAt: true,
           sortOrderSnapshot: true,
           templateItem: {
             select: {
@@ -423,12 +426,16 @@ export async function computeHomeForecastAndPersist(homeId: string): Promise<voi
   const taskNodes: TaskNode[] = tasks.map((t) => ({
     id: t.id,
     name: t.nameSnapshot,
-    durationDays: Math.max(0, t.durationDaysSnapshot),
+    durationDays:
+      t.status === "NotApplicable" ? 0 : Math.max(0, t.durationDaysSnapshot),
     status: mapStatus(t.status),
     dependencyIds: dependencyIdsByTaskId[t.id] ?? [],
     scheduledStartDate: t.scheduledDate,
     scheduledEndDate: null,
-    completedAt: t.completedAt,
+    completedAt:
+      t.status === "NotApplicable"
+        ? (t.notApplicableAt ?? t.completedAt)
+        : t.completedAt,
   }))
 
   let homeStart: Date

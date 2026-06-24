@@ -34,6 +34,10 @@ import { StatusPill, type ScheduleStatus } from "@/components/homes/status-pill"
 import Link from "next/link"
 import { homesListRestoreHref } from "@/lib/homes/list-navigation-state"
 import { groupPlansByTag, type ListedHomePlan } from "@/lib/home-plans"
+import { isExcludedFromProgress, badgeLabelForTaskStatus } from "@/lib/task-status"
+import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
+import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog"
+import type { TaskNotApplicableReason } from "@prisma/client"
 
 interface HomeTask {
   id: string
@@ -73,6 +77,10 @@ interface HomeTask {
   reportedCompleteAt?: string | null
   reportedCompleteNote?: string | null
   reportedCompleteBy?: { id: string; name: string | null } | null
+  notApplicableReason?: TaskNotApplicableReason | null
+  notApplicableNote?: string | null
+  notApplicableAt?: string | null
+  notApplicableBy?: { id: string; name: string | null } | null
 }
 
 interface Home {
@@ -117,6 +125,8 @@ export function HomeDetailPage() {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
+  const [markNaTask, setMarkNaTask] = useState<HomeTask | null>(null)
+  const [markNaDialogOpen, setMarkNaDialogOpen] = useState(false)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
   const [headerCardEl, setHeaderCardEl] = useState<HTMLDivElement | null>(null)
   const headerInView = useHouseHeaderInView(headerCardEl, home?.id)
@@ -549,12 +559,15 @@ export function HomeDetailPage() {
   // Calculate progress for a category
   const calculateCategoryProgress = (tasks: HomeTask[]) => {
     const total = tasks.length
-    const canceled = tasks.filter((t) => t.status === "Canceled").length
+    const excluded = tasks.filter((t) => isExcludedFromProgress(t.status)).length
     const completed = tasks.filter((t) => t.status === "Completed").length
+    const notApplicable = tasks.filter((t) => t.status === "NotApplicable").length
+    const applicable = total - excluded
     return {
-      total: total - canceled,
+      total: applicable,
       completed,
-      progress: total - canceled > 0 ? Math.round((completed / (total - canceled)) * 100) : 0,
+      notApplicable,
+      progress: applicable > 0 ? Math.round((completed / applicable) * 100) : 0,
     }
   }
 
@@ -756,13 +769,15 @@ export function HomeDetailPage() {
                   )}
                 </div>
                 {(() => {
-                  const totalTasks = tasksList.filter((t) => t.status !== "Canceled").length
+                  const totalTasks = tasksList.filter((t) => !isExcludedFromProgress(t.status)).length
                   const completedTasks = tasksList.filter((t) => t.status === "Completed").length
+                  const naTasks = tasksList.filter((t) => t.status === "NotApplicable").length
                   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
                   return (
                     <>
                       <p className="mt-3 text-sm text-muted-foreground">
                         {completedTasks} / {totalTasks} tasks completed
+                        {naTasks > 0 ? ` · ${naTasks} N/A` : ""}
                       </p>
                       <div className="mt-2 w-full min-w-0">
                         <ProgressBar value={progress} status={barStatus} showChevron={false} />
@@ -847,7 +862,7 @@ export function HomeDetailPage() {
         <Accordion type="multiple" className="w-full space-y-3">
           {sortedCategories.map((category) => {
             const categoryTasks = tasksByCategory[category]
-            const { total, completed, progress } = calculateCategoryProgress(categoryTasks)
+            const { total, completed, notApplicable, progress } = calculateCategoryProgress(categoryTasks)
 
             return (
               <AccordionItem key={category} value={category} className="border-none">
@@ -864,6 +879,7 @@ export function HomeDetailPage() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {completed} / {total} tasks completed
+                        {notApplicable > 0 ? ` · ${notApplicable} N/A` : ""}
                       </p>
                       <div className="w-full">
                         <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
@@ -886,6 +902,8 @@ export function HomeDetailPage() {
                             canEdit ? "cursor-pointer hover:bg-gray-50/80 transition-colors" : ""
                           } ${
                             task.status === "Completed" ? "bg-green-50/80 border-green-200" : ""
+                          } ${
+                            task.status === "NotApplicable" ? "bg-gray-50/80 border-gray-200" : ""
                           } ${blocked ? "border-orange-300 bg-orange-50/50" : "border-gray-200/80"}`}
                           onClick={() => canEdit && handleTaskClick(task)}
                         >
@@ -922,6 +940,7 @@ export function HomeDetailPage() {
                                 className={cn(
                                   "shrink-0 text-xs font-medium px-2 py-0.5 rounded-md",
                                   task.status === "Completed" && "bg-green-100 text-green-800",
+                                  task.status === "NotApplicable" && "bg-gray-100 text-gray-600",
                                   task.status === "Unscheduled" && "bg-gray-100 text-gray-600",
                                   (task.status === "Scheduled" || task.status === "Confirmed") && "bg-blue-50 text-blue-700",
                                   task.status === "PendingConfirm" && "bg-amber-50 text-amber-700",
@@ -930,12 +949,20 @@ export function HomeDetailPage() {
                                   task.status === "Canceled" && "bg-gray-100 text-gray-500"
                                 )}
                               >
-                                {task.status === "InProgress" ? "In Progress" : task.status}
+                                {badgeLabelForTaskStatus(task.status)}
                               </span>
                             </div>
                             {blocked && (
                               <p className="text-[11px] text-orange-600 mt-0.5" title={getTaskBlockedReason(task) ?? undefined}>
                                 {getTaskBlockedReason(task)}
+                              </p>
+                            )}
+                            {task.status === "NotApplicable" && task.notApplicableReason && (
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                {labelForNotApplicableReason(task.notApplicableReason)}
+                                {task.notApplicableReason === "other" && task.notApplicableNote
+                                  ? ` — “${task.notApplicableNote}”`
+                                  : ""}
                               </p>
                             )}
                             {task.reportedCompleteAt && task.status !== "Completed" && (
@@ -959,7 +986,7 @@ export function HomeDetailPage() {
                                   <span className="text-destructive font-medium">Punches: {task.punchOpenCount}</span>
                                 </>
                               )}
-                              {task.scheduledDate && (
+                              {task.scheduledDate && task.status !== "NotApplicable" && (
                                 <>
                                   <span className="text-gray-300">•</span>
                                   <span>Scheduled: {format(normalizeStoredScheduledDate(new Date(task.scheduledDate)), "MM/dd/yyyy")}</span>
@@ -981,6 +1008,7 @@ export function HomeDetailPage() {
                             {/* Compact action row: Mark Completed (builder-side only) + Add Punch */}
                             <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
                               {canMarkComplete &&
+                                task.status !== "NotApplicable" &&
                                 (task.status === "Scheduled" ||
                                   task.status === "PendingConfirm" ||
                                   task.status === "Confirmed" ||
@@ -1006,6 +1034,22 @@ export function HomeDetailPage() {
                                     <Check className="h-4 w-4" />
                                   </Button>
                                 ))}
+                              {canEdit &&
+                                task.status !== "Completed" &&
+                                task.status !== "NotApplicable" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMarkNaTask(task)
+                                      setMarkNaDialogOpen(true)
+                                    }}
+                                    className="shrink-0 min-h-[44px] h-9 px-3 text-gray-700"
+                                  >
+                                    Mark N/A
+                                  </Button>
+                                )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1062,6 +1106,21 @@ export function HomeDetailPage() {
           onOpenChange={setModalOpen}
           onUpdate={handleTaskUpdate}
           homeLabel={home.addressOrLot}
+        />
+      )}
+
+      {markNaTask && (
+        <MarkNotApplicableDialog
+          open={markNaDialogOpen}
+          onOpenChange={(open) => {
+            setMarkNaDialogOpen(open)
+            if (!open) setMarkNaTask(null)
+          }}
+          task={markNaTask}
+          onSuccess={() => {
+            handleTaskUpdate()
+            setMarkNaTask(null)
+          }}
         />
       )}
 

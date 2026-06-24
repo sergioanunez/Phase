@@ -25,7 +25,7 @@ export async function recalculateHomeCompletion(
     where: {
       homeId,
       companyId: tenantId,
-      status: { not: "Completed" },
+      status: { notIn: ["Completed", "Canceled", "NotApplicable"] },
     },
   })
 

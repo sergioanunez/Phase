@@ -43,6 +43,16 @@ enum TaskStatus {
   InProgress
   Completed
   Canceled
+  NotApplicable
+}
+
+/// Why a house task was marked not applicable for this lot.
+enum TaskNotApplicableReason {
+  not_required_for_lot
+  option_not_selected
+  covered_by_another_task
+  builder_decision
+  other
 }
 
 /// How a task reached Confirmed status (manual builder action vs contractor SMS).
@@ -90,6 +100,8 @@ enum ActivityEventType {
   task_reported_complete
   task_started
   task_manually_confirmed
+  task_not_applicable
+  task_marked_applicable
   sms_sent
   sms_confirmed
   sms_declined
@@ -355,6 +367,7 @@ model User {
   createdNotifications Notification[]  @relation("NotificationCreatedBy")
   importBatchesCreated ImportBatch[]  @relation("ImportBatchesCreatedBy")
   tasksManuallyConfirmed HomeTask[]    @relation("TaskManualConfirm")
+  homeTasksMarkedNotApplicable HomeTask[] @relation("TaskNotApplicableBy")
   homeTasksReportedComplete HomeTask[] @relation("HomeTaskReportedComplete")
   punchItemsReportedComplete PunchItem[] @relation("PunchItemReportedComplete")
   homeTasksLastRescheduleSnapshot HomeTask[] @relation("TaskLastRescheduledBy")
@@ -652,6 +665,14 @@ model HomeTask {
   reportedCompleteByUserId String?
   reportedCompleteBy   User?            @relation("HomeTaskReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
   reportedCompleteNote String?
+  /// When this task was marked not applicable for this house/lot.
+  notApplicableReason       TaskNotApplicableReason?
+  notApplicableNote         String?
+  notApplicableAt           DateTime?
+  notApplicableByUserId     String?
+  notApplicableBy           User?            @relation("TaskNotApplicableBy", fields: [notApplicableByUserId], references: [id], onDelete: SetNull)
+  /// Status before marking N/A; used when reverting to applicable.
+  statusBeforeNotApplicable TaskStatus?
   isDemo               Boolean          @default(false)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
@@ -669,6 +690,7 @@ model HomeTask {
   @@index([confirmedByUserId])
   @@index([lastRescheduledByUserId])
   @@index([reportedCompleteByUserId])
+  @@index([notApplicableByUserId])
 }
 
 /// Immutable log of each task reschedule (analytics + manager timeline).

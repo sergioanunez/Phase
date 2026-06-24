@@ -327,7 +327,8 @@ export function TaskActionSheet({
                   {canManualConfirm &&
                     (scheduledDate || task.scheduledDate) &&
                     task.status !== "Completed" &&
-                    task.status !== "Canceled" && (
+                    task.status !== "Canceled" &&
+                    task.status !== "NotApplicable" && (
                       <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
                         {task.status === "Confirmed" ? (
                           <p className="text-xs text-foreground">

@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
           },
           { contractorId: { in: contractorIds } },
           { scheduledDate: { gte: start, lte: end } },
-          { status: { notIn: ["Canceled"] } },
+          { status: { notIn: ["Canceled", "NotApplicable"] as const } },
         ],
       },
       include: {
