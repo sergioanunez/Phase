@@ -45,7 +45,8 @@ export function CreateTemplateDialog({
           name,
           defaultDurationDays: parseInt(defaultDurationDays),
           sortOrder: parseInt(sortOrder),
-          optionalCategory: optionalCategory || null,
+          workTemplateCategoryId: defaultWorkTemplateCategoryId || null,
+          optionalCategory: defaultWorkTemplateCategoryId ? null : optionalCategory || null,
           isDependency: false,
         }),
       })
