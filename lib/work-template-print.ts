@@ -177,18 +177,33 @@ export function buildWorkTemplatePrintBlocks(
   }
 }
 
+function shortDurationLabel(days: number | null | undefined): string {
+  if (days == null || Number.isNaN(days)) return "—"
+  const n = Math.max(0, days)
+  return n === 1 ? "1 day" : `${n} days`
+}
+
 function buildWorkingPrintHeader(data: WorkTemplatePrintData): string {
   const logoHtml = data.companyLogoUrl
     ? `<img src="${escapeHtml(data.companyLogoUrl)}" alt="" class="company-logo" />`
     : `<div class="company-name">${escapeHtml(data.companyName)}</div>`
 
+  const totalDaysLabel =
+    data.totalWorkingDays === 1
+      ? "1 working day"
+      : `${data.totalWorkingDays} working days`
+
   return `<header class="working-header">
-    <div class="header-brand">${logoHtml}</div>
-    <h1>Work Items Working Schedule</h1>
-    <p class="generated">Generated: ${escapeHtml(data.generatedAt)}</p>
+    <div class="header-top">
+      <div class="header-brand">${logoHtml}</div>
+      <div class="header-title-block">
+        <h1>Work Items Working Schedule</h1>
+        <p class="header-meta">Generated: ${escapeHtml(data.generatedAt)} · Total working days: ${escapeHtml(totalDaysLabel)}</p>
+      </div>
+    </div>
     <div class="field-lines">
       <div class="field-line"><span class="field-label">Address:</span> <span class="field-blank"></span></div>
-      <div class="field-line"><span class="field-label">Start Date:</span> <span class="field-blank"></span></div>
+      <div class="field-line"><span class="field-label">Start Date:</span> <span class="field-blank field-blank-short"></span></div>
     </div>
   </header>`
 }
@@ -197,16 +212,20 @@ function buildWorkingPrintBody(data: WorkTemplatePrintData): string {
   const criticalIds = new Set(data.criticalTemplateIds)
   let sequence = 0
 
-  return data.blocks
+  const bodyRows = data.blocks
     .map((block) => {
-      const rows = block.items
+      const categoryRow = `<tr class="category-row">
+        <td colspan="7">${escapeHtml(block.categoryName)}</td>
+      </tr>`
+
+      const itemRows = block.items
         .map((item) => {
           sequence += 1
           const critical = isCriticalItem(item, criticalIds)
           const name = critical ? `* ${item.name}` : item.name
-          const duration = durationLabel(item.defaultDurationDays)
+          const duration = shortDurationLabel(item.defaultDurationDays)
 
-          return `<tr>
+          return `<tr class="item-row">
             <td class="col-seq">${sequence}</td>
             <td class="col-item">${escapeHtml(name)}</td>
             <td class="col-duration">${duration}</td>
@@ -218,25 +237,24 @@ function buildWorkingPrintBody(data: WorkTemplatePrintData): string {
         })
         .join("")
 
-      return `<section class="working-category">
-        <h2 class="category-heading">${escapeHtml(block.categoryName)}</h2>
-        <table class="working-table">
-          <thead>
-            <tr>
-              <th>Sequence</th>
-              <th>Work Item</th>
-              <th>Duration</th>
-              <th>Called</th>
-              <th>Scheduled</th>
-              <th>Started</th>
-              <th>Finished</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </section>`
+      return categoryRow + itemRows
     })
     .join("")
+
+  return `<table class="working-table">
+    <thead>
+      <tr>
+        <th class="col-seq">Seq</th>
+        <th class="col-item">Work Item</th>
+        <th class="col-duration">Duration</th>
+        <th class="col-blank">Called</th>
+        <th class="col-blank">Scheduled</th>
+        <th class="col-blank">Started</th>
+        <th class="col-blank">Finished</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+  </table>`
 }
 
 function buildWorkingPrintDocument(data: WorkTemplatePrintData): string {
@@ -252,35 +270,40 @@ function buildWorkingPrintDocument(data: WorkTemplatePrintData): string {
   <title>Work Items Working Schedule</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 16px 20px 40px; font-size: 11px; line-height: 1.35; }
-    .working-header { margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 12px; }
-    .header-brand { margin-bottom: 10px; min-height: 36px; }
-    .company-logo { max-height: 48px; max-width: 200px; width: auto; height: auto; object-fit: contain; display: block; }
-    .company-name { font-size: 16px; font-weight: 700; }
-    h1 { font-size: 18px; margin: 0 0 4px; font-weight: 700; }
-    .generated { margin: 0 0 10px; font-size: 11px; color: #333; }
-    .field-lines { margin-top: 8px; }
-    .field-line { margin: 6px 0; display: flex; align-items: baseline; gap: 6px; }
-    .field-label { font-weight: 600; white-space: nowrap; }
-    .field-blank { flex: 1; border-bottom: 1px solid #000; min-width: 200px; height: 14px; }
-    .working-category { margin-top: 18px; page-break-inside: avoid; }
-    .category-heading { font-size: 13px; font-weight: 700; margin: 0 0 6px; text-transform: none; }
-    .working-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 8px 10px 16px; font-size: 9px; line-height: 1.2; }
+    .working-header { margin-bottom: 6px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+    .header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+    .header-brand { flex-shrink: 0; }
+    .header-title-block { flex: 1; min-width: 0; }
+    .company-logo { max-height: 28px; max-width: 120px; width: auto; height: auto; object-fit: contain; display: block; }
+    .company-name { font-size: 11px; font-weight: 700; line-height: 1.2; }
+    h1 { font-size: 12px; margin: 0 0 1px; font-weight: 700; line-height: 1.2; }
+    .header-meta { margin: 0; font-size: 8px; color: #333; line-height: 1.2; }
+    .field-lines { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 3px; }
+    .field-line { display: flex; align-items: baseline; gap: 4px; flex: 1; min-width: 180px; }
+    .field-label { font-weight: 600; white-space: nowrap; font-size: 8px; }
+    .field-blank { flex: 1; border-bottom: 1px solid #000; min-width: 120px; height: 10px; }
+    .field-blank-short { max-width: 100px; min-width: 80px; flex: 0 1 100px; }
+    .working-table { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: fixed; }
     .working-table thead { display: table-header-group; }
-    .working-table th, .working-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: middle; }
-    .working-table th { background: #fff; font-weight: 700; font-size: 9px; }
-    .working-table tbody tr { page-break-inside: avoid; }
-    .col-seq { width: 52px; text-align: center; font-weight: 600; }
-    .col-item { min-width: 140px; }
-    .col-duration { width: 88px; white-space: nowrap; }
-    .col-blank { width: 72px; min-height: 18px; }
-    .empty { text-align: center; color: #666; padding: 48px 0; font-size: 14px; }
-    .footer { margin-top: 24px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 9px; color: #666; text-align: center; }
-    @page { margin: 0.6in 0.45in 0.75in; }
+    .working-table th, .working-table td { border: 1px solid #000; padding: 1px 3px; text-align: left; vertical-align: middle; line-height: 1.15; }
+    .working-table th { background: #fff; font-weight: 700; font-size: 7px; padding: 2px 3px; }
+    .category-row td { font-weight: 700; font-size: 8px; padding: 2px 4px; background: #fff; border-top: 1.5px solid #000; }
+    .item-row { page-break-inside: avoid; }
+    .col-seq { width: 6%; text-align: center; font-weight: 600; }
+    .col-item { width: 34%; word-wrap: break-word; overflow-wrap: anywhere; }
+    .col-duration { width: 10%; white-space: nowrap; font-size: 7px; }
+    .col-blank { width: 12.5%; height: 11px; }
+    .empty { text-align: center; color: #666; padding: 24px 0; font-size: 11px; }
+    .footer { margin-top: 6px; padding-top: 3px; border-top: 1px solid #ccc; font-size: 7px; color: #666; text-align: center; }
+    @page { size: letter portrait; margin: 0.28in 0.32in 0.32in; }
     @media print {
-      body { padding: 0; }
-      .working-category { page-break-inside: auto; }
+      html, body { padding: 0; font-size: 8px; }
+      .working-header { margin-bottom: 4px; padding-bottom: 4px; }
+      .footer { margin-top: 4px; }
       .working-table thead { display: table-header-group; }
+      .item-row { page-break-inside: avoid; }
+      .category-row { page-break-after: avoid; }
     }
   </style>
 </head>
