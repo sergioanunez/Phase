@@ -74,4 +74,78 @@ describe("buildWorkTemplatePrintDocument", () => {
     expect(html).toContain("Cullers Homes")
     expect(html).toContain("No work items in this template yet.")
   })
+
+  it("renders working print table with blank date columns and critical marker", () => {
+    const html = buildWorkTemplatePrintDocument({
+      companyName: "Cullers Homes",
+      companyLogoUrl: "https://example.com/logo.png",
+      generatedAt: "Jun 18, 2026",
+      mode: "working",
+      totalCategories: 1,
+      totalWorkItems: 2,
+      totalWorkingDays: 3,
+      criticalTemplateIds: ["t2"],
+      blocks: [
+        {
+          id: "cat-a",
+          categoryName: "Preliminary Work",
+          categoryIndex: 1,
+          itemCount: 2,
+          workingDays: 3,
+          items: [
+            {
+              id: "t1",
+              name: "Plans Received",
+              defaultDurationDays: 1,
+              sortOrder: 10,
+              optionalCategory: "Preliminary Work",
+              workTemplateCategoryId: "cat-a",
+              itemPosition: 100,
+              isCriticalGate: false,
+              gateName: null,
+            },
+            {
+              id: "t2",
+              name: "Plumbing Inspection",
+              defaultDurationDays: 2,
+              sortOrder: 20,
+              optionalCategory: "Preliminary Work",
+              workTemplateCategoryId: "cat-a",
+              itemPosition: 200,
+              isCriticalGate: false,
+              gateName: null,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(html).toContain("Work Items Working Schedule")
+    expect(html).toContain('src="https://example.com/logo.png"')
+    expect(html).toContain("Preliminary Work")
+    expect(html).toContain("<th>Called</th>")
+    expect(html).toContain("<th>Scheduled</th>")
+    expect(html).toContain("<th>Started</th>")
+    expect(html).toContain("<th>Finished</th>")
+    expect(html).toContain("Plans Received")
+    expect(html).toContain("* Plumbing Inspection")
+    expect(html).toContain('class="col-blank"')
+    expect(html).toContain("Address:")
+    expect(html).toContain("Start Date:")
+  })
+
+  it("shows company name when no logo in working print", () => {
+    const html = buildWorkTemplatePrintDocument({
+      companyName: "Cullers Homes",
+      generatedAt: "Jun 18, 2026",
+      mode: "working",
+      totalCategories: 0,
+      totalWorkItems: 0,
+      totalWorkingDays: 0,
+      blocks: [],
+      criticalTemplateIds: [],
+    })
+    expect(html).toContain('class="company-name"')
+    expect(html).toContain("Cullers Homes")
+  })
 })

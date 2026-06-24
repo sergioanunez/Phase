@@ -2316,6 +2316,13 @@ export default function AdminPage() {
                   companyBranding?.name ||
                   "Your Company"
                 }
+                companyLogoUrl={
+                  companyBranding?.logoUrl
+                    ? companyBranding.brandingUpdatedAt
+                      ? `${companyBranding.logoUrl}?v=${new Date(companyBranding.brandingUpdatedAt).getTime()}`
+                      : companyBranding.logoUrl
+                    : null
+                }
                 templateCategoryRows={templateCategoryRows}
                 templates={templates}
                 criticalTemplateIds={criticalTemplateIds}

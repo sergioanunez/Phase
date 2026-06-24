@@ -1,7 +1,7 @@
 import { format } from "date-fns"
 import { computeCategoryCriticalPathDuration } from "@/lib/scheduling/categoryDuration"
 
-export type WorkTemplatePrintMode = "compact" | "detailed"
+export type WorkTemplatePrintMode = "compact" | "detailed" | "working"
 
 export type WorkTemplatePrintCategoryRow = {
   id: string
@@ -44,6 +44,7 @@ export type WorkTemplatePrintBlock = {
 
 export type WorkTemplatePrintData = {
   companyName: string
+  companyLogoUrl?: string | null
   generatedAt: string
   mode: WorkTemplatePrintMode
   totalCategories: number
@@ -176,7 +177,126 @@ export function buildWorkTemplatePrintBlocks(
   }
 }
 
+function buildWorkingPrintHeader(data: WorkTemplatePrintData): string {
+  const logoHtml = data.companyLogoUrl
+    ? `<img src="${escapeHtml(data.companyLogoUrl)}" alt="" class="company-logo" />`
+    : `<div class="company-name">${escapeHtml(data.companyName)}</div>`
+
+  return `<header class="working-header">
+    <div class="header-brand">${logoHtml}</div>
+    <h1>Work Items Working Schedule</h1>
+    <p class="generated">Generated: ${escapeHtml(data.generatedAt)}</p>
+    <div class="field-lines">
+      <div class="field-line"><span class="field-label">Address:</span> <span class="field-blank"></span></div>
+      <div class="field-line"><span class="field-label">Start Date:</span> <span class="field-blank"></span></div>
+    </div>
+  </header>`
+}
+
+function buildWorkingPrintBody(data: WorkTemplatePrintData): string {
+  const criticalIds = new Set(data.criticalTemplateIds)
+  let sequence = 0
+
+  return data.blocks
+    .map((block) => {
+      const rows = block.items
+        .map((item) => {
+          sequence += 1
+          const critical = isCriticalItem(item, criticalIds)
+          const name = critical ? `* ${item.name}` : item.name
+          const duration = durationLabel(item.defaultDurationDays)
+
+          return `<tr>
+            <td class="col-seq">${sequence}</td>
+            <td class="col-item">${escapeHtml(name)}</td>
+            <td class="col-duration">${duration}</td>
+            <td class="col-blank"></td>
+            <td class="col-blank"></td>
+            <td class="col-blank"></td>
+            <td class="col-blank"></td>
+          </tr>`
+        })
+        .join("")
+
+      return `<section class="working-category">
+        <h2 class="category-heading">${escapeHtml(block.categoryName)}</h2>
+        <table class="working-table">
+          <thead>
+            <tr>
+              <th>Sequence</th>
+              <th>Work Item</th>
+              <th>Duration</th>
+              <th>Called</th>
+              <th>Scheduled</th>
+              <th>Started</th>
+              <th>Finished</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>`
+    })
+    .join("")
+}
+
+function buildWorkingPrintDocument(data: WorkTemplatePrintData): string {
+  const emptyBody =
+    data.totalWorkItems === 0
+      ? `<p class="empty">No work items in this template yet.</p>`
+      : buildWorkingPrintBody(data)
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Work Items Working Schedule</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 16px 20px 40px; font-size: 11px; line-height: 1.35; }
+    .working-header { margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 12px; }
+    .header-brand { margin-bottom: 10px; min-height: 36px; }
+    .company-logo { max-height: 48px; max-width: 200px; width: auto; height: auto; object-fit: contain; display: block; }
+    .company-name { font-size: 16px; font-weight: 700; }
+    h1 { font-size: 18px; margin: 0 0 4px; font-weight: 700; }
+    .generated { margin: 0 0 10px; font-size: 11px; color: #333; }
+    .field-lines { margin-top: 8px; }
+    .field-line { margin: 6px 0; display: flex; align-items: baseline; gap: 6px; }
+    .field-label { font-weight: 600; white-space: nowrap; }
+    .field-blank { flex: 1; border-bottom: 1px solid #000; min-width: 200px; height: 14px; }
+    .working-category { margin-top: 18px; page-break-inside: avoid; }
+    .category-heading { font-size: 13px; font-weight: 700; margin: 0 0 6px; text-transform: none; }
+    .working-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .working-table thead { display: table-header-group; }
+    .working-table th, .working-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: middle; }
+    .working-table th { background: #fff; font-weight: 700; font-size: 9px; }
+    .working-table tbody tr { page-break-inside: avoid; }
+    .col-seq { width: 52px; text-align: center; font-weight: 600; }
+    .col-item { min-width: 140px; }
+    .col-duration { width: 88px; white-space: nowrap; }
+    .col-blank { width: 72px; min-height: 18px; }
+    .empty { text-align: center; color: #666; padding: 48px 0; font-size: 14px; }
+    .footer { margin-top: 24px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 9px; color: #666; text-align: center; }
+    @page { margin: 0.6in 0.45in 0.75in; }
+    @media print {
+      body { padding: 0; }
+      .working-category { page-break-inside: auto; }
+      .working-table thead { display: table-header-group; }
+    }
+  </style>
+</head>
+<body>
+  ${buildWorkingPrintHeader(data)}
+  ${emptyBody}
+  <div class="footer">Work Items Working Schedule · ${escapeHtml(data.companyName)} · ${escapeHtml(data.generatedAt)}</div>
+</body>
+</html>`
+}
+
 export function buildWorkTemplatePrintDocument(data: WorkTemplatePrintData): string {
+  if (data.mode === "working") {
+    return buildWorkingPrintDocument(data)
+  }
+
   const criticalIds = new Set(data.criticalTemplateIds)
   let sequence = 0
 
@@ -351,6 +471,7 @@ export function printHtmlInHiddenFrame(html: string): void {
 
 export function printWorkTemplate(params: {
   companyName: string
+  companyLogoUrl?: string | null
   mode: WorkTemplatePrintMode
   templateCategoryRows: WorkTemplatePrintCategoryRow[]
   templates: WorkTemplatePrintItem[]
@@ -359,6 +480,7 @@ export function printWorkTemplate(params: {
   const summary = buildWorkTemplatePrintBlocks(params.templateCategoryRows, params.templates)
   const data: WorkTemplatePrintData = {
     companyName: params.companyName,
+    companyLogoUrl: params.companyLogoUrl,
     generatedAt: format(new Date(), "MMM d, yyyy"),
     mode: params.mode,
     criticalTemplateIds: params.criticalTemplateIds ?? [],

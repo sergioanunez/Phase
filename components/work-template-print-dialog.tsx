@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { FileText, List, AlertCircle } from "lucide-react"
+import { FileText, List, Table, AlertCircle } from "lucide-react"
 import {
   printWorkTemplate,
   type WorkTemplatePrintCategoryRow,
@@ -20,6 +20,7 @@ type WorkTemplatePrintDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   companyName: string
+  companyLogoUrl?: string | null
   templateCategoryRows: WorkTemplatePrintCategoryRow[]
   templates: WorkTemplatePrintItem[]
   criticalTemplateIds?: string[]
@@ -29,6 +30,7 @@ export function WorkTemplatePrintDialog({
   open,
   onOpenChange,
   companyName,
+  companyLogoUrl,
   templateCategoryRows,
   templates,
   criticalTemplateIds,
@@ -39,6 +41,7 @@ export function WorkTemplatePrintDialog({
     try {
       printWorkTemplate({
         companyName,
+        companyLogoUrl,
         mode,
         templateCategoryRows,
         templates,
@@ -90,6 +93,20 @@ export function WorkTemplatePrintDialog({
                 <p className="font-medium text-foreground">Detailed Print</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Includes trade, material requirements, lead times, dependencies, sort order, and notes.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePrint("working")}
+              className="flex w-full items-start gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/50"
+            >
+              <Table className="h-5 w-5 shrink-0 text-primary mt-0.5" aria-hidden />
+              <div>
+                <p className="font-medium text-foreground">Working Print</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Table worksheet with blank Called, Scheduled, Started, and Finished columns for field
+                  use.
                 </p>
               </div>
             </button>
