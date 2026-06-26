@@ -271,39 +271,42 @@ function buildWorkingPrintDocument(data: WorkTemplatePrintData): string {
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 8px 10px 16px; font-size: 9px; line-height: 1.2; }
-    .working-header { margin-bottom: 6px; border-bottom: 1px solid #000; padding-bottom: 5px; }
-    .header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+    .working-header { margin-bottom: 7px; border-bottom: 1px solid #000; padding-bottom: 6px; }
+    .header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
     .header-brand { flex-shrink: 0; }
     .header-title-block { flex: 1; min-width: 0; }
-    .company-logo { max-height: 28px; max-width: 120px; width: auto; height: auto; object-fit: contain; display: block; }
-    .company-name { font-size: 11px; font-weight: 700; line-height: 1.2; }
-    h1 { font-size: 12px; margin: 0 0 1px; font-weight: 700; line-height: 1.2; }
-    .header-meta { margin: 0; font-size: 8px; color: #333; line-height: 1.2; }
-    .field-lines { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 3px; }
+    .company-logo { max-height: 34px; max-width: 120px; width: auto; height: auto; object-fit: contain; display: block; }
+    .company-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    h1 { font-size: 14px; margin: 0 0 1px; font-weight: 700; line-height: 1.2; }
+    .header-meta { margin: 0; font-size: 10px; color: #333; line-height: 1.2; }
+    .field-lines { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 4px; }
     .field-line { display: flex; align-items: baseline; gap: 4px; flex: 1; min-width: 180px; }
-    .field-label { font-weight: 600; white-space: nowrap; font-size: 8px; }
-    .field-blank { flex: 1; border-bottom: 1px solid #000; min-width: 120px; height: 10px; }
+    .field-label { font-weight: 600; white-space: nowrap; font-size: 9px; }
+    .field-blank { flex: 1; border-bottom: 1px solid #000; min-width: 120px; height: 12px; }
     .field-blank-short { max-width: 100px; min-width: 80px; flex: 0 1 100px; }
     .working-table { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: fixed; }
     .working-table thead { display: table-header-group; }
-    .working-table th, .working-table td { border: 1px solid #000; padding: 1px 3px; text-align: left; vertical-align: middle; line-height: 1.15; }
-    .working-table th { background: #fff; font-weight: 700; font-size: 7px; padding: 2px 3px; }
-    .category-row td { font-weight: 700; font-size: 8px; padding: 2px 4px; background: #fff; border-top: 1.5px solid #000; }
-    .item-row { page-break-inside: avoid; }
+    .working-table th, .working-table td { border: 1px solid #000; padding: 2px 3px; text-align: left; vertical-align: middle; line-height: 1.27; }
+    .working-table th { background: #fff; font-weight: 700; font-size: 8px; padding: 3px 4px; min-height: 17px; }
+    .category-row td { font-weight: 700; font-size: 8px; padding: 3px 4px; background: #fff; border-top: 1.5px solid #000; min-height: 13px; }
+    .item-row { page-break-inside: avoid; min-height: 12px; }
     .col-seq { width: 6%; text-align: center; font-weight: 600; }
     .col-item { width: 34%; word-wrap: break-word; overflow-wrap: anywhere; }
     .col-duration { width: 10%; white-space: nowrap; font-size: 7px; }
-    .col-blank { width: 12.5%; height: 11px; }
+    .col-blank { width: 12.5%; min-height: 12px; }
     .empty { text-align: center; color: #666; padding: 24px 0; font-size: 11px; }
     .footer { margin-top: 6px; padding-top: 3px; border-top: 1px solid #ccc; font-size: 7px; color: #666; text-align: center; }
     @page { size: letter portrait; margin: 0.28in 0.32in 0.32in; }
     @media print {
       html, body { padding: 0; font-size: 8px; }
-      .working-header { margin-bottom: 4px; padding-bottom: 4px; }
+      .working-header { margin-bottom: 5px; padding-bottom: 5px; }
       .footer { margin-top: 4px; }
       .working-table thead { display: table-header-group; }
-      .item-row { page-break-inside: avoid; }
-      .category-row { page-break-after: avoid; }
+      .working-table th { padding: 3px 4px; min-height: 17px; }
+      .working-table td { padding: 2px 3px; line-height: 1.27; }
+      .item-row { page-break-inside: avoid; min-height: 12px; }
+      .category-row { page-break-after: avoid; min-height: 13px; }
+      .col-blank { min-height: 12px; }
     }
   </style>
 </head>
