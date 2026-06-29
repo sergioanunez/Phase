@@ -336,8 +336,12 @@ export async function POST(request: NextRequest) {
         subdivisionId: data.subdivisionId,
         addressOrLot: data.addressOrLot,
         displayOrder: nextDisplayOrder(orderAgg._max.displayOrder),
-        startDate: data.startDate ? new Date(data.startDate) : null,
-        targetCompletionDate: data.targetCompletionDate ? new Date(data.targetCompletionDate) : null,
+        startDate: data.startDate
+          ? (await import("@/lib/calendar-date")).parseCalendarDateInput(data.startDate)
+          : null,
+        targetCompletionDate: data.targetCompletionDate
+          ? (await import("@/lib/calendar-date")).parseCalendarDateInput(data.targetCompletionDate)
+          : null,
       },
       include: {
         subdivision: true,

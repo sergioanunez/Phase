@@ -12,11 +12,23 @@ export const fetchCache = "force-no-store"
 const isBuild = () =>
   process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
+const calendarDateField = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(
+    (v) =>
+      v == null ||
+      v === "" ||
+      /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/i.test(v),
+    { message: "Date must be YYYY-MM-DD or ISO datetime" }
+  )
+
 const updateHomeSchema = z.object({
   subdivisionId: z.string().optional(),
   addressOrLot: z.string().min(1).optional(),
-  startDate: z.string().datetime().optional().nullable(),
-  targetCompletionDate: z.string().datetime().optional().nullable(),
+  startDate: calendarDateField,
+  targetCompletionDate: calendarDateField,
   planName: z.string().optional().nullable(),
   planVariant: z.string().optional().nullable(),
 })
@@ -205,13 +217,12 @@ export async function PATCH(
       updateData.subdivisionId = data.subdivisionId
     if (data.addressOrLot !== undefined)
       updateData.addressOrLot = data.addressOrLot
+    const { parseCalendarDateInput } = await import("@/lib/calendar-date")
     if (data.startDate !== undefined)
-      updateData.startDate = data.startDate
-        ? new Date(data.startDate)
-        : null
+      updateData.startDate = data.startDate ? parseCalendarDateInput(data.startDate) : null
     if (data.targetCompletionDate !== undefined)
       updateData.targetCompletionDate = data.targetCompletionDate
-        ? new Date(data.targetCompletionDate)
+        ? parseCalendarDateInput(data.targetCompletionDate)
         : null
     if (data.planName !== undefined) updateData.planName = data.planName
     if (data.planVariant !== undefined) updateData.planVariant = data.planVariant

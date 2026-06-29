@@ -24,6 +24,11 @@ import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { WorkTemplatePrintDialog } from "@/components/work-template-print-dialog"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
+import {
+  calendarDateInputToIso,
+  formatScheduledDateInput,
+  normalizeStoredScheduledDate,
+} from "@/lib/calendar-date"
 import { useRef, useMemo } from "react"
 import { sanitizeUrl } from "@/lib/url"
 import { HOME_PLAN_TAGS } from "@/lib/home-plans"
@@ -918,8 +923,8 @@ export default function AdminPage() {
   const handleStartEditHome = (home: Home) => {
     setEditingHomeId(home.id)
     setEditingHomeAddress(home.addressOrLot)
-    setEditingHomeStartDate(home.startDate ? new Date(home.startDate).toISOString().split("T")[0] : "")
-    setEditingHomeTargetDate(home.targetCompletionDate ? new Date(home.targetCompletionDate).toISOString().split("T")[0] : "")
+    setEditingHomeStartDate(formatScheduledDateInput(home.startDate))
+    setEditingHomeTargetDate(formatScheduledDateInput(home.targetCompletionDate))
     setEditingPlanName(home.planName ?? "")
     setEditingPlanVariant(home.planVariant ?? "")
     setPlanUploadTag("Floor Plan")
@@ -1111,13 +1116,13 @@ export default function AdminPage() {
       }
       
       if (editingHomeStartDate) {
-        updateData.startDate = new Date(editingHomeStartDate).toISOString()
+        updateData.startDate = calendarDateInputToIso(editingHomeStartDate)
       } else {
         updateData.startDate = null
       }
 
       if (editingHomeTargetDate) {
-        updateData.targetCompletionDate = new Date(editingHomeTargetDate).toISOString()
+        updateData.targetCompletionDate = calendarDateInputToIso(editingHomeTargetDate)
       } else {
         updateData.targetCompletionDate = null
       }
@@ -2059,12 +2064,20 @@ export default function AdminPage() {
                                 <CardTitle className="text-lg">{home.addressOrLot}</CardTitle>
                                 {home.startDate && (
                                   <p className="text-sm text-muted-foreground mt-1">
-                                    Start Date: {format(new Date(home.startDate), "MM/dd/yyyy")}
+                                    Start Date:{" "}
+                                    {format(
+                                      normalizeStoredScheduledDate(new Date(home.startDate)),
+                                      "MM/dd/yyyy"
+                                    )}
                                   </p>
                                 )}
                                 {home.targetCompletionDate && (
                                   <p className="text-sm text-muted-foreground mt-1">
-                                    Target Completion: {format(new Date(home.targetCompletionDate), "MM/dd/yyyy")}
+                                    Target Completion:{" "}
+                                    {format(
+                                      normalizeStoredScheduledDate(new Date(home.targetCompletionDate)),
+                                      "MM/dd/yyyy"
+                                    )}
                                   </p>
                                 )}
                                 {home.hasPlan && (
