@@ -37,6 +37,7 @@ import { groupPlansByTag, type ListedHomePlan } from "@/lib/home-plans"
 import { isExcludedFromProgress, badgeLabelForTaskStatus } from "@/lib/task-status"
 import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog"
+import { CatchUpScheduleDialog } from "@/components/catch-up-schedule-dialog"
 import type { TaskNotApplicableReason } from "@prisma/client"
 
 interface HomeTask {
@@ -127,6 +128,8 @@ export function HomeDetailPage() {
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [markNaTask, setMarkNaTask] = useState<HomeTask | null>(null)
   const [markNaDialogOpen, setMarkNaDialogOpen] = useState(false)
+  const [catchUpOpen, setCatchUpOpen] = useState(false)
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0)
   const [rescheduleHistoryRefresh, setRescheduleHistoryRefresh] = useState(0)
   const [headerCardEl, setHeaderCardEl] = useState<HTMLDivElement | null>(null)
   const headerInView = useHouseHeaderInView(headerCardEl, home?.id)
@@ -147,6 +150,7 @@ export function HomeDetailPage() {
       })
       .catch(() => {})
     setRescheduleHistoryRefresh((n) => n + 1)
+    setActivityRefreshKey((n) => n + 1)
   }
 
   useEffect(() => {
@@ -513,6 +517,9 @@ export function HomeDetailPage() {
     session?.user?.role === "Superintendent" ||
     session?.user?.role === "Admin" ||
     session?.user?.role === "Manager"
+  const canCatchUpSchedule =
+    session?.user?.role === "Admin" ||
+    session?.user?.role === "Manager"
 
   // Define category order (case-insensitive matching)
   const categoryOrder = [
@@ -621,6 +628,12 @@ export function HomeDetailPage() {
     // Neither has defined order, sort alphabetically
     return a.localeCompare(b)
   })
+
+  const orderedTasksForCatchUp = sortedCategories.flatMap((category) =>
+    [...(tasksByCategory[category] ?? [])].sort(
+      (a, b) => a.sortOrderSnapshot - b.sortOrderSnapshot
+    )
+  )
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24 pt-20">
@@ -842,12 +855,33 @@ export function HomeDetailPage() {
         {session?.user && (session.user as any).role !== "Subcontractor" && (
           <div className="mb-4 space-y-4">
             <HomeRescheduleHistory homeId={home.id} refreshKey={rescheduleHistoryRefresh} />
-            <HomeActivityTimeline homeId={home.id} initialLimit={5} />
+            <HomeActivityTimeline homeId={home.id} initialLimit={5} refreshKey={activityRefreshKey} />
           </div>
         )}
 
         {/* Phase cards — same width as timeline card above */}
         <div>
+        {canCatchUpSchedule && sortedCategories.length > 0 && (
+          <Card className="mb-4">
+            <CardContent className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Bulk recovery</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mark multiple past work items completed to bring this home up to date.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setCatchUpOpen(true)}
+              >
+                Catch Up Schedule
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         {sortedCategories.length === 0 ? (
           <Card className="mb-4">
             <CardContent className="py-10 text-center">
@@ -1121,6 +1155,16 @@ export function HomeDetailPage() {
             handleTaskUpdate()
             setMarkNaTask(null)
           }}
+        />
+      )}
+
+      {canCatchUpSchedule && (
+        <CatchUpScheduleDialog
+          open={catchUpOpen}
+          onOpenChange={setCatchUpOpen}
+          homeId={home.id}
+          orderedTasks={orderedTasksForCatchUp}
+          onSuccess={refreshHomeData}
         />
       )}
 

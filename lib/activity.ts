@@ -317,3 +317,28 @@ export async function createTaskMarkedApplicableEvent(params: {
     },
   })
 }
+
+export async function createCatchUpScheduleEvent(params: {
+  companyId: string
+  homeId: string
+  taskCount: number
+  completedAt: Date
+  taskNames: string[]
+  actorName?: string | null
+}): Promise<void> {
+  const dateLabel = params.completedAt.toLocaleDateString()
+  await createActivityEvent({
+    companyId: params.companyId,
+    homeId: params.homeId,
+    eventType: "catch_up_schedule",
+    title: `Catch Up Schedule completed ${params.taskCount} work item${params.taskCount === 1 ? "" : "s"}`,
+    description: `Completion date: ${dateLabel}`,
+    actorName: params.actorName,
+    metadata: {
+      taskCount: params.taskCount,
+      completedAt: params.completedAt.toISOString(),
+      taskNames: params.taskNames.slice(0, 100),
+      timestamp: new Date().toISOString(),
+    },
+  })
+}

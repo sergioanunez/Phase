@@ -102,6 +102,7 @@ enum ActivityEventType {
   task_manually_confirmed
   task_not_applicable
   task_marked_applicable
+  catch_up_schedule
   sms_sent
   sms_confirmed
   sms_declined

@@ -47,6 +47,7 @@ const EVENT_ICONS: Record<string, React.ElementType> = {
   inspection_failed: AlertCircle,
   home_started: Play,
   home_completed: Flag,
+  catch_up_schedule: CheckCircle,
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -65,14 +66,20 @@ const EVENT_COLORS: Record<string, string> = {
   inspection_failed: "bg-red-100 text-red-600",
   home_started: "bg-blue-100 text-blue-600",
   home_completed: "bg-green-100 text-green-600",
+  catch_up_schedule: "bg-slate-100 text-slate-700",
 }
 
 interface HomeActivityTimelineProps {
   homeId: string
   initialLimit?: number
+  refreshKey?: number
 }
 
-export function HomeActivityTimeline({ homeId, initialLimit = 5 }: HomeActivityTimelineProps) {
+export function HomeActivityTimeline({
+  homeId,
+  initialLimit = 5,
+  refreshKey = 0,
+}: HomeActivityTimelineProps) {
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
@@ -80,7 +87,7 @@ export function HomeActivityTimeline({ homeId, initialLimit = 5 }: HomeActivityT
 
   useEffect(() => {
     fetchActivity()
-  }, [homeId, expanded])
+  }, [homeId, expanded, refreshKey])
 
   const fetchActivity = async () => {
     setLoading(true)
