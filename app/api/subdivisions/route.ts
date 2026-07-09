@@ -23,7 +23,21 @@ export async function GET(request: NextRequest) {
     const ctx = await requireTenantPermission("subdivisions:read")
 
     const subdivisions = await prisma.subdivision.findMany({
-      where: { companyId: ctx.companyId },
+      where: {
+        OR: [
+          { companyId: ctx.companyId },
+          {
+            homes: {
+              some: {
+                OR: [
+                  { companyId: ctx.companyId },
+                  { companyId: null, subdivision: { companyId: ctx.companyId } },
+                ],
+              },
+            },
+          },
+        ],
+      },
       include: {
         homes: { select: { id: true } },
       },

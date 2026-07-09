@@ -93,7 +93,7 @@ function toCommunityHome(home: Home): CommunityHome {
 type StatusFilter = "not_started" | "on_track" | "at_risk" | "behind"
 
 export default function HomesPage() {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const shouldRestore = searchParams.get("restore") === "1"
@@ -105,6 +105,7 @@ export default function HomesPage() {
   const [subdivisions, setSubdivisions] = useState<Subdivision[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [subdivisionsFetchError, setSubdivisionsFetchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [openSubdivisions, setOpenSubdivisions] = useState<string[]>([])
   const [planViewerHomeId, setPlanViewerHomeId] = useState<string | null>(null)
@@ -114,8 +115,17 @@ export default function HomesPage() {
   const planViewerHome = planViewerHomeId ? homes.find((h) => h.id === planViewerHomeId) : null
 
   useEffect(() => {
+    if (sessionStatus === "loading") return
+    if (sessionStatus !== "authenticated") {
+      setHomes([])
+      setSubdivisions([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     Promise.all([
-      fetch("/api/homes").then(async (res) => {
+      fetch("/api/homes", { credentials: "same-origin" }).then(async (res) => {
         const data = await res.json()
         if (!res.ok) {
           const message = typeof data.error === "string" ? data.error : "Failed to load homes"
@@ -126,12 +136,16 @@ export default function HomesPage() {
         setFetchError(null)
         return Array.isArray(data) ? data : []
       }),
-      fetch("/api/subdivisions").then(async (res) => {
+      fetch("/api/subdivisions", { credentials: "same-origin" }).then(async (res) => {
         const data = await res.json()
         if (!res.ok) {
+          const message =
+            typeof data.error === "string" ? data.error : "Failed to load communities"
           console.error("Subdivisions API error:", data)
+          setSubdivisionsFetchError(message)
           return []
         }
+        setSubdivisionsFetchError(null)
         return Array.isArray(data) ? data : []
       }),
     ])
@@ -146,7 +160,7 @@ export default function HomesPage() {
         setSubdivisions([])
         setLoading(false)
       })
-  }, [])
+  }, [sessionStatus])
 
   const groupedBySubdivision = useMemo(
     () =>
@@ -162,12 +176,31 @@ export default function HomesPage() {
     [homes]
   )
 
+  const effectiveSubdivisions = useMemo(() => {
+    const byId = new Map<string, Subdivision>()
+    for (const sub of subdivisions) {
+      byId.set(sub.id, sub)
+    }
+    for (const home of homes) {
+      const sid = home.subdivision?.id
+      if (!sid) continue
+      if (!byId.has(sid)) {
+        byId.set(sid, {
+          id: sid,
+          name: home.subdivision.name || "Community",
+          homes: [],
+        })
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [subdivisions, homes])
+
   const communities = useMemo(() => {
     const validStatus = statusFilter && ["not_started", "on_track", "at_risk", "behind"].includes(statusFilter)
     const q = searchQuery.trim().toLowerCase()
     const scheduledCount = (home: Home) =>
       (home.tasks ?? []).filter((t) => t.scheduledDate != null).length
-    return subdivisions.map((sub) => {
+    return effectiveSubdivisions.map((sub) => {
       const subHomes = groupedBySubdivision[sub.id] || []
       const withStatus = subHomes.map((home) => ({
         home: toCommunityHome(home),
@@ -203,7 +236,7 @@ export default function HomesPage() {
             )
       return { id: sub.id, name: sub.name, homes: searchFiltered }
     })
-  }, [subdivisions, groupedBySubdivision, statusFilter, searchQuery])
+  }, [effectiveSubdivisions, groupedBySubdivision, statusFilter, searchQuery])
 
   const visibleCommunities = useMemo(
     () => communities.filter((c) => c.homes.length > 0),
@@ -270,7 +303,7 @@ export default function HomesPage() {
             ? "Behind"
             : null
 
-  if (loading) {
+  if (loading || sessionStatus === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F6F7F9]">
         <div className="text-muted-foreground">Loading...</div>
@@ -347,12 +380,27 @@ export default function HomesPage() {
 
         {communities.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E6E8EF] bg-white py-12 text-center shadow-sm">
-            <p className="text-lg text-muted-foreground mb-2">
-              No subdivisions have been created yet
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Subdivisions will appear here once they are created in Settings
-            </p>
+            {fetchError || subdivisionsFetchError ? (
+              <>
+                <p className="text-lg text-muted-foreground mb-2">Could not load homes</p>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  {fetchError || subdivisionsFetchError}
+                </p>
+                <p className="text-xs text-muted-foreground mt-3 max-w-md">
+                  Try refreshing the page. If this continues, sign out and sign back in, or clear
+                  this site&apos;s cache in your browser.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg text-muted-foreground mb-2">
+                  No subdivisions have been created yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Subdivisions will appear here once they are created in Settings
+                </p>
+              </>
+            )}
           </div>
         ) : communities.filter((c) => c.homes.length > 0).length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E6E8EF] bg-white py-12 text-center shadow-sm">
