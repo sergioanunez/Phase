@@ -24,6 +24,7 @@ import { TemplateSummaryCard } from "@/components/template-summary-card"
 import { WorkTemplatePrintDialog } from "@/components/work-template-print-dialog"
 import { PlanViewer } from "@/components/plan-viewer"
 import { format } from "date-fns"
+import { uploadHomePlansFromAdmin } from "@/lib/admin-plan-upload-client"
 import {
   calendarDateInputToIso,
   formatScheduledDateInput,
@@ -1007,28 +1008,19 @@ export default function AdminPage() {
     }
     setPlanUploading(true)
     try {
-      const formData = new FormData()
-      for (const f of files) {
-        formData.append("file", f)
-      }
-      formData.append("planTag", planUploadTag)
-      if (editingPlanName.trim()) formData.append("planName", editingPlanName.trim())
-      if (editingPlanVariant.trim()) formData.append("planVariant", editingPlanVariant.trim())
-      const res = await fetch(`/api/admin/homes/${homeId}/plan`, {
-        method: "POST",
-        body: formData,
+      await uploadHomePlansFromAdmin({
+        homeId,
+        files,
+        planTag: planUploadTag,
+        planName: editingPlanName.trim() || undefined,
+        planVariant: editingPlanVariant.trim() || undefined,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data.error || "Failed to upload plan")
-        return
-      }
       if (planFileInputRef.current) planFileInputRef.current.value = ""
       setPlansListNonce((n) => n + 1)
       handleRefresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Plan upload error:", err)
-      alert(err.message || "Failed to upload plan")
+      alert(err instanceof Error ? err.message : "Failed to upload plan")
     } finally {
       setPlanUploading(false)
     }

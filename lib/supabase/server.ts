@@ -18,5 +18,4 @@ export function createSupabaseServerClient(): SupabaseClient {
   })
 }
 
-export const HOME_PLANS_BUCKET = "home-plans"
-export const COMPANY_ASSETS_BUCKET = "company-assets"
+export { HOME_PLANS_BUCKET, COMPANY_ASSETS_BUCKET } from "@/lib/supabase/buckets"
