@@ -11,6 +11,7 @@ import { homeTaskOrderByTemplateSequence } from "@/lib/work-template-display-ord
 import { homeOrderByDisplayOrder } from "@/lib/homes/display-order"
 import type { FlowAction, ComputeFlowInput, ComputeFlowResult } from "./types"
 import { isExcludedFromActiveWork, isTaskResolvedForScheduling } from "@/lib/task-status"
+import { isHomeConstructionStarted } from "@/lib/schedule-status"
 
 const COMPLETED = "Completed"
 const IN_PROGRESS = "InProgress"
@@ -239,7 +240,7 @@ export async function computeFlow(input: ComputeFlowInput): Promise<ComputeFlowR
     const address = home.addressOrLot
     const subdivisionName = home.subdivision?.name ?? ""
     const scheduledCount = tasks.filter((t) => t.scheduledDate != null).length
-    const notStarted = !home.startDate || scheduledCount === 0
+    const notStarted = !isHomeConstructionStarted(home.startDate, scheduledCount)
 
     const selectionTasks: FlowTaskForSelection[] = tasks.map((t) => ({
       id: t.id,

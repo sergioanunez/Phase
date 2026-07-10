@@ -1,3 +1,6 @@
+import { startOfDay } from "date-fns"
+import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
+
 export type ScheduleStatus = "not_started" | "on_track" | "at_risk" | "behind"
 
 export type GetScheduleStatusOptions = {
@@ -7,10 +10,26 @@ export type GetScheduleStatusOptions = {
 }
 
 /**
+ * True when construction has begun: at least one task is scheduled, or the home
+ * start date is set and is today or earlier.
+ */
+export function isHomeConstructionStarted(
+  startDate: string | Date | null | undefined,
+  scheduledTaskCount: number,
+  today = new Date()
+): boolean {
+  if (scheduledTaskCount > 0) return true
+  if (startDate == null) return false
+  const start = startOfDay(normalizeStoredScheduledDate(new Date(startDate)))
+  const day = startOfDay(today)
+  return start.getTime() <= day.getTime()
+}
+
+/**
  * Computes schedule status from whether the home has started, then forecast vs target.
  *
  * Rules (evaluated in order):
- * - If home.startDate is null OR there are zero scheduled tasks => NOT_STARTED
+ * - If construction has not started => NOT_STARTED
  * - Else: forecast <= target => On Track
  * - Else: forecast within +7 calendar days of target => At Risk
  * - Else: Behind
@@ -22,7 +41,7 @@ export function getScheduleStatus(
 ): ScheduleStatus {
   const startDate = options?.startDate
   const scheduledTaskCount = options?.scheduledTaskCount ?? 0
-  const hasStarted = startDate != null && scheduledTaskCount > 0
+  const hasStarted = isHomeConstructionStarted(startDate, scheduledTaskCount)
 
   if (!hasStarted) {
     return "not_started"
