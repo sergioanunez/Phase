@@ -1,9 +1,8 @@
 "use client"
 
 import { validatePlanFile } from "@/lib/home-plan-files"
+import { putFileToSignedPlanUploadUrl } from "@/lib/plan-signed-upload-client"
 import { readApiJson } from "@/lib/read-api-response"
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
-import { HOME_PLANS_BUCKET } from "@/lib/supabase/buckets"
 
 export async function uploadHomePlansFromAdmin(params: {
   homeId: string
@@ -42,6 +41,7 @@ export async function uploadHomePlansFromAdmin(params: {
       storagePath: string
       path: string
       token: string
+      uploadUrl: string
       upsert: boolean
       fileName: string
       planFileType: string
@@ -53,23 +53,12 @@ export async function uploadHomePlansFromAdmin(params: {
     throw new Error(prepared.error || "Failed to prepare plan upload")
   }
 
-  const supabase = createSupabaseBrowserClient()
-
   for (let i = 0; i < files.length; i++) {
     const target = prepared.data.uploads[i]
     const file = files[i]
     if (!target || !file) continue
 
-    const { error } = await supabase.storage
-      .from(HOME_PLANS_BUCKET)
-      .uploadToSignedUrl(target.path, target.token, file, {
-        contentType: file.type || target.mimeType,
-        upsert: target.upsert,
-      })
-
-    if (error) {
-      throw new Error(error.message || `Failed to upload ${file.name}`)
-    }
+    await putFileToSignedPlanUploadUrl(target.uploadUrl, file, target.upsert)
   }
 
   const completeRes = await fetch(`/api/admin/homes/${homeId}/plan/complete`, {
