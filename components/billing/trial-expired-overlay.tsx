@@ -46,7 +46,8 @@ export function TrialExpiredOverlay() {
       pathname === "/" ||
       pathname === "/contact" ||
       pathname === "/founders10" ||
-      pathname.startsWith("/punchlist")
+      pathname.startsWith("/punchlist") ||
+      pathname.startsWith("/c/")
     )
       return
     if (pathname.startsWith("/super-admin")) {

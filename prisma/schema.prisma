@@ -55,10 +55,11 @@ enum TaskNotApplicableReason {
   other
 }
 
-/// How a task reached Confirmed status (manual builder action vs contractor SMS).
+/// How a task reached Confirmed status (manual builder action vs contractor SMS / magic link).
 enum TaskConfirmationSource {
   Manual
   Sms
+  MagicLink
 }
 
 /// Structured reason for a schedule change (analytics + UI labels).
@@ -285,6 +286,7 @@ model Company {
   userWebPushPreferences UserWebPushPreference[]
   taskRescheduleHistory TaskRescheduleHistory[]
   activityNotificationReads ActivityNotificationRead[]
+  confirmationAccessTokens ConfirmationAccessToken[]
 
   @@index([pricingTier])
   @@index([status])
@@ -855,6 +857,27 @@ model SmsMessage {
   @@index([messageType])
   @@index([confirmationCode])
   @@index([createdAt])
+}
+
+/// Public magic-link access for trade confirmation when multiple PendingConfirm requests exist.
+/// Raw token is never stored — only SHA-256 hash (invite-style).
+model ConfirmationAccessToken {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// SHA-256 hex of the raw token used in /c/[token]
+  tokenHash       String    @unique
+  /// E.164 phone of the trade contact that received confirmation SMS
+  phoneNormalized String
+  contractorId    String?
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+
+  @@index([companyId, phoneNormalized])
+  @@index([expiresAt])
+  @@index([phoneNormalized])
 }
 
 /// Activity events for home-level timeline (communication + milestone tracking)

@@ -5,7 +5,6 @@ import { TaskStatus, PricingTier } from "@prisma/client"
 import { parseAndNormalizePhone } from "@/lib/phone"
 import {
   extractConfirmationCode,
-  findPendingConfirmationForPhone,
   inboundSmsReplyMessage,
   parseInboundSmsReply,
   updateSmsOptOutByPhone,
@@ -13,10 +12,14 @@ import {
 } from "@/lib/sms-inbound"
 import {
   buildScheduledSms,
+  buildMultiPendingConfirmationsSms,
   buildCancelledSms,
   buildPunchlistSms,
   type SmsBrandTenant,
 } from "./sms/templates"
+import { findAllPendingConfirmationsForPhone } from "@/lib/pending-confirmations"
+import { issueConfirmationMagicLink } from "@/lib/confirmation-access-token"
+import { applyTaskConfirmationResponse } from "@/lib/apply-task-confirmation"
 import { getTenantEntitlements } from "./entitlements"
 import type { WhiteLabelSubscriptionLike } from "./branding/whiteLabel"
 
@@ -166,17 +169,41 @@ export async function sendConfirmationSMS(
   const { effectiveCompanyId, homeId } = await resolveCompanyIdForHomeTaskSms(homeTaskId)
   const { tenant, subscription } = await getSmsBrandContext(effectiveCompanyId)
 
-  const message = buildScheduledSms({
-    tenant,
-    subscription,
-    taskName: task,
-    address: home,
-    date: scheduledDate,
-    ref: confirmationCode,
-  })
+  // Count current open PendingConfirm for this phone AFTER including this task.
+  const existingPending = await findAllPendingConfirmationsForPhone(prisma, normalizedTo)
+  const thisAlreadyPending = existingPending.some((p) => p.taskId === homeTaskId)
+  const pendingCount = thisAlreadyPending ? existingPending.length : existingPending.length + 1
+
+  let message: string
+  if (pendingCount >= 2) {
+    if (!effectiveCompanyId) {
+      throw new Error(
+        "Cannot send multi-confirmation SMS: home is missing company scope for magic link."
+      )
+    }
+    const { magicLink } = await issueConfirmationMagicLink(prisma, {
+      companyId: effectiveCompanyId,
+      phone: normalizedTo,
+    })
+    message = buildMultiPendingConfirmationsSms({
+      tenant,
+      subscription,
+      pendingCount,
+      magicLink,
+    })
+  } else {
+    message = buildScheduledSms({
+      tenant,
+      subscription,
+      taskName: task,
+      address: home,
+      date: scheduledDate,
+      ref: confirmationCode,
+    })
+  }
 
   try {
-    const twilioMessage = await getClient().messages.create({
+    await getClient().messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER!,
       to: normalizedTo,
@@ -398,16 +425,14 @@ export async function handleInboundSMS(
 
   const smsMessage = await storeInbound()
   const confirmationCode = extractConfirmationCode(body)
-  const homeTask = await findPendingConfirmationForPhone(from, confirmationCode)
+  const pendingList = await findAllPendingConfirmationsForPhone(prisma, from)
 
-  if (!homeTask) {
+  if (pendingList.length === 0) {
     if (process.env.NODE_ENV !== "test") {
-      const recentCount = await prisma.homeTask.count({ where: { status: "PendingConfirm" } })
       console.log("[sms] no matching task", {
         fromLast4: fromDigits10.slice(-4),
         bodySample: (body || "").trim().slice(0, 30),
         confirmationCode,
-        pendingConfirmTaskCount: recentCount,
       })
     }
     return {
@@ -421,9 +446,56 @@ export async function handleInboundSMS(
     }
   }
 
+  // Multiple open confirmations: never apply ambiguous Y/N — send magic link instead.
+  if (pendingList.length >= 2) {
+    const companyId = pendingList[0]?.companyId
+    if (!companyId) {
+      return {
+        processed: false,
+        reason: "ambiguous_pending_confirmations",
+        replyMessage:
+          "You currently have multiple pending confirmations. Please contact your builder for a secure link.",
+      }
+    }
+    const { magicLink } = await issueConfirmationMagicLink(prisma, {
+      companyId,
+      phone: from,
+    })
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[sms] ambiguous Y/N blocked", {
+        fromLast4: fromDigits10.slice(-4),
+        pendingCount: pendingList.length,
+        companyId,
+      })
+    }
+    return {
+      processed: true,
+      reason: "ambiguous_pending_confirmations",
+      replyMessage: `You currently have multiple pending confirmations. Please use your secure link to confirm the correct work:\n${magicLink}`,
+    }
+  }
+
+  const only = pendingList[0]!
+  // Prefer Ref match when provided: ensure it matches the only pending task.
+  if (confirmationCode) {
+    const byCode = await prisma.homeTask.findFirst({
+      where: {
+        id: only.taskId,
+        status: "PendingConfirm",
+        smsMessages: {
+          some: { confirmationCode, direction: "Outbound" },
+        },
+      },
+      select: { id: true },
+    })
+    if (!byCode) {
+      // Code doesn't match the only pending — still apply to the only one (safe).
+    }
+  }
+
   if (process.env.NODE_ENV !== "test") {
     console.log("[sms] confirmation matched", {
-      taskId: homeTask.id,
+      taskId: only.taskId,
       fromLast4: fromDigits10.slice(-4),
       confirmationCode,
     })
@@ -431,63 +503,36 @@ export async function handleInboundSMS(
 
   await prisma.smsMessage.update({
     where: { id: smsMessage.id },
-    data: { homeTaskId: homeTask.id },
+    data: { homeTaskId: only.taskId },
   })
 
-  if (replyKind === "yes") {
-    await prisma.homeTask.update({
-      where: { id: homeTask.id },
-      data: {
-        status: "Confirmed",
-        confirmedAt: new Date(),
-        confirmedByUserId: null,
-        confirmationSource: "Sms",
-      },
-    })
-    if (process.env.NODE_ENV !== "test") {
-      console.log("[sms] task confirmed", { taskId: homeTask.id, fromLast4: fromDigits10.slice(-4) })
-    }
-    const companyId = homeTask.companyId ?? homeTask.home?.companyId
-    if (companyId && homeTask.home) {
-      const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
-      await notifySmsConfirmationReceived({
-        companyId,
-        homeId: homeTask.homeId,
-        taskId: homeTask.id,
-        taskName: homeTask.nameSnapshot,
-        homeLabel: homeTask.home.addressOrLot ?? "Home",
-        confirmed: true,
-      }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
-    }
+  const applied = await applyTaskConfirmationResponse(prisma, {
+    taskId: only.taskId,
+    confirmed: replyKind === "yes",
+    source: "Sms",
+  })
+
+  if (!applied.ok) {
     return {
-      processed: true,
-      action: "confirmed",
-      taskId: homeTask.id,
-      replyMessage: inboundSmsReplyMessage({ processed: true, action: "confirmed", replyMessage: "" }),
+      processed: false,
+      reason: "no_pending_confirmation",
+      replyMessage: inboundSmsReplyMessage({
+        processed: false,
+        reason: "no_pending_confirmation",
+        replyMessage: "",
+      }),
     }
   }
 
-  await prisma.homeTask.update({
-    where: { id: homeTask.id },
-    data: { status: "Declined" },
-  })
-  const companyId = homeTask.companyId ?? homeTask.home?.companyId
-  if (companyId && homeTask.home) {
-    const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
-    await notifySmsConfirmationReceived({
-      companyId,
-      homeId: homeTask.homeId,
-      taskId: homeTask.id,
-      taskName: homeTask.nameSnapshot,
-      homeLabel: homeTask.home.addressOrLot ?? "Home",
-      confirmed: false,
-    }).catch((err) => console.error("[sms] notifySmsConfirmationReceived:", err))
-  }
   return {
     processed: true,
-    action: "declined",
-    taskId: homeTask.id,
-    replyMessage: inboundSmsReplyMessage({ processed: true, action: "declined", replyMessage: "" }),
+    action: replyKind === "yes" ? "confirmed" : "declined",
+    taskId: only.taskId,
+    replyMessage: inboundSmsReplyMessage({
+      processed: true,
+      action: replyKind === "yes" ? "confirmed" : "declined",
+      replyMessage: "",
+    }),
   }
 }
 

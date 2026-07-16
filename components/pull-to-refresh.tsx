@@ -11,7 +11,12 @@ const RESISTANCE = 0.45
 
 function isAppRoute(pathname: string | null): boolean {
   if (!pathname) return false
-  if (pathname.startsWith("/auth") || pathname.startsWith("/punchlist")) return false
+  if (
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/punchlist") ||
+    pathname.startsWith("/c/")
+  )
+    return false
   if (PUBLIC_PATHS.some((p) => pathname === p)) return false
   return true
 }

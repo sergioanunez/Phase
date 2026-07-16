@@ -33,14 +33,31 @@ export function buildScheduledSms(params: {
 }): string {
   const brand = getBrand(params.tenant, params.subscription)
   const dateStr = formatDate(params.date)
-  return `${brand} scheduled:
-${params.taskName}
-${params.address}
-Date: ${dateStr}
+  return `${brand}
 
-Y = Confirm
-N = Reschedule
+${params.taskName} at ${params.address} is scheduled for ${dateStr}.
+
+Reply Y to confirm or N if unavailable.
 Ref: ${params.ref}
+
+STOP to opt out. HELP for help.`
+}
+
+/** When a trade has 2+ open PendingConfirm requests for this phone. */
+export function buildMultiPendingConfirmationsSms(params: {
+  tenant: SmsBrandTenant
+  subscription?: WhiteLabelSubscriptionLike | null
+  pendingCount: number
+  magicLink: string
+}): string {
+  const brand = getBrand(params.tenant, params.subscription)
+  const count = Math.max(2, params.pendingCount)
+  return `${brand}
+
+You have ${count} pending work confirmations.
+
+Review and respond here:
+${params.magicLink}
 
 STOP to opt out. HELP for help.`
 }

@@ -84,7 +84,12 @@ export default async function RootLayout({
   }
   const { getServerSession } = await import("next-auth")
   const { authOptions } = await import("@/lib/auth")
-  const isPublic = pathname === "" || PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/auth") || pathname.startsWith("/punchlist")
+  const isPublic =
+    pathname === "" ||
+    PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/punchlist") ||
+    pathname.startsWith("/c/")
   if (!isPublic) {
     const session = await getServerSession(authOptions)
     if (session?.user && !session.user.companyId) {

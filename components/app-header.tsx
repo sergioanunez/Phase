@@ -43,6 +43,7 @@ export function AppHeader() {
       pathname === "/founders10" ||
       pathname?.startsWith("/super-admin") ||
       pathname?.startsWith("/punchlist") ||
+      pathname?.startsWith("/c/") ||
       usePhaseBrandingOnly
     )
       return
@@ -72,7 +73,8 @@ export function AppHeader() {
       pathname === "/contact" ||
       pathname === "/founders10" ||
       pathname?.startsWith("/super-admin") ||
-      pathname?.startsWith("/punchlist")
+      pathname?.startsWith("/punchlist") ||
+      pathname?.startsWith("/c/")
     )
       return
     fetch("/api/notifications")
@@ -87,7 +89,8 @@ export function AppHeader() {
     pathname === "/contact" ||
     pathname === "/founders10" ||
     pathname?.startsWith("/super-admin") ||
-    pathname?.startsWith("/punchlist")
+    pathname?.startsWith("/punchlist") ||
+    pathname?.startsWith("/c/")
   ) {
     return null
   }
