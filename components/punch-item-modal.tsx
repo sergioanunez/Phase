@@ -12,6 +12,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { PunchStatus } from "@prisma/client"
 import { Camera, ImagePlus, X, FileText } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { useTransactionEngine } from "@/components/transaction-engine-provider"
+import { createClientPunchItemId } from "@/lib/transactions/local-punch-items"
 
 interface Contractor {
   id: string
@@ -45,6 +48,7 @@ interface PunchItem {
 interface PunchItemModalProps {
   taskId: string
   taskName: string
+  homeId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -54,11 +58,14 @@ interface PunchItemModalProps {
 export function PunchItemModal({
   taskId,
   taskName,
+  homeId,
   open,
   onOpenChange,
   onSuccess,
   editingPunchItem,
 }: PunchItemModalProps) {
+  const { data: session } = useSession()
+  const te = useTransactionEngine()
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [title, setTitle] = useState("")
   const [assignedContractorId, setAssignedContractorId] = useState<string>("")
@@ -72,6 +79,7 @@ export function PunchItemModal({
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const isEditing = !!editingPunchItem
+  const useTransactionCreate = te.enabled && te.ready && !isEditing
 
   useEffect(() => {
     if (open) {
@@ -171,8 +179,48 @@ export function PunchItemModal({
           const data = await res.json()
           throw new Error(data.error || "Failed to update punch item")
         }
+      } else if (useTransactionCreate) {
+        if (selectedFiles.length > 0) {
+          setError(
+            "Photos can be added after the punch item syncs. Remove photos to create offline, or wait until you are online and the item appears in the list."
+          )
+          setLoading(false)
+          return
+        }
+        if (!session?.user?.id || !session.user.companyId) {
+          setError("You must be signed in to create a punch item")
+          setLoading(false)
+          return
+        }
+
+        const clientPunchItemId = createClientPunchItemId()
+        const contractor = contractors.find((c) => c.id === assignedContractorId)
+        const deviceCreatedAt = new Date().toISOString()
+
+        await te.dispatch({
+          type: "PUNCH_ITEM_CREATE",
+          entityId: clientPunchItemId,
+          houseId: homeId ?? null,
+          payload: {
+            clientPunchItemId,
+            homeTaskId: taskId,
+            homeId: homeId ?? null,
+            title: title.trim(),
+            description: null,
+            assignedContractorId: assignedContractorId || null,
+            assignedContractorName: contractor?.companyName ?? null,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+            deviceCreatedAt,
+            source: "punch_item_modal",
+          },
+        })
+
+        console.info("[PUNCH_ITEM_CREATE] dispatched", {
+          clientPunchItemId,
+          taskId,
+        })
       } else {
-        // Create new punch item
+        // Legacy create path (feature flag off, or engine not ready)
         const res = await fetch(`/api/tasks/${taskId}/punch-items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

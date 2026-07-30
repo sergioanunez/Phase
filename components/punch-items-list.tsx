@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import {
   Dialog,
@@ -21,6 +21,13 @@ import {
   openWhatsAppShare,
   openEmailShare,
 } from "@/lib/share/whatsapp"
+import { useTransactionEngine } from "@/components/transaction-engine-provider"
+import {
+  listLocalPunchItemsForTask,
+  mergePunchLists,
+  subscribeLocalPunchItems,
+  type LocalPunchSyncStatus,
+} from "@/lib/transactions/local-punch-items"
 
 interface Contractor {
   id: string
@@ -55,6 +62,9 @@ interface PunchItem {
     name: string
   } | null
   photos?: { id: string; imageUrl: string; createdAt?: string }[]
+  syncStatus?: LocalPunchSyncStatus
+  clientPunchItemId?: string
+  attentionMessage?: string | null
 }
 
 interface PunchItemsListProps {
@@ -84,6 +94,7 @@ export function PunchItemsList({
   contextLabel,
 }: PunchItemsListProps) {
   const { data: session } = useSession()
+  const te = useTransactionEngine()
   const canTenantVerifyPunch = TENANT_VERIFY_ROLES.has(session?.user?.role ?? "")
   const [punchItems, setPunchItems] = useState<PunchItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -93,6 +104,58 @@ export function PunchItemsList({
   const [punchModalOpen, setPunchModalOpen] = useState(false)
   const [publicLink, setPublicLink] = useState<string | null>(null)
   const [publicLinkSentAt, setPublicLinkSentAt] = useState<string | null>(null)
+
+  const fetchPunchItems = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/punch-items`)
+      const serverItems: PunchItem[] = res.ok ? await res.json() : []
+
+      let merged = serverItems
+      if (
+        te.enabled &&
+        session?.user?.companyId &&
+        session.user.id
+      ) {
+        const locals = await listLocalPunchItemsForTask({
+          tenantId: session.user.companyId,
+          userId: session.user.id,
+          homeTaskId: taskId,
+        })
+        merged = mergePunchLists({
+          serverItems,
+          localItems: locals,
+          mapLocal: (local) => ({
+            id: local.serverPunchItemId ?? local.clientPunchItemId,
+            title: local.title,
+            description: local.description,
+            assignedContractorId: local.assignedContractorId,
+            assignedContractor: local.assignedContractorName
+              ? { id: local.assignedContractorId ?? "", companyName: local.assignedContractorName }
+              : null,
+            status: (local.status as PunchStatus) || "Open",
+            dueDate: local.dueDate,
+            createdAt: local.deviceCreatedAt,
+            createdBy: {
+              id: session.user!.id,
+              name: session.user!.name ?? "You",
+            },
+            closedAt: null,
+            closedBy: null,
+            syncStatus: local.syncStatus,
+            clientPunchItemId: local.clientPunchItemId,
+            attentionMessage: local.attentionMessage,
+          }),
+        })
+      }
+
+      setPunchItems(merged)
+    } catch (err) {
+      console.error("Failed to fetch punch items:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [taskId, te.enabled, session?.user?.companyId, session?.user?.id, session?.user?.name])
 
   useEffect(() => {
     if (open) {
@@ -107,22 +170,22 @@ export function PunchItemsList({
         })
         .catch(() => {})
     }
-  }, [open, taskId])
+  }, [open, taskId, fetchPunchItems])
 
-  const fetchPunchItems = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/tasks/${taskId}/punch-items`)
-      if (res.ok) {
-        const data = await res.json()
-        setPunchItems(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch punch items:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    if (!te.enabled || !open) return
+    return subscribeLocalPunchItems(() => {
+      void fetchPunchItems()
+    })
+  }, [te.enabled, open, fetchPunchItems])
+
+  useEffect(() => {
+    if (!te.enabled || !open) return
+    const unsub = te.engine?.subscribe(() => {
+      void fetchPunchItems()
+    })
+    return () => unsub?.()
+  }, [te.enabled, te.engine, open, fetchPunchItems])
 
   const filteredItems = punchItems.filter((item) => {
     if (filter === "open") {
@@ -477,6 +540,22 @@ export function PunchItemsList({
                           <Badge variant={getStatusColor(item.status)} className="shrink-0">
                             {item.status}
                           </Badge>
+                          {item.syncStatus && item.syncStatus !== "synced" && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.syncStatus === "needs_attention"
+                                  ? "shrink-0 border-amber-400 text-amber-900"
+                                  : "shrink-0"
+                              }
+                            >
+                              {item.syncStatus === "pending"
+                                ? "Waiting to sync"
+                                : item.syncStatus === "syncing"
+                                  ? "Syncing"
+                                  : "Needs attention"}
+                            </Badge>
+                          )}
                           {item.reportedCompleteAt && item.status !== "Closed" && (
                             <Badge
                               variant="outline"
@@ -494,6 +573,9 @@ export function PunchItemsList({
                               ? ` — “${item.reportedCompleteNote}”`
                               : ""}
                           </p>
+                        )}
+                        {item.attentionMessage && (
+                          <p className="text-xs text-amber-800">{item.attentionMessage}</p>
                         )}
                         {item.description && (
                           <p className="text-sm text-muted-foreground mb-2">
@@ -543,6 +625,8 @@ export function PunchItemsList({
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-1 shrink-0 self-end sm:self-start justify-end">
+                        {(!item.syncStatus || item.syncStatus === "synced") && (
+                          <>
                         {(item.status === "Open" || item.status === "ReadyForReview") &&
                           canTenantVerifyPunch &&
                           item.reportedCompleteAt && (
@@ -584,6 +668,8 @@ export function PunchItemsList({
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -597,6 +683,7 @@ export function PunchItemsList({
       <PunchItemModal
         taskId={taskId}
         taskName={taskName}
+        homeId={homeId}
         open={punchModalOpen}
         onOpenChange={setPunchModalOpen}
         onSuccess={handlePunchSuccess}

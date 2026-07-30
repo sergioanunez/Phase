@@ -39,11 +39,15 @@ export async function POST(
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
-    await requirePermission("tasks:write")
+    const { requireTenantPermission } = await import("@/lib/rbac")
+    const { tenantScopedPunchWhere } = await import("@/lib/server-transactions/tenant-scope")
+    const ctx = await requireTenantPermission("tasks:write")
 
-    const punchItem = await prisma.punchItem.findUnique({
-      where: { id: params.id },
+    const punchItem = await prisma.punchItem.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedPunchWhere(ctx.companyId)],
+      },
     })
 
     if (!punchItem) {

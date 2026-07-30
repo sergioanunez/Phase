@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { PunchCategory, PunchSeverity, PunchStatus } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { tenantScopedPunchWhere } from "@/lib/server-transactions/tenant-scope"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
 
 const updatePunchItemSchema = z.object({
   category: z.nativeEnum(PunchCategory).optional(),
@@ -21,82 +19,88 @@ const updatePunchItemSchema = z.object({
   dueDate: z.string().datetime().optional().nullable(),
 })
 
-// GET /api/punch-items/[id] - Get a single punch item
+const punchInclude = {
+  createdBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  assignedContractor: {
+    select: {
+      id: true,
+      companyName: true,
+    },
+  },
+  closedBy: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  reportedCompleteBy: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  relatedHomeTask: {
+    include: {
+      home: {
+        include: {
+          subdivision: true,
+        },
+      },
+    },
+  },
+  photos: {
+    orderBy: {
+      createdAt: "asc" as const,
+    },
+  },
+}
+
+// GET /api/punch-items/[id] - Get a single punch item (tenant-scoped)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     if (isBuildTime) return buildGuardResponse()
-    const { getServerSession } = await import("next-auth")
-    const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { requireTenantContext } = await import("@/lib/tenant")
+    const { hasPermission } = await import("@/lib/rbac")
+    const ctx = await requireTenantContext()
+
+    if (ctx.role !== "Subcontractor" && !hasPermission(ctx.role, "homes:read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await requirePermission("homes:read")
-
-    const punchItem = await prisma.punchItem.findUnique({
-      where: { id: params.id },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        assignedContractor: {
-          select: {
-            id: true,
-            companyName: true,
-          },
-        },
-        closedBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        reportedCompleteBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        relatedHomeTask: {
-          include: {
-            home: {
-              include: {
-                subdivision: true,
-              },
-            },
-          },
-        },
-        photos: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
+    const punchItem = await prisma.punchItem.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedPunchWhere(ctx.companyId)],
       },
+      include: punchInclude,
     })
 
     if (!punchItem) {
       return NextResponse.json({ error: "Punch item not found" }, { status: 404 })
     }
 
-    // For Subcontractor, only allow viewing if assigned to their contractor
-    if (session.user.role === "Subcontractor" && session.user.contractorId) {
-      if (punchItem.assignedContractorId !== session.user.contractorId) {
+    if (ctx.role === "Subcontractor" && ctx.contractorId) {
+      if (punchItem.assignedContractorId !== ctx.contractorId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
     }
 
     return NextResponse.json(punchItem)
   } catch (error: any) {
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error fetching punch item:", error)
     return NextResponse.json(
       { error: error.message || "Failed to fetch punch item" },
@@ -105,7 +109,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/punch-items/[id] - Update a punch item
+// PATCH /api/punch-items/[id] - Update a punch item (tenant-scoped)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -113,14 +117,17 @@ export async function PATCH(
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("tasks:write")
+    const ctx = await requireTenantPermission("tasks:write")
     const body = await request.json()
     const data = updatePunchItemSchema.parse(body)
 
-    const before = await prisma.punchItem.findUnique({
-      where: { id: params.id },
+    const before = await prisma.punchItem.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedPunchWhere(ctx.companyId)],
+      },
       include: {
         relatedHomeTask: {
           include: {
@@ -134,7 +141,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Punch item not found" }, { status: 404 })
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (data.category !== undefined) updateData.category = data.category
     if (data.severity !== undefined) updateData.severity = data.severity
     if (data.title !== undefined) updateData.title = data.title
@@ -142,22 +149,25 @@ export async function PATCH(
     if (data.assignedContractorId !== undefined) updateData.assignedContractorId = data.assignedContractorId
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null
 
-    // Handle status change
     if (data.status !== undefined) {
       updateData.status = data.status
       if (data.status === "Closed" && !before.closedAt) {
         updateData.closedAt = new Date()
-        updateData.closedByUserId = user.id
+        updateData.closedByUserId = ctx.userId
       } else if (data.status !== "Closed" && before.closedAt) {
         updateData.closedAt = null
         updateData.closedByUserId = null
       }
     }
 
-    // Update punch item and task counts in a transaction
+    // Backfill companyId when missing so future lookups stay tenant-direct.
+    if (!before.companyId) {
+      updateData.companyId = ctx.companyId
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const after = await tx.punchItem.update({
-        where: { id: params.id },
+        where: { id: before.id },
         data: updateData,
         include: {
           createdBy: {
@@ -187,7 +197,6 @@ export async function PATCH(
         },
       })
 
-      // Update task punch counts
       const openPunchCount = await tx.punchItem.count({
         where: {
           relatedHomeTaskId: before.relatedHomeTaskId,
@@ -209,12 +218,13 @@ export async function PATCH(
     })
 
     await createAuditLog(
-      user.id,
+      ctx.userId,
       "PunchItem",
       params.id,
       "UPDATE",
       before,
-      result
+      result,
+      ctx.companyId
     )
 
     const home = before.relatedHomeTask?.home
@@ -253,7 +263,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/punch-items/[id] - Delete a punch item
+// DELETE /api/punch-items/[id] - Delete a punch item (tenant-scoped)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -261,12 +271,15 @@ export async function DELETE(
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("tasks:write")
+    const ctx = await requireTenantPermission("tasks:write")
 
-    const before = await prisma.punchItem.findUnique({
-      where: { id: params.id },
+    const before = await prisma.punchItem.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedPunchWhere(ctx.companyId)],
+      },
       include: {
         relatedHomeTask: true,
       },
@@ -278,13 +291,11 @@ export async function DELETE(
 
     const taskId = before.relatedHomeTaskId
 
-    // Delete punch item and update task counts in a transaction
     await prisma.$transaction(async (tx) => {
       await tx.punchItem.delete({
-        where: { id: params.id },
+        where: { id: before.id },
       })
 
-      // Update task punch counts
       const openPunchCount = await tx.punchItem.count({
         where: {
           relatedHomeTaskId: taskId,
@@ -304,12 +315,13 @@ export async function DELETE(
     })
 
     await createAuditLog(
-      user.id,
+      ctx.userId,
       "PunchItem",
       params.id,
       "DELETE",
       before,
-      null
+      null,
+      ctx.companyId
     )
 
     return NextResponse.json({ success: true })

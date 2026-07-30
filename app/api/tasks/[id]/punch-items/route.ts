@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { z } from "zod"
 import { PunchCategory, PunchSeverity, PunchStatus } from "@prisma/client"
+import {
+  tenantScopedPunchWhere,
+  tenantScopedWhere,
+} from "@/lib/server-transactions/tenant-scope"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -17,24 +21,23 @@ const createPunchItemSchema = z.object({
   dueDate: z.string().datetime().optional().nullable(),
 })
 
-// GET /api/tasks/[id]/punch-items - Get all punch items for a task
+// GET /api/tasks/[id]/punch-items - Get all punch items for a task (tenant-scoped)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     if (isBuildTime) return buildGuardResponse()
-    const { getServerSession } = await import("next-auth")
-    const { authOptions } = await import("@/lib/auth")
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { requireTenantContext } = await import("@/lib/tenant")
+    const { hasPermission } = await import("@/lib/rbac")
+    const ctx = await requireTenantContext()
 
-    const task = await prisma.homeTask.findUnique({
-      where: { id: params.id },
+    const task = await prisma.homeTask.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedWhere(ctx.companyId)],
+      },
       include: {
         home: {
           include: {
@@ -48,23 +51,22 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    // Subcontractor: only allow if task is assigned to their contractor
-    if (session.user.role === "Subcontractor") {
-      if (!session.user.contractorId || task.contractorId !== session.user.contractorId) {
+    if (ctx.role === "Subcontractor") {
+      if (!ctx.contractorId || task.contractorId !== ctx.contractorId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-    } else {
-      await requirePermission("homes:read")
+    } else if (!hasPermission(ctx.role, "homes:read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // For Subcontractor, only show punch items assigned to them or unassigned
-    const whereClause: any = {
+    const whereClause: Record<string, unknown> = {
       relatedHomeTaskId: params.id,
+      AND: [tenantScopedPunchWhere(ctx.companyId)],
     }
-    if (session.user.role === "Subcontractor" && session.user.contractorId) {
+    if (ctx.role === "Subcontractor" && ctx.contractorId) {
       whereClause.OR = [
         { assignedContractorId: null },
-        { assignedContractorId: session.user.contractorId },
+        { assignedContractorId: ctx.contractorId },
       ]
     }
 
@@ -109,6 +111,10 @@ export async function GET(
 
     return NextResponse.json(punchItems)
   } catch (error: any) {
+    const status = typeof error?.statusCode === "number" ? error.statusCode : 500
+    if (status !== 500) {
+      return NextResponse.json({ error: error.message || "Forbidden" }, { status })
+    }
     console.error("Error fetching punch items:", error)
     return NextResponse.json(
       { error: error.message || "Failed to fetch punch items" },
@@ -117,7 +123,8 @@ export async function GET(
   }
 }
 
-// POST /api/tasks/[id]/punch-items - Create a new punch item
+// POST /api/tasks/[id]/punch-items - Legacy create path (assistant + flag-off UI).
+// Prefer POST /api/transactions/punch-item-create when TRANSACTION_ENGINE_PUNCH_CREATE is enabled.
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -125,14 +132,17 @@ export async function POST(
   try {
     if (isBuildTime) return buildGuardResponse()
     const { prisma } = await import("@/lib/prisma")
-    const { requirePermission } = await import("@/lib/rbac")
+    const { requireTenantPermission } = await import("@/lib/rbac")
     const { createAuditLog } = await import("@/lib/audit")
-    const user = await requirePermission("tasks:write")
+    const ctx = await requireTenantPermission("tasks:write")
     const body = await request.json()
     const data = createPunchItemSchema.parse(body)
 
-    const task = await prisma.homeTask.findUnique({
-      where: { id: params.id },
+    const task = await prisma.homeTask.findFirst({
+      where: {
+        id: params.id,
+        AND: [tenantScopedWhere(ctx.companyId)],
+      },
       include: {
         home: true,
       },
@@ -142,7 +152,7 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    const companyId = task.home.companyId
+    const companyId = task.companyId ?? task.home.companyId ?? ctx.companyId
     if (companyId) {
       const { getBillingGates, UPGRADE_TITLE, UPGRADE_BODY } = await import("@/lib/billing/entitlements")
       const gates = await getBillingGates(prisma, companyId)
@@ -159,13 +169,13 @@ export async function POST(
       }
     }
 
-    // Create punch item in a transaction to update task counts
     const result = await prisma.$transaction(async (tx) => {
       const punchItem = await tx.punchItem.create({
         data: {
+          companyId: ctx.companyId,
           homeId: task.homeId,
           relatedHomeTaskId: params.id,
-          createdByUserId: user.id,
+          createdByUserId: ctx.userId,
           assignedContractorId: data.assignedContractorId || null,
           category: data.category || "Other",
           severity: data.severity || "Minor",
@@ -190,7 +200,6 @@ export async function POST(
         },
       })
 
-      // Update task punch counts
       const openPunchCount = await tx.punchItem.count({
         where: {
           relatedHomeTaskId: params.id,
@@ -212,16 +221,17 @@ export async function POST(
     })
 
     await createAuditLog(
-      user.id,
+      ctx.userId,
       "PunchItem",
       result.id,
       "CREATE",
       null,
-      result
+      result,
+      ctx.companyId
     )
 
     const { notifyPunchItemsAddedToTask } = await import("@/lib/notificationRules")
-    if (task.home && task.companyId) {
+    if (task.home && ctx.companyId) {
       const openPunchCount = await prisma.punchItem.count({
         where: {
           relatedHomeTaskId: params.id,
@@ -229,13 +239,13 @@ export async function POST(
         },
       })
       await notifyPunchItemsAddedToTask({
-        companyId: task.companyId,
+        companyId: ctx.companyId,
         homeId: result.homeId,
         taskId: params.id,
         taskName: task.nameSnapshot,
         homeLabel: (task.home as { addressOrLot?: string }).addressOrLot ?? "Home",
         punchCount: openPunchCount,
-        createdByUserId: user.id,
+        createdByUserId: ctx.userId,
       }).catch((err) => console.error("notifyPunchItemsAddedToTask:", err))
     }
 

@@ -287,6 +287,8 @@ model Company {
   taskRescheduleHistory TaskRescheduleHistory[]
   activityNotificationReads ActivityNotificationRead[]
   confirmationAccessTokens ConfirmationAccessToken[]
+  processedMutations       ProcessedMutation[]
+  outboxMessages           OutboxMessage[]
 
   @@index([pricingTier])
   @@index([status])
@@ -378,6 +380,7 @@ model User {
   webPushSubscriptions WebPushSubscription[]
   webPushPrefs         UserWebPushPreference[]
   activityNotificationReads ActivityNotificationRead[]
+  processedMutations        ProcessedMutation[]
 
   @@index([companyId])
   @@index([email])
@@ -508,6 +511,8 @@ model Home {
   isComplete           Boolean     @default(false)
   completedAt         DateTime?
   isDemo               Boolean     @default(false)
+  /// Optimistic concurrency token for Transaction Engine writes.
+  version              Int         @default(1)
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -677,6 +682,8 @@ model HomeTask {
   /// Status before marking N/A; used when reverting to applicable.
   statusBeforeNotApplicable TaskStatus?
   isDemo               Boolean          @default(false)
+  /// Optimistic concurrency token for Transaction Engine writes.
+  version              Int              @default(1)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -685,6 +692,7 @@ model HomeTask {
   rescheduleHistory TaskRescheduleHistory[]
 
   @@index([homeId])
+  @@index([companyId])
   @@index([contractorId])
   @@index([status])
   @@index([scheduledDate])
@@ -971,12 +979,18 @@ model PunchItem {
   reportedCompleteBy   User?         @relation("PunchItemReportedComplete", fields: [reportedCompleteByUserId], references: [id], onDelete: SetNull)
   reportedCompleteNote String?
   isDemo               Boolean       @default(false)
+  /// Client-stable id for Transaction Engine create reconciliation (offline/replay).
+  clientGeneratedId    String?
+  /// Optimistic concurrency token for Transaction Engine writes.
+  version              Int           @default(1)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
   photos PunchPhoto[]
 
+  @@unique([companyId, clientGeneratedId])
   @@index([homeId])
+  @@index([companyId])
   @@index([relatedHomeTaskId])
   @@index([createdByUserId])
   @@index([assignedContractorId])
@@ -1120,6 +1134,84 @@ model ActivityNotificationRead {
 
   @@unique([userId, activityKey])
   @@index([userId, companyId])
+}
+
+enum ProcessedMutationStatus {
+  processing
+  succeeded
+  /// Permanent domain/business rejection; same key replays stored envelope.
+  rejected
+  /// Transient failure; same key may reclaim and execute again.
+  retryable_failed
+  /// Outcome unprovable; never auto-re-execute.
+  uncertain
+}
+
+/// Tenant-scoped idempotency ledger for Transaction Engine / replay-safe API mutations.
+model ProcessedMutation {
+  id               String                  @id @default(cuid())
+  companyId        String
+  company          Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actorUserId      String?
+  actorUser        User?                   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  idempotencyKey   String
+  mutationType     String
+  entityType       String?
+  entityId         String?
+  status           ProcessedMutationStatus @default(processing)
+  /// Minimum safe replay payload (no secrets / raw PII).
+  responseData     Json?
+  responseHash     String?
+  errorCode        String?
+  errorMessage     String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  completedAt      DateTime?
+  expiresAt        DateTime?
+
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, createdAt])
+  @@index([companyId, mutationType])
+  @@index([actorUserId, createdAt])
+  @@index([status, createdAt])
+}
+
+enum OutboxMessageStatus {
+  pending
+  processing
+  retrying
+  succeeded
+  permanently_failed
+}
+
+/// Durable side-effect outbox. Inserted in the same DB transaction as domain mutations.
+model OutboxMessage {
+  id                 String              @id @default(cuid())
+  companyId          String
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type               String
+  deduplicationKey   String
+  aggregateType      String?
+  aggregateId        String?
+  payload            Json
+  status             OutboxMessageStatus @default(pending)
+  attempts           Int                 @default(0)
+  maxAttempts        Int                 @default(8)
+  nextAttemptAt      DateTime            @default(now())
+  lockedAt           DateTime?
+  lockedBy           String?
+  processingAttemptId String?
+  providerReference  String?
+  lastErrorCode      String?
+  lastErrorMessage   String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sentAt             DateTime?
+
+  @@unique([companyId, deduplicationKey])
+  @@index([status, nextAttemptAt])
+  @@index([companyId, createdAt])
+  @@index([type, status])
 }
 
 /// Lead capture from public marketing tools (e.g. Delay Cost Calculator).

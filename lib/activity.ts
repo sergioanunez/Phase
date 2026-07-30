@@ -1,6 +1,17 @@
 import { prisma } from "./prisma"
 import type { ActivityEventType, Prisma } from "@prisma/client"
 
+/**
+ * Optional Transaction Engine metadata for replay-safe activity writes.
+ * Store under `metadata` — never put technical IDs in user-facing title/description.
+ * Callers should write one authoritative activity record per mutation
+ * (gate on ProcessedMutation success / first apply, not on client retries).
+ *
+ * Recommended keys (not exclusive):
+ * - idempotencyKey, mutationType
+ * - source: "transaction_engine_online" | "transaction_engine_replay"
+ * - deviceTimestamp, serverTimestamp
+ */
 export type CreateActivityEventParams = {
   companyId: string
   homeId: string

@@ -3,6 +3,22 @@
  * Prepended to the Workbox-generated service worker by next-pwa (customWorkerSrc).
  * Handles Web Push display + notification clicks for Phase PWA.
  */
+const LEGACY_AUTHENTICATED_API_CACHES = ["apis"]
+
+self.addEventListener("activate", function (event) {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => LEGACY_AUTHENTICATED_API_CACHES.includes(cacheName))
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      )
+  )
+})
+
 self.addEventListener("push", function (event) {
   let data = {}
   try {
