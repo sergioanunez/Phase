@@ -15,7 +15,7 @@ import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { ProgressBar } from "@/components/homes/progress-bar"
 import { getScheduleStatus as getBarScheduleStatus } from "@/lib/schedule-status"
-import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail, MapPin } from "lucide-react"
+import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail, MapPin, Ban } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
 import { PlanViewer } from "@/components/plan-viewer"
@@ -1079,9 +1079,11 @@ export function HomeDetailPage() {
                                       setMarkNaTask(task)
                                       setMarkNaDialogOpen(true)
                                     }}
-                                    className="shrink-0 min-h-[44px] h-9 px-3 text-gray-700"
+                                    title="Mark Not Applicable"
+                                    aria-label="Mark Not Applicable"
+                                    className="shrink-0 h-11 w-11 min-h-[44px] min-w-[44px] p-0 text-gray-700"
                                   >
-                                    Mark N/A
+                                    <Ban className="h-4 w-4" />
                                   </Button>
                                 )}
                               <Button
