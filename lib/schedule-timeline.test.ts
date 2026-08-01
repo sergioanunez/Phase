@@ -6,6 +6,7 @@ import {
   getDeltaChip,
   getForecastPercent,
   getTimelinePositions,
+  getTimelineLabelLayout,
 } from "./schedule-timeline"
 
 function date(y: number, m: number, d: number): Date {
@@ -140,6 +141,22 @@ describe("schedule-timeline", () => {
       const target = date(2026, 6, 15)
       expect(getTimelinePositions(start, target, date(2026, 6, 15)).hasOverrun).toBe(false)
       expect(getTimelinePositions(start, target, date(2026, 6, 10)).hasOverrun).toBe(false)
+    })
+  })
+
+  describe("getTimelineLabelLayout", () => {
+    it("uses spread when markers are far apart", () => {
+      expect(getTimelineLabelLayout(120)).toBe("spread")
+      expect(getTimelineLabelLayout(90)).toBe("spread")
+    })
+    it("uses split when markers are close but not overlapping", () => {
+      expect(getTimelineLabelLayout(89)).toBe("split")
+      expect(getTimelineLabelLayout(40)).toBe("split")
+      expect(getTimelineLabelLayout(28)).toBe("split")
+    })
+    it("uses cluster when markers are extremely close", () => {
+      expect(getTimelineLabelLayout(27)).toBe("cluster")
+      expect(getTimelineLabelLayout(0)).toBe("cluster")
     })
   })
 })

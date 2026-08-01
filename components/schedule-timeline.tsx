@@ -1,10 +1,13 @@
 "use client"
 
+import { useLayoutEffect, useRef, useState } from "react"
 import { format, startOfDay } from "date-fns"
 import {
   getDeltaDays,
   getScheduleStatus,
   getForecastPercent,
+  getTimelineLabelLayout,
+  type TimelineLabelLayout,
 } from "@/lib/schedule-timeline"
 import { cn } from "@/lib/utils"
 
@@ -16,15 +19,68 @@ export type ScheduleTimelineProps = {
   today?: Date
 }
 
-const TRACK_TOP_PX = 36
 const ANCHOR_SIZE = 10
 const FORECAST_MARKER_SIZE = 14
 const TRACK_H = 6
 /** Clamp forecast marker position so it never overlaps start (0) or target (100). */
 const CLAMP_MIN = 8
 const CLAMP_MAX = 92
-/** When forecast is within this many % of target, stack forecast label to avoid collision. */
-const NEAR_TARGET_THRESHOLD = 12
+/** Pixel gap below which Forecast/Target labels switch to vertical split. */
+const SPLIT_THRESHOLD_PX = 90
+/** Pixel gap below which markers are treated as a stacked cluster. */
+const CLUSTER_THRESHOLD_PX = 28
+
+function formatMarkerDate(date: Date, today: Date): string {
+  return format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd")
+    ? "Today"
+    : format(date, "MMM d")
+}
+
+function MarkerCaption({
+  label,
+  shortLabel,
+  dateText,
+  fullDate,
+  align,
+  className,
+}: {
+  label: string
+  shortLabel?: string
+  dateText: string
+  fullDate: string
+  align: "start" | "center" | "end"
+  className?: string
+}) {
+  const alignClass =
+    align === "start"
+      ? "items-start text-left"
+      : align === "end"
+        ? "items-end text-right"
+        : "items-center text-center"
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col min-w-0 transition-opacity duration-200 ease-out",
+        alignClass,
+        className
+      )}
+    >
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full hidden sm:block">
+        {label}
+      </span>
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full sm:hidden">
+        {shortLabel ?? label}
+      </span>
+      <span
+        className="mt-0.5 text-sm font-semibold truncate w-full"
+        title={fullDate}
+      >
+        {dateText}
+      </span>
+    </div>
+  )
+}
 
 export function ScheduleTimeline({
   startDate,
@@ -46,8 +102,38 @@ export function ScheduleTimeline({
     Math.min(CLAMP_MAX, forecastPercent)
   )
   const isBehind = hasAll && diffDays > 0
-  const isNearTarget = hasAll && 100 - renderForecastPercent < NEAR_TARGET_THRESHOLD
-  const stackForecastLabel = isBehind || isNearTarget
+
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [trackWidthPx, setTrackWidthPx] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+
+    const measure = () => {
+      setTrackWidthPx(el.getBoundingClientRect().width)
+    }
+
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [hasAll, startDate, targetDate, forecastDate])
+
+  const pixelGap =
+    trackWidthPx > 0
+      ? (trackWidthPx * Math.abs(100 - renderForecastPercent)) / 100
+      : Number.POSITIVE_INFINITY
+
+  const labelLayout: TimelineLabelLayout = hasAll
+    ? getTimelineLabelLayout(pixelGap, {
+        splitThresholdPx: SPLIT_THRESHOLD_PX,
+        clusterThresholdPx: CLUSTER_THRESHOLD_PX,
+      })
+    : "spread"
+
+  // Extra headroom when Forecast label sits above the track.
+  const trackTopPx = labelLayout === "split" ? 78 : 52
 
   const forecastMarkerColor =
     status === "ahead" || status === "on-time"
@@ -60,10 +146,16 @@ export function ScheduleTimeline({
   const trackRight = "calc(2rem + 5px)"
   const trackWidthExpr = "(100% - 4rem - 10px)"
   const forecastLeft = `calc(${trackLeft} + ${trackWidthExpr} * ${renderForecastPercent} / 100)`
+  const clusterLeft = `calc(${trackLeft} + ${trackWidthExpr} * ${(renderForecastPercent + 100) / 2} / 100)`
+
+  const minHeight =
+    labelLayout === "cluster" ? 168 : labelLayout === "split" ? 156 : 128
 
   return (
-    <div className="relative w-full min-h-[120px] overflow-hidden px-8 pb-5 min-w-0">
-      {/* Status row: dedicated line above track — never overlaps markers */}
+    <div
+      className="relative w-full overflow-hidden px-8 pb-5 min-w-0 transition-[min-height] duration-200 ease-out"
+      style={{ minHeight }}
+    >
       {hasAll && (
         <div className="flex flex-col items-center gap-0.5 pb-2">
           <span
@@ -88,22 +180,22 @@ export function ScheduleTimeline({
         </div>
       )}
 
-      {/* Track row: start → forecast → target */}
       <div
-        className="absolute rounded-full bg-muted"
-        style={{ top: TRACK_TOP_PX, left: trackLeft, right: trackRight, height: TRACK_H }}
+        ref={trackRef}
+        data-timeline-track
+        className="absolute rounded-full bg-muted transition-[top] duration-200 ease-out"
+        style={{ top: trackTopPx, left: trackLeft, right: trackRight, height: TRACK_H }}
         aria-hidden
       />
 
-      {/* Overrun segment when behind: amber (1–7 days) or red (8+); from clamped forecast to target */}
       {hasAll && isBehind && (
         <div
           className={cn(
-            "absolute rounded-r-full pointer-events-none",
+            "absolute rounded-r-full pointer-events-none transition-[top] duration-200 ease-out",
             diffDays <= 7 ? "bg-amber-500/25" : "bg-destructive/25"
           )}
           style={{
-            top: TRACK_TOP_PX,
+            top: trackTopPx,
             left: forecastLeft,
             right: trackRight,
             height: TRACK_H,
@@ -112,101 +204,156 @@ export function ScheduleTimeline({
         />
       )}
 
-      {/* Start marker (0%) */}
       {start != null && (
         <div
-          className="absolute flex flex-col items-start min-w-0 max-w-[45%]"
+          className="absolute flex flex-col items-start min-w-0 max-w-[40%]"
           style={{ left: trackLeft, top: 0 }}
         >
           <div
-            className="rounded-full bg-muted-foreground shrink-0"
+            className="rounded-full bg-muted-foreground shrink-0 transition-[margin] duration-200 ease-out"
             style={{
               width: ANCHOR_SIZE,
               height: ANCHOR_SIZE,
-              marginTop: TRACK_TOP_PX - ANCHOR_SIZE / 2,
+              marginTop: trackTopPx - ANCHOR_SIZE / 2,
             }}
             aria-hidden
           />
-          <span className="mt-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full">
-            Start
-          </span>
-          <span className="mt-0.5 text-sm font-semibold truncate w-full" title={format(start, "MMM d, yyyy")}>
-            {format(start, "MMM d")}
-          </span>
+          <MarkerCaption
+            label="Start"
+            dateText={format(start, "MMM d")}
+            fullDate={format(start, "MMM d, yyyy")}
+            align="start"
+            className="mt-1.5"
+          />
         </div>
       )}
 
-      {/* Target marker (100%): fixed at right */}
       {target != null && (
         <div
-          className="absolute flex flex-col items-end min-w-0 max-w-[45%]"
+          className="absolute flex flex-col items-end min-w-0 max-w-[40%]"
           style={{ right: "2rem", top: 0 }}
         >
           <div
-            className="rounded-full bg-muted-foreground shrink-0"
+            className="rounded-full bg-muted-foreground shrink-0 transition-[margin] duration-200 ease-out"
             style={{
               width: ANCHOR_SIZE,
               height: ANCHOR_SIZE,
-              marginTop: TRACK_TOP_PX - ANCHOR_SIZE / 2,
+              marginTop: trackTopPx - ANCHOR_SIZE / 2,
             }}
             aria-hidden
           />
-          <span className="mt-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full text-right">
-            Target
-          </span>
-          <span className="mt-0.5 text-sm font-semibold truncate w-full text-right" title={format(target, "MMM d, yyyy")}>
-            {format(target, "MMM d")}
-          </span>
+          {labelLayout === "spread" && (
+            <MarkerCaption
+              label="Target"
+              dateText={format(target, "MMM d")}
+              fullDate={format(target, "MMM d, yyyy")}
+              align="end"
+              className="mt-1.5"
+            />
+          )}
         </div>
       )}
 
-      {/* Forecast marker: position clamped to avoid overlap with target */}
       {forecast != null && start != null && target != null && (
         <div
-          className="absolute flex flex-col items-center min-w-0"
+          className="absolute"
           style={{
             left: forecastLeft,
-            top: 0,
+            top: trackTopPx - FORECAST_MARKER_SIZE / 2,
             transform: "translateX(-50%)",
-            maxWidth: "30%",
           }}
         >
           <div
             className={cn(
-              "rounded-full shrink-0 ring-2 ring-background",
+              "rounded-full shrink-0 ring-2 ring-background transition-colors duration-200",
               forecastMarkerColor
             )}
             style={{
               width: FORECAST_MARKER_SIZE,
               height: FORECAST_MARKER_SIZE,
-              marginTop: TRACK_TOP_PX - FORECAST_MARKER_SIZE / 2,
             }}
             aria-hidden
           />
-          {!stackForecastLabel && (
-            <>
-              <span className="mt-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full text-center sm:inline hidden">
-                Forecast
-              </span>
-              <span className="mt-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground truncate w-full text-center sm:hidden">
-                Fcst
-              </span>
-              <span className="mt-0.5 text-sm font-semibold truncate w-full text-center" title={format(forecast, "MMM d, yyyy")}>
-                {format(forecast, "yyyy-MM-dd") === format(today, "yyyy-MM-dd")
-                  ? "Today"
-                  : format(forecast, "MMM d")}
-              </span>
-            </>
-          )}
         </div>
       )}
 
-      {/* When stacked (behind or near target): forecast date always below track for consistent placement */}
-      {hasAll && stackForecastLabel && (
-        <div className="absolute left-0 right-0 flex justify-center" style={{ top: TRACK_TOP_PX + TRACK_H + 10 }}>
-          <span className="text-xs text-muted-foreground">
-            Forecast: {format(forecast!, "MMM d")}
-          </span>
+      {/* Spread: Forecast caption under marker */}
+      {hasAll && labelLayout === "spread" && forecast != null && (
+        <div
+          className="absolute flex flex-col items-center min-w-0 max-w-[30%] transition-opacity duration-200 ease-out"
+          style={{
+            left: forecastLeft,
+            top: trackTopPx + TRACK_H + 8,
+            transform: "translateX(-50%)",
+          }}
+        >
+          <MarkerCaption
+            label="Forecast"
+            shortLabel="Fcst"
+            dateText={formatMarkerDate(forecast, today)}
+            fullDate={format(forecast, "MMM d, yyyy")}
+            align="center"
+          />
+        </div>
+      )}
+
+      {/* Split: Forecast above track, Target below — never side-by-side when close */}
+      {hasAll && labelLayout === "split" && forecast != null && (
+        <div
+          className="absolute flex flex-col items-center min-w-0 max-w-[36%] transition-opacity duration-200 ease-out"
+          style={{
+            left: forecastLeft,
+            top: trackTopPx - FORECAST_MARKER_SIZE / 2 - 6,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          <MarkerCaption
+            label="Forecast"
+            shortLabel="Fcst"
+            dateText={formatMarkerDate(forecast, today)}
+            fullDate={format(forecast, "MMM d, yyyy")}
+            align="center"
+          />
+        </div>
+      )}
+      {hasAll && labelLayout === "split" && target != null && (
+        <div
+          className="absolute flex flex-col items-end min-w-0 max-w-[40%] transition-opacity duration-200 ease-out"
+          style={{ right: "2rem", top: trackTopPx + TRACK_H + 8 }}
+        >
+          <MarkerCaption
+            label="Target"
+            dateText={format(target, "MMM d")}
+            fullDate={format(target, "MMM d, yyyy")}
+            align="end"
+          />
+        </div>
+      )}
+
+      {/* Cluster: stacked captions under midpoint */}
+      {hasAll && labelLayout === "cluster" && forecast != null && target != null && (
+        <div
+          className="absolute flex flex-col items-center gap-2 transition-opacity duration-200 ease-out"
+          style={{
+            left: clusterLeft,
+            top: trackTopPx + TRACK_H + 10,
+            transform: "translateX(-50%)",
+            maxWidth: "70%",
+          }}
+        >
+          <MarkerCaption
+            label="Forecast"
+            shortLabel="Fcst"
+            dateText={formatMarkerDate(forecast, today)}
+            fullDate={format(forecast, "MMM d, yyyy")}
+            align="center"
+          />
+          <MarkerCaption
+            label="Target"
+            dateText={format(target, "MMM d")}
+            fullDate={format(target, "MMM d, yyyy")}
+            align="center"
+          />
         </div>
       )}
     </div>

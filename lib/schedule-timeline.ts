@@ -122,3 +122,24 @@ export function getTimelinePositions(
 
   return { rangeStart, rangeEnd, points, hasOverrun, overrunStart, overrunEnd }
 }
+
+/** Label placement for Forecast vs Target — UI only; not used in date math. */
+export type TimelineLabelLayout = "spread" | "split" | "cluster"
+
+/**
+ * Choose label layout from rendered pixel gap between Forecast and Target markers.
+ * - spread: enough space for side-by-side labels under markers
+ * - split: labels stacked vertically (one above track, one below)
+ * - cluster: markers nearly coincident; stacked label block
+ */
+export function getTimelineLabelLayout(
+  pixelGap: number,
+  options?: { splitThresholdPx?: number; clusterThresholdPx?: number }
+): TimelineLabelLayout {
+  const splitThreshold = options?.splitThresholdPx ?? 90
+  const clusterThreshold = options?.clusterThresholdPx ?? 28
+  if (!Number.isFinite(pixelGap) || pixelGap < 0) return "spread"
+  if (pixelGap < clusterThreshold) return "cluster"
+  if (pixelGap < splitThreshold) return "split"
+  return "spread"
+}
