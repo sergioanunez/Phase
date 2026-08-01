@@ -182,31 +182,56 @@ export function groupCalendarEventsByHouse(events: CalendarEventLike[]): HouseCa
 
 export type WeekSummaryCounts = {
   houses: number
-  tasks: number
-  deliveries: number
+  /** All scheduled calendar activities in the period (tasks, inspections, punch). */
+  scheduledActivities: number
   inspections: number
 }
 
-/** Summary counts for the filtered event set (respects active filter input). */
+export type DaySummaryCounts = {
+  /** Scheduled activities for the day (where/what is happening). */
+  visits: number
+  inspections: number
+  houses: number
+}
+
+/** Summary counts for the filtered event set (scheduled events only). */
 export function summarizeCalendarEvents(events: CalendarEventLike[]): WeekSummaryCounts {
   const homes = new Set<string>()
+  let inspections = 0
   for (const e of events) {
     if (e.homeId) homes.add(e.homeId)
+    if (e.type === "inspection") inspections += 1
   }
   return {
     houses: homes.size,
-    tasks: events.length,
-    deliveries: events.filter((e) => e.type === "delivery").length,
-    inspections: events.filter((e) => e.type === "inspection").length,
+    scheduledActivities: events.length,
+    inspections,
+  }
+}
+
+export function summarizeDayCalendarEvents(events: CalendarEventLike[]): DaySummaryCounts {
+  const week = summarizeCalendarEvents(events)
+  return {
+    visits: week.scheduledActivities,
+    inspections: week.inspections,
+    houses: week.houses,
   }
 }
 
 export function formatWeekSummary(counts: WeekSummaryCounts): string {
   const parts = [
     `${counts.houses} House${counts.houses === 1 ? "" : "s"}`,
-    `${counts.tasks} Task${counts.tasks === 1 ? "" : "s"}`,
-    `${counts.deliveries} Deliver${counts.deliveries === 1 ? "y" : "ies"}`,
+    `${counts.scheduledActivities} Scheduled Activit${counts.scheduledActivities === 1 ? "y" : "ies"}`,
     `${counts.inspections} Inspection${counts.inspections === 1 ? "" : "s"}`,
+  ]
+  return parts.join(" · ")
+}
+
+export function formatDaySummary(counts: DaySummaryCounts): string {
+  const parts = [
+    `${counts.visits} Visit${counts.visits === 1 ? "" : "s"}`,
+    `${counts.inspections} Inspection${counts.inspections === 1 ? "" : "s"}`,
+    `${counts.houses} House${counts.houses === 1 ? "" : "s"}`,
   ]
   return parts.join(" · ")
 }

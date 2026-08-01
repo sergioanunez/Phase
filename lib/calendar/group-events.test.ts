@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest"
 import {
+  formatDaySummary,
   formatWeekSummary,
   groupCalendarEventsByHouse,
   summarizeCalendarEvents,
+  summarizeDayCalendarEvents,
 } from "./group-events"
 
 const base = {
@@ -94,7 +96,7 @@ describe("groupCalendarEventsByHouse", () => {
 })
 
 describe("summarizeCalendarEvents", () => {
-  it("counts unique houses and typed events", () => {
+  it("counts unique houses, activities, and inspections (no deliveries)", () => {
     const summary = summarizeCalendarEvents([
       {
         ...base,
@@ -118,15 +120,48 @@ describe("summarizeCalendarEvents", () => {
         title: "C",
         homeId: "h2",
         homeLabel: "B",
-        type: "delivery",
+        type: "punchlist",
       },
     ])
     expect(summary).toEqual({
       houses: 2,
-      tasks: 3,
-      deliveries: 1,
+      scheduledActivities: 3,
       inspections: 1,
     })
-    expect(formatWeekSummary(summary)).toContain("2 Houses")
+    expect(formatWeekSummary(summary)).toBe(
+      "2 Houses · 3 Scheduled Activities · 1 Inspection"
+    )
+  })
+})
+
+describe("formatDaySummary", () => {
+  it("formats visits, inspections, and houses", () => {
+    const summary = summarizeDayCalendarEvents([
+      {
+        ...base,
+        id: "1",
+        title: "A",
+        homeId: "h1",
+        homeLabel: "A",
+        type: "trade",
+      },
+      {
+        ...base,
+        id: "2",
+        title: "Insp",
+        homeId: "h1",
+        homeLabel: "A",
+        type: "inspection",
+      },
+      {
+        ...base,
+        id: "3",
+        title: "B",
+        homeId: "h2",
+        homeLabel: "B",
+        type: "trade",
+      },
+    ])
+    expect(formatDaySummary(summary)).toBe("3 Visits · 1 Inspection · 2 Houses")
   })
 })

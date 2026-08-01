@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { useSession } from "next-auth/react"
 import {
   format,
   startOfWeek,
@@ -21,9 +20,11 @@ import { MonthGrid } from "@/components/calendar/month-grid"
 import { DayDetailList } from "@/components/calendar/day-detail-list"
 import { HouseCalendarCard, type CalendarEventType } from "@/components/calendar/event-row"
 import {
+  formatDaySummary,
   formatWeekSummary,
   groupCalendarEventsByHouse,
   summarizeCalendarEvents,
+  summarizeDayCalendarEvents,
 } from "@/lib/calendar/group-events"
 
 interface CalendarEvent {
@@ -45,20 +46,32 @@ const VIEW_OPTIONS: { value: CalendarViewMode; label: string }[] = [
   { value: "month", label: "Month" },
 ]
 
-const BASE_FILTER_CHIPS = [
+/** Scheduled-work filters only — risk/priority lives in Flow Mode. */
+const FILTER_CHIPS = [
   { id: "all", label: "All" },
+  { id: "work", label: "Work" },
   { id: "inspection", label: "Inspections" },
-  { id: "delivery", label: "Deliveries" },
-  { id: "trade", label: "Trades" },
-  { id: "punchlist", label: "Punchlists" },
-]
-const MANAGER_RISK_CHIPS = [
-  { id: "at_risk", label: "At Risk" },
-  { id: "behind", label: "Behind" },
+  { id: "punchlist", label: "Punch Items" },
+  { id: "contractors", label: "Contractors" },
 ]
 
+function matchesCalendarFilter(event: CalendarEvent, filterId: string | null): boolean {
+  if (!filterId || filterId === "all") return true
+  switch (filterId) {
+    case "work":
+      return event.type === "trade" || event.type === "milestone"
+    case "inspection":
+      return event.type === "inspection"
+    case "punchlist":
+      return event.type === "punchlist"
+    case "contractors":
+      return Boolean(event.contractorName?.trim())
+    default:
+      return event.type === filterId
+  }
+}
+
 export default function CalendarPage() {
-  const { data: session } = useSession()
   const [viewMode, setViewMode] = useState<CalendarViewMode>("week")
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [selectedDate, setSelectedDate] = useState(() => new Date())
@@ -69,14 +82,6 @@ export default function CalendarPage() {
   const [dayDetailDate, setDayDetailDate] = useState<Date>(new Date())
   const [subdivisions, setSubdivisions] = useState<{ id: string; name: string }[]>([])
   const [communityFilter, setCommunityFilter] = useState<string | null>(null)
-
-  const filterChips = useMemo(() => {
-    const role = session?.user?.role
-    const showRisk = role === "Admin" || role === "Manager"
-    return showRisk
-      ? [...BASE_FILTER_CHIPS, ...MANAGER_RISK_CHIPS]
-      : BASE_FILTER_CHIPS
-  }, [session?.user?.role])
 
   const weekStart = useMemo(
     () => startOfWeek(weekAnchor, { weekStartsOn: 1 }),
@@ -118,8 +123,11 @@ export default function CalendarPage() {
   }, [])
 
   const filteredEvents = useMemo(() => {
-    if (!filterChip || filterChip === "all") return events
-    return events.filter((e) => e.type === filterChip)
+    return events.filter((e) => {
+      // Deliveries hidden until PO module
+      if (e.type === "delivery") return false
+      return matchesCalendarFilter(e, filterChip)
+    })
   }, [events, filterChip])
 
   const eventsByDate = useMemo(() => {
@@ -136,11 +144,11 @@ export default function CalendarPage() {
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i)
       const key = format(d, "yyyy-MM-dd")
-      const dayEvents = eventsByDate[key] ?? []
+      const dayEventsForCard = eventsByDate[key] ?? []
       days.push({
         date: d,
         label: format(d, "EEE, MMM d"),
-        rows: groupCalendarEventsByHouse(dayEvents),
+        rows: groupCalendarEventsByHouse(dayEventsForCard),
       })
     }
     return days
@@ -195,9 +203,10 @@ export default function CalendarPage() {
     () => formatWeekSummary(summarizeCalendarEvents(weekEvents)),
     [weekEvents]
   )
-  const atRiskCount = weekEvents.filter(
-    (e) => e.status === "at_risk" || e.status === "behind"
-  ).length
+  const daySummary = useMemo(
+    () => formatDaySummary(summarizeDayCalendarEvents(dayEvents)),
+    [dayEvents]
+  )
 
   const handleDayDetail = (date: Date) => {
     setDayDetailDate(date)
@@ -216,7 +225,7 @@ export default function CalendarPage() {
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            See which houses need a visit — and what work is happening at each.
+            Where do you need to be — and what work is happening there?
           </p>
         </div>
 
@@ -233,7 +242,7 @@ export default function CalendarPage() {
           </div>
 
           <FilterChipsRow
-            chips={filterChips}
+            chips={FILTER_CHIPS}
             selectedId={filterChip}
             onSelect={setFilterChip}
           />
@@ -267,18 +276,17 @@ export default function CalendarPage() {
             <WeekHeaderCard
               dateRange={`${format(weekStart, "MMM d")}–${format(weekEnd, "MMM d")}`}
               summary={weekSummary}
-              atRiskCount={atRiskCount > 0 ? atRiskCount : undefined}
             />
             <div className="mt-4 space-y-4">
               {weekDayCards.map((day) => (
-                  <DayCard
-                    key={day.label}
-                    dayLabel={day.label}
-                    rows={day.rows}
-                    maxVisible={6}
-                    viewAllCount={day.rows.length}
-                    onViewAll={() => handleDayDetail(day.date)}
-                  />
+                <DayCard
+                  key={day.label}
+                  dayLabel={day.label}
+                  rows={day.rows}
+                  maxVisible={6}
+                  viewAllCount={day.rows.length}
+                  onViewAll={() => handleDayDetail(day.date)}
+                />
               ))}
             </div>
           </>
@@ -304,7 +312,13 @@ export default function CalendarPage() {
                 </select>
               )}
             </div>
-            <div className="space-y-4">
+            <WeekHeaderCard
+              dateRange={
+                isToday(selectedDate) ? "Today" : format(selectedDate, "EEEE, MMM d")
+              }
+              summary={daySummary}
+            />
+            <div className="mt-4 space-y-4">
               {dayOverdueRows.length > 0 && (
                 <div className="rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">

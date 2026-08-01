@@ -3,6 +3,7 @@ import { format, parseISO, startOfDay } from "date-fns"
 import { TaskStatus } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { handleApiError } from "@/lib/api-response"
+import { classifyCalendarTaskType } from "@/lib/calendar/classify-event"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -79,6 +80,12 @@ export async function GET(request: NextRequest) {
             },
           },
           contractor: { select: { companyName: true } },
+          templateItem: {
+            select: {
+              optionalCategory: true,
+              workTemplateCategory: { select: { name: true } },
+            },
+          },
         },
         orderBy: { scheduledDate: "asc" },
       }),
@@ -112,10 +119,18 @@ export async function GET(request: NextRequest) {
         const taskDate = new Date(task.scheduledDate!)
         const isCompleted = task.status === "Completed"
         const isOverdue = taskDate < today && !isCompleted
+        const categoryName =
+          task.templateItem?.workTemplateCategory?.name ??
+          task.templateItem?.optionalCategory ??
+          null
+        const type = classifyCalendarTaskType({
+          taskName: task.nameSnapshot,
+          categoryName,
+        })
         return {
           id: task.id,
           date: format(taskDate, "yyyy-MM-dd"),
-          type: "trade" as const,
+          type,
           title: task.nameSnapshot,
           communityName: task.home.subdivision?.name ?? undefined,
           homeId: task.home.id,
