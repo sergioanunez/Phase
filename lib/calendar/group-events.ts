@@ -32,27 +32,29 @@ export type CalendarHomeLine = {
   status?: EventStatus
 }
 
-export type HouseCalendarRow =
-  | {
-      kind: "house"
-      id: string
-      homeId: string
-      homeLabel: string
-      communityName?: string
-      contractorName?: string
-      status?: EventStatus
-      type: CalendarEventType
-      tasks: CalendarTaskLine[]
-    }
-  | {
-      kind: "task-homes"
-      id: string
-      title: string
-      type: CalendarEventType
-      status?: EventStatus
-      communityName?: string
-      homes: CalendarHomeLine[]
-    }
+export type HouseCalendarHouseRow = {
+  kind: "house"
+  id: string
+  homeId: string
+  homeLabel: string
+  communityName?: string
+  contractorName?: string
+  status?: EventStatus
+  type: CalendarEventType
+  tasks: CalendarTaskLine[]
+}
+
+export type HouseCalendarTaskHomesRow = {
+  kind: "task-homes"
+  id: string
+  title: string
+  type: CalendarEventType
+  status?: EventStatus
+  communityName?: string
+  homes: CalendarHomeLine[]
+}
+
+export type HouseCalendarRow = HouseCalendarHouseRow | HouseCalendarTaskHomesRow
 
 function worstStatus(statuses: (EventStatus | undefined)[]): EventStatus | undefined {
   if (statuses.some((s) => s === "overdue")) return "overdue"
@@ -79,7 +81,7 @@ export function groupCalendarEventsByHouse(events: CalendarEventLike[]): HouseCa
   }
 
   const consumed = new Set<string>()
-  const taskHomeRows: HouseCalendarRow[] = []
+  const taskHomeRows: HouseCalendarTaskHomesRow[] = []
 
   for (const [, list] of byTitleType) {
     const distinctHomes = new Set(list.map((e) => e.homeId).filter(Boolean))
@@ -117,7 +119,7 @@ export function groupCalendarEventsByHouse(events: CalendarEventLike[]): HouseCa
     byHome.set(key, list)
   }
 
-  const houseRows: HouseCalendarRow[] = []
+  const houseRows: HouseCalendarHouseRow[] = []
   for (const [, list] of byHome) {
     const primary = list[0]
     const homeId = primary.homeId
