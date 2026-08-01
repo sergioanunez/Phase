@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { WorkItemMetadata } from "@/components/work-item-metadata"
 import { cn } from "@/lib/utils"
 import {
   buildHouseScheduleStrip,
@@ -198,12 +199,24 @@ export function HouseScheduleCard({ tasks, onTaskClick }: HouseScheduleCardProps
                         )}
                       >
                         <p className="font-medium text-foreground">{task.nameSnapshot}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {task.contractor?.companyName ?? "No vendor assigned"}
-                          {" · "}
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
                           {task.status === "InProgress" ? "In Progress" : task.status}
                           {confirm ? ` · ${confirm}` : ""}
                         </p>
+                        <WorkItemMetadata
+                          durationDays={task.durationDaysSnapshot}
+                          contractorName={task.contractor?.companyName}
+                          calledAt={task.lastConfirmationAt}
+                          scheduledDate={
+                            task.status !== "NotApplicable" ? task.scheduledDate : null
+                          }
+                          startedAt={task.startedAt}
+                          completedAt={task.completedAt}
+                          punchOpenCount={
+                            task.hasOpenPunch ? task.punchOpenCount ?? 0 : 0
+                          }
+                          className="mt-1"
+                        />
                       </button>
                     </li>
                   )

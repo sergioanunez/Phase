@@ -25,6 +25,7 @@ import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog
 import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
 import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { badgeLabelForTaskStatus } from "@/lib/task-status"
+import { WorkItemMetadata } from "@/components/work-item-metadata"
 import type { TaskRescheduleReason, TaskNotApplicableReason } from "@prisma/client"
 
 interface Contractor {
@@ -38,6 +39,12 @@ interface Task {
   nameSnapshot: string
   status: TaskStatus
   scheduledDate: string | null
+  completedAt?: string | null
+  lastConfirmationAt?: string | null
+  startedAt?: string | null
+  durationDaysSnapshot?: number | null
+  hasOpenPunch?: boolean
+  punchOpenCount?: number | null
   contractorId: string | null
   contractor: {
     id: string
@@ -366,6 +373,23 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
               )}
           </DialogDescription>
         </DialogHeader>
+
+        <WorkItemMetadata
+          durationDays={currentTask.durationDaysSnapshot}
+          contractorName={currentTask.contractor?.companyName}
+          calledAt={currentTask.lastConfirmationAt}
+          scheduledDate={
+            currentTask.status !== "NotApplicable" && currentTask.scheduledDate
+              ? normalizeStoredScheduledDate(new Date(currentTask.scheduledDate))
+              : null
+          }
+          startedAt={currentTask.startedAt}
+          completedAt={currentTask.completedAt}
+          punchOpenCount={
+            currentTask.hasOpenPunch ? currentTask.punchOpenCount ?? 0 : 0
+          }
+          className="mt-0 mb-1"
+        />
 
         <div className="space-y-4 py-4">
           {isNotApplicable && currentTask.notApplicableReason && (

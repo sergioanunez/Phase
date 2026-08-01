@@ -10,6 +10,12 @@ export type HouseScheduleTaskInput = {
   completedAt: string | null
   confirmationSource?: "Manual" | "Sms" | null
   contractor?: { companyName: string } | null
+  /** Optional — used by WorkItemMetadata when present. */
+  durationDaysSnapshot?: number | null
+  lastConfirmationAt?: string | null
+  startedAt?: string | null
+  punchOpenCount?: number | null
+  hasOpenPunch?: boolean
 }
 
 export type HouseScheduleDayCell = {

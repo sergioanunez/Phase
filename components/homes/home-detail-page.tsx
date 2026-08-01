@@ -38,6 +38,7 @@ import { isExcludedFromProgress, badgeLabelForTaskStatus } from "@/lib/task-stat
 import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog"
 import { CatchUpScheduleDialog } from "@/components/catch-up-schedule-dialog"
+import { WorkItemMetadata } from "@/components/work-item-metadata"
 import type { TaskNotApplicableReason } from "@prisma/client"
 
 interface HomeTask {
@@ -46,6 +47,9 @@ interface HomeTask {
   status: TaskStatus
   scheduledDate: string | null
   completedAt: string | null
+  /** Confirmation SMS / call time — “Called” on work item cards. */
+  lastConfirmationAt?: string | null
+  startedAt?: string | null
   /** Populated when status is Confirmed (manual vs SMS). */
   confirmationSource?: "Manual" | "Sms" | null
   contractorId: string | null
@@ -1009,36 +1013,19 @@ export function HomeDetailPage() {
                                 {task.reportedCompleteNote ? ` — “${task.reportedCompleteNote}”` : ""}
                               </p>
                             )}
-                            {/* Compact meta row: Duration • Punches (and optional Scheduled/Completed/Contractor) */}
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                              <span>
-                                Duration: {task.durationDaysSnapshot} working day{task.durationDaysSnapshot === 1 ? "" : "s"}
-                              </span>
-                              {task.hasOpenPunch && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span className="text-destructive font-medium">Punches: {task.punchOpenCount}</span>
-                                </>
-                              )}
-                              {task.scheduledDate && task.status !== "NotApplicable" && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span>Scheduled: {format(normalizeStoredScheduledDate(new Date(task.scheduledDate)), "MM/dd/yyyy")}</span>
-                                </>
-                              )}
-                              {task.completedAt && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span>Completed: {format(new Date(task.completedAt), "MM/dd/yyyy")}</span>
-                                </>
-                              )}
-                              {task.contractor && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span>Contractor: {task.contractor.companyName}</span>
-                                </>
-                              )}
-                            </div>
+                            <WorkItemMetadata
+                              durationDays={task.durationDaysSnapshot}
+                              contractorName={task.contractor?.companyName}
+                              calledAt={task.lastConfirmationAt}
+                              scheduledDate={
+                                task.status !== "NotApplicable" && task.scheduledDate
+                                  ? normalizeStoredScheduledDate(new Date(task.scheduledDate))
+                                  : null
+                              }
+                              startedAt={task.startedAt}
+                              completedAt={task.completedAt}
+                              punchOpenCount={task.hasOpenPunch ? task.punchOpenCount : 0}
+                            />
                             {/* Compact action row: Mark Completed (builder-side only) + Add Punch */}
                             <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
                               {canMarkComplete &&
