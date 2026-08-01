@@ -19,6 +19,7 @@ export interface CalendarEventPayload {
   homeCount?: number
   homeId?: string
   homeLabel?: string
+  contractorName?: string
   status?: "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 }
 
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
               subdivision: { select: { name: true } },
             },
           },
+          contractor: { select: { companyName: true } },
         },
         orderBy: { scheduledDate: "asc" },
       }),
@@ -118,6 +120,7 @@ export async function GET(request: NextRequest) {
           communityName: task.home.subdivision?.name ?? undefined,
           homeId: task.home.id,
           homeLabel: task.home.addressOrLot,
+          contractorName: task.contractor?.companyName ?? undefined,
           status: isCompleted
             ? ("completed" as const)
             : isOverdue

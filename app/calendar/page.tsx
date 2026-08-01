@@ -19,7 +19,12 @@ import { WeekHeaderCard } from "@/components/calendar/week-header-card"
 import { DayCard } from "@/components/calendar/day-card"
 import { MonthGrid } from "@/components/calendar/month-grid"
 import { DayDetailList } from "@/components/calendar/day-detail-list"
-import { EventRow, type EventRowData, type CalendarEventType } from "@/components/calendar/event-row"
+import { HouseCalendarCard, type CalendarEventType } from "@/components/calendar/event-row"
+import {
+  formatWeekSummary,
+  groupCalendarEventsByHouse,
+  summarizeCalendarEvents,
+} from "@/lib/calendar/group-events"
 
 interface CalendarEvent {
   id: string
@@ -30,7 +35,8 @@ interface CalendarEvent {
   homeCount?: number
   homeId?: string
   homeLabel?: string
-  status?: EventRowData["status"]
+  contractorName?: string
+  status?: "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 }
 
 const VIEW_OPTIONS: { value: CalendarViewMode; label: string }[] = [
@@ -50,44 +56,6 @@ const MANAGER_RISK_CHIPS = [
   { id: "at_risk", label: "At Risk" },
   { id: "behind", label: "Behind" },
 ]
-
-function toEventRowData(e: CalendarEvent): EventRowData {
-  return {
-    id: e.id,
-    title: e.title,
-    type: e.type,
-    status: e.status,
-    homeCount: e.homeCount,
-    homeId: e.homeId,
-    homeLabel: e.homeLabel,
-    communityName: e.communityName,
-  }
-}
-
-function aggregateEventsByTitle(events: CalendarEvent[]): EventRowData[] {
-  const byKey = new Map<string, { events: CalendarEvent[] }>()
-  for (const e of events) {
-    const key = `${e.title}|${e.type}`
-    if (!byKey.has(key)) byKey.set(key, { events: [] })
-    byKey.get(key)!.events.push(e)
-  }
-  const rows: EventRowData[] = []
-  byKey.forEach(({ events: list }) => {
-    if (list.length === 1) {
-      rows.push(toEventRowData(list[0]))
-    } else {
-      rows.push({
-        id: list[0].id,
-        title: list[0].title,
-        type: list[0].type,
-        status: list.some((x) => x.status === "overdue") ? "overdue" : list[0].status,
-        homeCount: list.length,
-        communityName: list[0].communityName,
-      })
-    }
-  })
-  return rows.sort((a, b) => (a.title > b.title ? 1 : -1))
-}
 
 export default function CalendarPage() {
   const { data: session } = useSession()
@@ -164,7 +132,7 @@ export default function CalendarPage() {
   }, [filteredEvents])
 
   const weekDayCards = useMemo(() => {
-    const days: { date: Date; label: string; events: EventRowData[] }[] = []
+    const days: { date: Date; label: string; rows: ReturnType<typeof groupCalendarEventsByHouse> }[] = []
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i)
       const key = format(d, "yyyy-MM-dd")
@@ -172,7 +140,7 @@ export default function CalendarPage() {
       days.push({
         date: d,
         label: format(d, "EEE, MMM d"),
-        events: aggregateEventsByTitle(dayEvents),
+        rows: groupCalendarEventsByHouse(dayEvents),
       })
     }
     return days
@@ -180,15 +148,20 @@ export default function CalendarPage() {
 
   const todayKey = format(selectedDate, "yyyy-MM-dd")
   const dayEvents = eventsByDate[todayKey] ?? []
+  const dayHouseRows = useMemo(
+    () => groupCalendarEventsByHouse(dayEvents.filter((e) => e.status !== "completed")),
+    [dayEvents]
+  )
   const dayOverdue = useMemo(() => {
     const today = startOfDay(new Date())
     return filteredEvents.filter(
       (e) => parseISO(e.date) < today && e.status !== "completed"
     )
   }, [filteredEvents])
-  const dayDueToday = useMemo(() => {
-    return dayEvents.filter((e) => e.status !== "completed")
-  }, [dayEvents])
+  const dayOverdueRows = useMemo(
+    () => groupCalendarEventsByHouse(dayOverdue),
+    [dayOverdue]
+  )
   const dayUpcoming = useMemo(() => {
     const today = startOfDay(new Date())
     const nextWeek = addDays(today, 8)
@@ -197,6 +170,10 @@ export default function CalendarPage() {
       return d > today && d < nextWeek
     })
   }, [filteredEvents])
+  const dayUpcomingRows = useMemo(
+    () => groupCalendarEventsByHouse(dayUpcoming.slice(0, 24)),
+    [dayUpcoming]
+  )
 
   const eventsCountForMonth = useMemo(() => {
     const map: Record<string, number> = {}
@@ -214,8 +191,10 @@ export default function CalendarPage() {
       }),
     [filteredEvents, weekStart, weekEnd]
   )
-  const totalEventsThisWeek = weekEvents.length
-  const inspectionCount = weekEvents.filter((e) => e.type === "inspection").length
+  const weekSummary = useMemo(
+    () => formatWeekSummary(summarizeCalendarEvents(weekEvents)),
+    [weekEvents]
+  )
   const atRiskCount = weekEvents.filter(
     (e) => e.status === "at_risk" || e.status === "behind"
   ).length
@@ -225,11 +204,10 @@ export default function CalendarPage() {
     setDayDetailOpen(true)
   }
 
-  const dayDetailEvents: EventRowData[] = useMemo(() => {
+  const dayDetailRows = useMemo(() => {
     if (!dayDetailOpen) return []
     const key = format(dayDetailDate, "yyyy-MM-dd")
-    const list = eventsByDate[key] ?? []
-    return list.map(toEventRowData)
+    return groupCalendarEventsByHouse(eventsByDate[key] ?? [])
   }, [dayDetailOpen, dayDetailDate, eventsByDate])
 
   return (
@@ -238,26 +216,26 @@ export default function CalendarPage() {
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            View and manage scheduled work by date. Filter by inspection type or contractor.
+            See which houses need a visit — and what work is happening at each.
           </p>
         </div>
 
         <div className="sticky top-16 z-10 mb-4 flex flex-col rounded-2xl border border-[#E6E8EF] bg-[#F6F7F9] p-3 shadow-sm">
           <div className="flex justify-center">
             <SegmentedControl
-            value={viewMode}
-            onChange={(mode) => {
-              setViewMode(mode)
-              if (mode === "day") setSelectedDate(new Date())
-            }}
-            options={VIEW_OPTIONS}
-          />
-        </div>
+              value={viewMode}
+              onChange={(mode) => {
+                setViewMode(mode)
+                if (mode === "day") setSelectedDate(new Date())
+              }}
+              options={VIEW_OPTIONS}
+            />
+          </div>
 
           <FilterChipsRow
-          chips={filterChips}
-          selectedId={filterChip}
-          onSelect={setFilterChip}
+            chips={filterChips}
+            selectedId={filterChip}
+            onSelect={setFilterChip}
           />
         </div>
 
@@ -288,24 +266,20 @@ export default function CalendarPage() {
             </div>
             <WeekHeaderCard
               dateRange={`${format(weekStart, "MMM d")}–${format(weekEnd, "MMM d")}`}
-              summary={`Today: ${totalEventsThisWeek} events • ${inspectionCount} inspections`}
+              summary={weekSummary}
               atRiskCount={atRiskCount > 0 ? atRiskCount : undefined}
             />
             <div className="mt-4 space-y-4">
-              {weekDayCards.map((day) => {
-                const dateKey = format(day.date, "yyyy-MM-dd")
-                const rawCount = eventsByDate[dateKey]?.length ?? 0
-                return (
+              {weekDayCards.map((day) => (
                   <DayCard
                     key={day.label}
                     dayLabel={day.label}
-                    events={day.events}
+                    rows={day.rows}
                     maxVisible={6}
-                    viewAllCount={rawCount}
+                    viewAllCount={day.rows.length}
                     onViewAll={() => handleDayDetail(day.date)}
                   />
-                )
-              })}
+              ))}
             </div>
           </>
         ) : viewMode === "day" ? (
@@ -331,7 +305,7 @@ export default function CalendarPage() {
               )}
             </div>
             <div className="space-y-4">
-              {dayOverdue.length > 0 && (
+              {dayOverdueRows.length > 0 && (
                 <div className="rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="font-semibold text-foreground">Overdue</span>
@@ -340,12 +314,9 @@ export default function CalendarPage() {
                     </span>
                   </div>
                   <ul className="space-y-1">
-                    {dayOverdue.slice(0, 8).map((e) => (
-                      <li key={e.id}>
-                        <EventRow
-                          event={{ ...toEventRowData(e), badge: "Overdue", status: "overdue" }}
-                          showChevron
-                        />
+                    {dayOverdueRows.slice(0, 8).map((row) => (
+                      <li key={row.id}>
+                        <HouseCalendarCard row={row} />
                       </li>
                     ))}
                   </ul>
@@ -353,13 +324,13 @@ export default function CalendarPage() {
               )}
               <div className="rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm">
                 <div className="mb-3 font-semibold text-foreground">Due Today</div>
-                {dayDueToday.length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">No events due today</p>
+                {dayHouseRows.length === 0 ? (
+                  <p className="py-4 text-sm text-muted-foreground">No houses due today</p>
                 ) : (
                   <ul className="space-y-1">
-                    {dayDueToday.map((e) => (
-                      <li key={e.id}>
-                        <EventRow event={toEventRowData(e)} showChevron />
+                    {dayHouseRows.map((row) => (
+                      <li key={row.id}>
+                        <HouseCalendarCard row={row} />
                       </li>
                     ))}
                   </ul>
@@ -367,19 +338,13 @@ export default function CalendarPage() {
               </div>
               <div className="rounded-2xl border border-[#E6E8EF] bg-white p-4 shadow-sm">
                 <div className="mb-3 font-semibold text-foreground">Upcoming</div>
-                {dayUpcoming.length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">No upcoming events</p>
+                {dayUpcomingRows.length === 0 ? (
+                  <p className="py-4 text-sm text-muted-foreground">No upcoming work</p>
                 ) : (
                   <ul className="space-y-1">
-                    {dayUpcoming.slice(0, 8).map((e) => (
-                      <li key={e.id}>
-                        <EventRow
-                          event={{
-                            ...toEventRowData(e),
-                            dateLabel: format(parseISO(e.date), "MMM d"),
-                          }}
-                          showChevron
-                        />
+                    {dayUpcomingRows.map((row) => (
+                      <li key={row.id}>
+                        <HouseCalendarCard row={row} />
                       </li>
                     ))}
                   </ul>
@@ -423,9 +388,8 @@ export default function CalendarPage() {
         open={dayDetailOpen}
         onOpenChange={setDayDetailOpen}
         date={dayDetailDate}
-        events={dayDetailEvents}
+        rows={dayDetailRows}
       />
-
     </div>
   )
 }

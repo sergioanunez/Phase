@@ -2,12 +2,13 @@
 
 import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { EventRow, type EventRowData } from "./event-row"
+import { HouseCalendarCard } from "./event-row"
+import type { HouseCalendarRow } from "@/lib/calendar/group-events"
 import Link from "next/link"
 
 export interface DayCardProps {
   dayLabel: string
-  events: EventRowData[]
+  rows: HouseCalendarRow[]
   maxVisible?: number
   viewAllHref?: string
   viewAllCount?: number
@@ -18,16 +19,15 @@ export interface DayCardProps {
 
 export function DayCard({
   dayLabel,
-  events,
+  rows,
   maxVisible = 5,
   viewAllHref,
   viewAllCount,
   onViewAll,
-  defaultExpanded = true,
   className,
 }: DayCardProps) {
-  const visible = events.slice(0, maxVisible)
-  const total = viewAllCount ?? events.length
+  const visible = rows.slice(0, maxVisible)
+  const total = viewAllCount ?? rows.length
   const hasMore = total > maxVisible
 
   return (
@@ -42,9 +42,9 @@ export function DayCard({
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </div>
       <ul className="space-y-1">
-        {visible.map((ev) => (
-          <li key={ev.id}>
-            <EventRow event={ev} showChevron />
+        {visible.map((row) => (
+          <li key={row.id}>
+            <HouseCalendarCard row={row} />
           </li>
         ))}
       </ul>

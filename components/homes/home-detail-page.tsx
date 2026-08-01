@@ -132,6 +132,8 @@ export function HomeDetailPage() {
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
   const [justCompletedTaskId, setJustCompletedTaskId] = useState<string | null>(null)
+  const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null)
+  const [openCategories, setOpenCategories] = useState<string[]>([])
   const [markNaTask, setMarkNaTask] = useState<HomeTask | null>(null)
   const [markNaDialogOpen, setMarkNaDialogOpen] = useState(false)
   const [catchUpOpen, setCatchUpOpen] = useState(false)
@@ -252,15 +254,39 @@ export function HomeDetailPage() {
   const legacyPlanHint =
     !!(home?.planStoragePath || home?.planName || home?.planVariant || home?.hasPlan)
 
-  // Deep-link: open task modal when ?task=<taskId> is in the URL (e.g. from Flow "Open task")
+  // Deep-link: ?task=<id> opens modal (Flow). ?task=<id>&highlight=1 scrolls + soft-highlights (Calendar).
   useEffect(() => {
     const taskId = searchParams.get("task")
     if (!taskId || !home?.tasks) return
     const task = home.tasks.find((t) => t.id === taskId)
-    if (task) {
-      setSelectedTask(task)
-      setModalOpen(true)
+    if (!task) return
+
+    const highlightOnly = searchParams.get("highlight") === "1"
+    const category =
+      task.templateItem?.optionalCategory?.trim() || "Uncategorized"
+
+    setOpenCategories((prev) =>
+      prev.includes(category) ? prev : [...prev, category]
+    )
+
+    if (highlightOnly) {
+      setHighlightTaskId(taskId)
+      const scrollTimer = window.setTimeout(() => {
+        document
+          .getElementById(`work-item-${taskId}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 80)
+      const clearTimer = window.setTimeout(() => {
+        setHighlightTaskId((id) => (id === taskId ? null : id))
+      }, 2100)
+      return () => {
+        window.clearTimeout(scrollTimer)
+        window.clearTimeout(clearTimer)
+      }
     }
+
+    setSelectedTask(task)
+    setModalOpen(true)
   }, [home?.tasks, searchParams])
 
   const getStatusColor = (status: TaskStatus) => {
@@ -906,7 +932,12 @@ export function HomeDetailPage() {
             </CardContent>
           </Card>
         ) : (
-        <Accordion type="multiple" className="w-full space-y-3">
+        <Accordion
+          type="multiple"
+          className="w-full space-y-3"
+          value={openCategories}
+          onValueChange={setOpenCategories}
+        >
           {sortedCategories.map((category) => {
             const categoryTasks = tasksByCategory[category]
             const { total, completed, notApplicable, progress } = calculateCategoryProgress(categoryTasks)
@@ -945,6 +976,7 @@ export function HomeDetailPage() {
                       return (
                         <Card
                           key={task.id}
+                          id={`work-item-${task.id}`}
                           className={cn(
                             "rounded-lg border shadow-none motion-safe:transition-[background-color,border-color,box-shadow,opacity] motion-safe:duration-300 motion-safe:ease-out",
                             canEdit ? "cursor-pointer hover:bg-gray-50/80" : "",
@@ -953,6 +985,8 @@ export function HomeDetailPage() {
                               : "",
                             justCompletedTaskId === task.id &&
                               "bg-green-100/90 border-green-300 shadow-[inset_0_0_0_1px_rgba(34,197,94,0.25)]",
+                            highlightTaskId === task.id &&
+                              "bg-amber-50/90 border-amber-300 ring-2 ring-amber-300/60 shadow-sm",
                             task.status === "NotApplicable"
                               ? "bg-gray-50/80 border-gray-200"
                               : "",
