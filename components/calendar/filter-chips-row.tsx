@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 export interface FilterChip {
@@ -12,6 +13,8 @@ export interface FilterChipsRowProps {
   selectedId: string | null
   onSelect: (id: string | null) => void
   className?: string
+  /** Optional control rendered after category chips (e.g. Contractor filter). */
+  trailing?: ReactNode
 }
 
 export function FilterChipsRow({
@@ -19,6 +22,7 @@ export function FilterChipsRow({
   selectedId,
   onSelect,
   className,
+  trailing,
 }: FilterChipsRowProps) {
   return (
     <div
@@ -47,6 +51,7 @@ export function FilterChipsRow({
           </button>
         )
       })}
+      {trailing}
     </div>
   )
 }

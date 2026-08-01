@@ -4,6 +4,11 @@ import { TaskStatus } from "@prisma/client"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import { handleApiError } from "@/lib/api-response"
 import { classifyCalendarTaskType } from "@/lib/calendar/classify-event"
+import {
+  homeTaskWhereFromCalendarFilters,
+  parseCalendarQueryFilters,
+  punchItemWhereFromCalendarFilters,
+} from "@/lib/calendar/filters"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -20,6 +25,7 @@ export interface CalendarEventPayload {
   homeCount?: number
   homeId?: string
   homeLabel?: string
+  contractorId?: string
   contractorName?: string
   status?: "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 }
@@ -34,7 +40,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const startParam = searchParams.get("start")
     const endParam = searchParams.get("end")
-    const subdivisionIdParam = searchParams.get("subdivisionId")
+    const filters = parseCalendarQueryFilters(searchParams)
 
     if (!startParam || !endParam) {
       return NextResponse.json(
@@ -56,21 +62,20 @@ export async function GET(request: NextRequest) {
       allowedHomeIds = assignments.length > 0 ? assignments.map((a) => a.homeId) : []
     }
 
+    const filterTaskWhere = homeTaskWhereFromCalendarFilters(filters)
+    const filterPunchWhere = punchItemWhereFromCalendarFilters(filters)
+
     const baseTaskWhere = {
       ...(ctx.companyId ? { companyId: ctx.companyId } : {}),
       scheduledDate: { gte: start, lte: end },
       status: { notIn: [TaskStatus.Canceled, TaskStatus.NotApplicable] },
       ...(allowedHomeIds !== null ? { homeId: { in: allowedHomeIds } } : {}),
+      ...filterTaskWhere,
     }
 
     const [tasks, punchItems] = await Promise.all([
       prisma.homeTask.findMany({
-        where: {
-          ...baseTaskWhere,
-          ...(subdivisionIdParam
-            ? { home: { subdivisionId: subdivisionIdParam } }
-            : {}),
-        },
+        where: baseTaskWhere,
         include: {
           home: {
             select: {
@@ -79,7 +84,7 @@ export async function GET(request: NextRequest) {
               subdivision: { select: { name: true } },
             },
           },
-          contractor: { select: { companyName: true } },
+          contractor: { select: { id: true, companyName: true } },
           templateItem: {
             select: {
               optionalCategory: true,
@@ -95,9 +100,7 @@ export async function GET(request: NextRequest) {
           status: { in: ["Open", "ReadyForReview"] },
           ...(ctx.companyId ? { companyId: ctx.companyId } : {}),
           ...(allowedHomeIds !== null ? { homeId: { in: allowedHomeIds } } : {}),
-          ...(subdivisionIdParam
-            ? { home: { subdivisionId: subdivisionIdParam } }
-            : {}),
+          ...filterPunchWhere,
         },
         include: {
           home: {
@@ -107,7 +110,9 @@ export async function GET(request: NextRequest) {
               subdivision: { select: { name: true } },
             },
           },
-          relatedHomeTask: { select: { nameSnapshot: true } },
+          relatedHomeTask: {
+            select: { nameSnapshot: true, contractorId: true },
+          },
         },
         orderBy: { dueDate: "asc" },
       }),
@@ -135,6 +140,7 @@ export async function GET(request: NextRequest) {
           communityName: task.home.subdivision?.name ?? undefined,
           homeId: task.home.id,
           homeLabel: task.home.addressOrLot,
+          contractorId: task.contractorId ?? task.contractor?.id ?? undefined,
           contractorName: task.contractor?.companyName ?? undefined,
           status: isCompleted
             ? ("completed" as const)
@@ -157,6 +163,7 @@ export async function GET(request: NextRequest) {
           communityName: p.home.subdivision?.name ?? undefined,
           homeId: p.home.id,
           homeLabel: p.home.addressOrLot,
+          contractorId: p.relatedHomeTask?.contractorId ?? undefined,
           status: isOverdue ? ("overdue" as const) : ("on_track" as const),
         }
       })

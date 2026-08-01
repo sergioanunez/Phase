@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import {
   format,
   startOfWeek,
@@ -14,6 +14,12 @@ import {
 } from "date-fns"
 import { SegmentedControl, type CalendarViewMode } from "@/components/calendar/segmented-control"
 import { FilterChipsRow } from "@/components/calendar/filter-chips-row"
+import {
+  ContractorFilterButton,
+  ContractorPickerSheet,
+  SelectedContractorChip,
+  type ContractorFilterOption,
+} from "@/components/calendar/contractor-filter"
 import { WeekHeaderCard } from "@/components/calendar/week-header-card"
 import { DayCard } from "@/components/calendar/day-card"
 import { MonthGrid } from "@/components/calendar/month-grid"
@@ -26,6 +32,7 @@ import {
   summarizeCalendarEvents,
   summarizeDayCalendarEvents,
 } from "@/lib/calendar/group-events"
+import { appendCalendarQueryFilters } from "@/lib/calendar/filters"
 
 interface CalendarEvent {
   id: string
@@ -36,6 +43,7 @@ interface CalendarEvent {
   homeCount?: number
   homeId?: string
   homeLabel?: string
+  contractorId?: string
   contractorName?: string
   status?: "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 }
@@ -46,16 +54,15 @@ const VIEW_OPTIONS: { value: CalendarViewMode; label: string }[] = [
   { value: "month", label: "Month" },
 ]
 
-/** Scheduled-work filters only — risk/priority lives in Flow Mode. */
+/** Category filters for scheduled event types. Contractor is a separate dimension. */
 const FILTER_CHIPS = [
   { id: "all", label: "All" },
   { id: "work", label: "Work" },
   { id: "inspection", label: "Inspections" },
   { id: "punchlist", label: "Punch Items" },
-  { id: "contractors", label: "Contractors" },
 ]
 
-function matchesCalendarFilter(event: CalendarEvent, filterId: string | null): boolean {
+function matchesCategoryFilter(event: CalendarEvent, filterId: string | null): boolean {
   if (!filterId || filterId === "all") return true
   switch (filterId) {
     case "work":
@@ -64,8 +71,6 @@ function matchesCalendarFilter(event: CalendarEvent, filterId: string | null): b
       return event.type === "inspection"
     case "punchlist":
       return event.type === "punchlist"
-    case "contractors":
-      return Boolean(event.contractorName?.trim())
     default:
       return event.type === filterId
   }
@@ -83,6 +88,11 @@ export default function CalendarPage() {
   const [subdivisions, setSubdivisions] = useState<{ id: string; name: string }[]>([])
   const [communityFilter, setCommunityFilter] = useState<string | null>(null)
 
+  const [contractorFilter, setContractorFilter] = useState<ContractorFilterOption | null>(null)
+  const [contractorPickerOpen, setContractorPickerOpen] = useState(false)
+  const [contractorOptions, setContractorOptions] = useState<ContractorFilterOption[]>([])
+  const [contractorsLoading, setContractorsLoading] = useState(false)
+
   const weekStart = useMemo(
     () => startOfWeek(weekAnchor, { weekStartsOn: 1 }),
     [weekAnchor]
@@ -99,12 +109,21 @@ export default function CalendarPage() {
     return e
   }, [weekEnd])
 
-  useEffect(() => {
+  const queryFilters = useMemo(
+    () => ({
+      ...(contractorFilter ? { contractorId: contractorFilter.id } : {}),
+      ...(communityFilter ? { subdivisionId: communityFilter } : {}),
+    }),
+    [contractorFilter, communityFilter]
+  )
+
+  const fetchEvents = useCallback(() => {
+    setLoading(true)
     const params = new URLSearchParams({
       start: fetchStart.toISOString(),
       end: fetchEnd.toISOString(),
     })
-    if (communityFilter) params.set("subdivisionId", communityFilter)
+    appendCalendarQueryFilters(params, queryFilters)
     fetch(`/api/calendar/events?${params}`, { credentials: "same-origin" })
       .then((res) => res.json())
       .then((data) => {
@@ -113,7 +132,11 @@ export default function CalendarPage() {
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false))
-  }, [fetchStart.toISOString(), fetchEnd.toISOString(), communityFilter])
+  }, [fetchStart, fetchEnd, queryFilters])
+
+  useEffect(() => {
+    fetchEvents()
+  }, [fetchEvents])
 
   useEffect(() => {
     fetch("/api/subdivisions", { credentials: "same-origin" })
@@ -122,11 +145,31 @@ export default function CalendarPage() {
       .catch(() => {})
   }, [])
 
+  const loadContractors = useCallback(() => {
+    setContractorsLoading(true)
+    const params = new URLSearchParams({
+      start: fetchStart.toISOString(),
+      end: fetchEnd.toISOString(),
+    })
+    if (communityFilter) params.set("subdivisionId", communityFilter)
+    fetch(`/api/calendar/contractors?${params}`, { credentials: "same-origin" })
+      .then((res) => res.json())
+      .then((data) => {
+        setContractorOptions(Array.isArray(data?.contractors) ? data.contractors : [])
+      })
+      .catch(() => setContractorOptions([]))
+      .finally(() => setContractorsLoading(false))
+  }, [fetchStart, fetchEnd, communityFilter])
+
+  useEffect(() => {
+    if (contractorPickerOpen) loadContractors()
+  }, [contractorPickerOpen, loadContractors])
+
+  // Category filter only (contractor is applied server-side)
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      // Deliveries hidden until PO module
       if (e.type === "delivery") return false
-      return matchesCalendarFilter(e, filterChip)
+      return matchesCategoryFilter(e, filterChip)
     })
   }, [events, filterChip])
 
@@ -208,6 +251,11 @@ export default function CalendarPage() {
     [dayEvents]
   )
 
+  const clearContractorFilter = () => setContractorFilter(null)
+
+  const showContractorEmpty =
+    !loading && !!contractorFilter && events.length === 0
+
   const handleDayDetail = (date: Date) => {
     setDayDetailDate(date)
     setDayDetailOpen(true)
@@ -245,12 +293,43 @@ export default function CalendarPage() {
             chips={FILTER_CHIPS}
             selectedId={filterChip}
             onSelect={setFilterChip}
+            trailing={
+              <ContractorFilterButton
+                active={!!contractorFilter}
+                onClick={() => setContractorPickerOpen(true)}
+              />
+            }
           />
+
+          {contractorFilter && (
+            <div className="mt-2">
+              <SelectedContractorChip
+                name={contractorFilter.name}
+                onClear={clearContractorFilter}
+              />
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             Loading…
+          </div>
+        ) : showContractorEmpty ? (
+          <div className="rounded-2xl border border-[#E6E8EF] bg-white px-6 py-12 text-center shadow-sm">
+            <div className="text-3xl" aria-hidden>
+              👷
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              No scheduled work for {contractorFilter.name} during this period.
+            </p>
+            <button
+              type="button"
+              onClick={clearContractorFilter}
+              className="mt-4 rounded-full border border-[#E6E8EF] bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-[#F6F7F9]"
+            >
+              Clear Filter
+            </button>
           </div>
         ) : viewMode === "week" ? (
           <>
@@ -403,6 +482,15 @@ export default function CalendarPage() {
         onOpenChange={setDayDetailOpen}
         date={dayDetailDate}
         rows={dayDetailRows}
+      />
+
+      <ContractorPickerSheet
+        open={contractorPickerOpen}
+        onOpenChange={setContractorPickerOpen}
+        contractors={contractorOptions}
+        loading={contractorsLoading}
+        selectedId={contractorFilter?.id ?? null}
+        onSelect={(c) => setContractorFilter(c)}
       />
     </div>
   )
