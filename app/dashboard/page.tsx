@@ -107,9 +107,9 @@ function PhaseDistributionCard({
         : "No active homes to display."
 
   return (
-    <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
-        <div>
+    <div className="rounded-xl border border-border bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
+      <div className="mb-3 flex min-w-0 items-baseline justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="text-base font-semibold text-foreground">
             Construction Timeline
           </h2>
@@ -117,16 +117,16 @@ function PhaseDistributionCard({
             Where homes are in the build process
           </p>
         </div>
-        <div className="flex flex-col items-end">
-          <span className="text-xs font-medium text-muted-foreground text-right">
-            Days to completion (working days)
+        <div className="max-w-[40%] shrink-0">
+          <span className="block text-right text-[11px] font-medium leading-tight text-muted-foreground sm:text-xs">
+            Days to completion
           </span>
         </div>
       </div>
       {phases.length === 0 ? (
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5 min-w-0">
           {phases.map((phase, rowIndex) => {
             const barWidthPercent = (phase.count / maxCount) * 100
             const fillColor = getPhaseColorByIndex(rowIndex)
@@ -134,7 +134,7 @@ function PhaseDistributionCard({
               phase.count === 1 ? "1 home" : `${phase.count} homes`
             const metricStr =
               phase.avgRemainingDays != null
-                ? `${phase.avgRemainingDays} days`
+                ? `${phase.avgRemainingDays}d`
                 : "—"
             return (
               <button
@@ -145,32 +145,30 @@ function PhaseDistributionCard({
                   url.searchParams.set("phase", phase.key)
                   window.location.href = url.pathname + url.search
                 }}
-                className="w-full text-left"
+                className="w-full min-w-0 text-left"
               >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="min-w-0 shrink-0 sm:w-40">
-                    <div className="font-medium text-foreground">
+                <div className="flex min-w-0 items-start gap-2">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="line-clamp-2 break-words text-sm font-medium leading-snug text-foreground">
                       {phase.name}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-xs text-muted-foreground">
                       {countLabel}
                     </div>
                   </div>
-                  <div className="phase-rail h-2 min-w-0 flex-1 rounded-full bg-gray-100">
-                    <div
-                      className="phase-fill h-2 rounded-full transition-[width] duration-500 ease-out"
-                      style={{
-                        width: animate ? `${Math.max(8, barWidthPercent)}%` : "0%",
-                        backgroundColor: fillColor,
-                        transitionDelay: animate ? `${rowIndex * 80}ms` : "0ms",
-                      }}
-                    />
-                  </div>
-                  <span
-                    className="w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground"
-                  >
+                  <span className="w-[60px] shrink-0 pt-0.5 text-right text-sm tabular-nums text-muted-foreground">
                     {metricStr}
                   </span>
+                </div>
+                <div className="phase-rail mt-1.5 h-2 w-full min-w-0 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="phase-fill h-2 max-w-full rounded-full transition-[width] duration-500 ease-out"
+                    style={{
+                      width: animate ? `${Math.max(8, barWidthPercent)}%` : "0%",
+                      backgroundColor: fillColor,
+                      transitionDelay: animate ? `${rowIndex * 80}ms` : "0ms",
+                    }}
+                  />
                 </div>
               </button>
             )
