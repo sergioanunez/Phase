@@ -1,5 +1,8 @@
 export type FlowCardState = "READY" | "WAITING" | "IN_PROGRESS"
 
+/** Inbox urgency for automatic Flow sorting. */
+export type FlowUrgency = "OVERDUE" | "AT_RISK" | "READY" | "FUTURE"
+
 export type FlowActionCtaType = "OPEN_TASK" | "OPEN_SCHEDULE_MODAL" | "OPEN_HOME_TASKS"
 
 export type FlowActionCta = {
@@ -27,6 +30,8 @@ export type FlowAction = {
   executionEligible: boolean
   requiresOrdering: boolean
   isOverdue: boolean
+  /** Automatic sort bucket: Overdue → At Risk → Ready → Future */
+  urgency: FlowUrgency
   /** For sorting: slack in working days (target - forecast completion); smaller = higher priority */
   slackWorkingDays?: number
   sortOrderSnapshot: number
@@ -36,7 +41,7 @@ export type FlowAction = {
   dependencyStatus?: Array<{ name: string; complete: boolean }>
   /** Card state: READY = actionable, WAITING = blocked on prior task, IN_PROGRESS = task in progress */
   state?: FlowCardState
-  /** Natural language label for the card (e.g. "Start work: Pour Slab", "Waiting on: Forms") */
+  /** Natural language label for the card (e.g. "Schedule Framing") */
   actionLabel?: string
   /** CTA to open the correct task context (modal or home deep-link) */
   actionCta?: FlowActionCta
@@ -45,6 +50,7 @@ export type FlowAction = {
 }
 
 export type FlowScope = "today"
+/** @deprecated Flow no longer uses prep/execute filters; kept for API compat. */
 export type FlowFilter = "all" | "prep" | "execute"
 
 export type ComputeFlowInput = {
@@ -68,6 +74,7 @@ export type FlowHomeGroup = {
   communityName?: string
   actions: FlowAction[]
   nextActionDate?: string
+  urgency?: FlowUrgency
   counts: { prep: number; execute: number; overdue: number }
   /** True when home has no start date or no scheduled tasks */
   notStarted?: boolean

@@ -24,24 +24,19 @@ function formatDateBadge(action: FlowAction): string {
 
 function riskPill(risk: HomeRisk): { label: string; className: string } {
   switch (risk) {
-    case "NOT_STARTED":
+    case "OVERDUE":
       return {
-        label: "Not started",
-        className: "bg-gray-100 text-gray-600 border border-gray-200",
-      }
-    case "SLIPPING":
-      return {
-        label: "Slipping",
+        label: "Overdue",
         className: "bg-rose-50 text-rose-700 border border-rose-200",
       }
     case "AT_RISK":
       return {
-        label: "At risk",
+        label: "At Risk",
         className: "bg-amber-50 text-amber-700 border border-amber-200",
       }
     default:
       return {
-        label: "On track",
+        label: "On Track",
         className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
       }
   }

@@ -15,7 +15,6 @@ import { calendarDateInputToIso, formatScheduledDateInput } from "@/lib/calendar
 import Link from "next/link"
 import { Loader2, Calendar, MessageCircle, Package, Play, ExternalLink } from "lucide-react"
 import type { FlowAction } from "@/lib/flow/types"
-import { getFlowModeLabel } from "@/lib/flow/labels"
 
 type TaskData = {
   id: string
@@ -40,6 +39,8 @@ export interface TaskActionSheetProps {
   onOpenChange: (open: boolean) => void
   flowAction: FlowAction | null
   onSuccess: () => void
+  /** Called after a successful schedule save; preferred for Flow inbox animate-out. */
+  onScheduleSuccess?: (homeId: string) => void
 }
 
 export function TaskActionSheet({
@@ -47,6 +48,7 @@ export function TaskActionSheet({
   onOpenChange,
   flowAction,
   onSuccess,
+  onScheduleSuccess,
 }: TaskActionSheetProps) {
   const { data: session } = useSession()
   const canManualConfirm = BUILDER_ROLES_MANUAL_CONFIRM.has(session?.user?.role ?? "")
@@ -127,6 +129,10 @@ export function TaskActionSheet({
 
   const handleSaveSchedule = async () => {
     if (!flowAction || !task) return
+    if (!scheduledDate) {
+      alert("Pick a date to schedule this task")
+      return
+    }
     setActionLoading("schedule")
     try {
       const body: { scheduledDate?: string; contractorId?: string | null } = {}
@@ -141,7 +147,12 @@ export function TaskActionSheet({
         const updated = await res.json()
         setTask(updated)
         setMarkConfirmedManual(false)
-        onSuccess()
+        onOpenChange(false)
+        if (onScheduleSuccess) {
+          onScheduleSuccess(flowAction.homeId)
+        } else {
+          onSuccess()
+        }
       } else {
         const data = await res.json()
         alert(data.error || "Failed to save schedule")
@@ -190,13 +201,8 @@ export function TaskActionSheet({
   const canSendConfirm =
     hasSchedule && task?.contractorId && (task?.status === "Scheduled" || task?.status === "PendingConfirm")
 
-  const modeLabel = getFlowModeLabel(flowAction.type)
-  const badgeText = flowAction.executionEligible ? modeLabel.short : "SCHEDULE NOW"
-  const badgeClass = flowAction.executionEligible
-    ? flowAction.type === "EXECUTE"
-      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-      : "bg-amber-50 text-amber-800 border border-amber-200"
-    : "bg-amber-50 text-amber-800 border border-amber-200"
+  const badgeText = "SCHEDULE"
+  const badgeClass = "bg-amber-50 text-amber-800 border border-amber-200"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

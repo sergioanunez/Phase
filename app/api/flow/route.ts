@@ -15,9 +15,6 @@ export async function GET(request: NextRequest) {
     const ctx = await requireTenantContext()
 
     const { searchParams } = new URL(request.url)
-    // Scope is now always \"today\" – Flow is a single daily action list.
-    const scope = "today" as const
-    const filter = (searchParams.get("filter") ?? "all") as "all" | "prep" | "execute"
     const search = searchParams.get("search") ?? undefined
 
     if (!["Admin", "Manager", "Superintendent"].includes(ctx.role)) {
@@ -31,8 +28,6 @@ export async function GET(request: NextRequest) {
       companyId: ctx.companyId,
       userId: ctx.userId,
       role: ctx.role,
-      scope,
-      filter,
       search,
     })
 
