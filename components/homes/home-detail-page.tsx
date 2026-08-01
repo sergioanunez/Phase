@@ -39,6 +39,7 @@ import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { MarkNotApplicableDialog } from "@/components/mark-not-applicable-dialog"
 import { CatchUpScheduleDialog } from "@/components/catch-up-schedule-dialog"
 import { WorkItemMetadata } from "@/components/work-item-metadata"
+import { playTaskComplete } from "@/lib/feedback"
 import type { TaskNotApplicableReason } from "@prisma/client"
 
 interface HomeTask {
@@ -130,6 +131,7 @@ export function HomeDetailPage() {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [thumbnailViewerOpen, setThumbnailViewerOpen] = useState(false)
   const [markingTaskId, setMarkingTaskId] = useState<string | null>(null)
+  const [justCompletedTaskId, setJustCompletedTaskId] = useState<string | null>(null)
   const [markNaTask, setMarkNaTask] = useState<HomeTask | null>(null)
   const [markNaDialogOpen, setMarkNaDialogOpen] = useState(false)
   const [catchUpOpen, setCatchUpOpen] = useState(false)
@@ -402,6 +404,13 @@ export function HomeDetailPage() {
             ),
           }
         })
+        if (updatedTask.status === "Completed") {
+          playTaskComplete()
+          setJustCompletedTaskId(updatedTask.id)
+          window.setTimeout(() => {
+            setJustCompletedTaskId((id) => (id === updatedTask.id ? null : id))
+          }, 320)
+        }
         // #region agent log
         fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
           method: "POST",
@@ -936,13 +945,21 @@ export function HomeDetailPage() {
                       return (
                         <Card
                           key={task.id}
-                          className={`rounded-lg border shadow-none ${
-                            canEdit ? "cursor-pointer hover:bg-gray-50/80 transition-colors" : ""
-                          } ${
-                            task.status === "Completed" ? "bg-green-50/80 border-green-200" : ""
-                          } ${
-                            task.status === "NotApplicable" ? "bg-gray-50/80 border-gray-200" : ""
-                          } ${blocked ? "border-orange-300 bg-orange-50/50" : "border-gray-200/80"}`}
+                          className={cn(
+                            "rounded-lg border shadow-none motion-safe:transition-[background-color,border-color,box-shadow,opacity] motion-safe:duration-300 motion-safe:ease-out",
+                            canEdit ? "cursor-pointer hover:bg-gray-50/80" : "",
+                            task.status === "Completed"
+                              ? "bg-green-50/80 border-green-200"
+                              : "",
+                            justCompletedTaskId === task.id &&
+                              "bg-green-100/90 border-green-300 shadow-[inset_0_0_0_1px_rgba(34,197,94,0.25)]",
+                            task.status === "NotApplicable"
+                              ? "bg-gray-50/80 border-gray-200"
+                              : "",
+                            blocked
+                              ? "border-orange-300 bg-orange-50/50"
+                              : "border-gray-200/80"
+                          )}
                           onClick={() => canEdit && handleTaskClick(task)}
                         >
                           <div className="px-4 py-3">
@@ -976,8 +993,10 @@ export function HomeDetailPage() {
                               </div>
                               <span
                                 className={cn(
-                                  "shrink-0 text-xs font-medium px-2 py-0.5 rounded-md",
+                                  "shrink-0 text-xs font-medium px-2 py-0.5 rounded-md motion-safe:transition-[opacity,transform,background-color,color] motion-safe:duration-300 motion-safe:ease-out",
                                   task.status === "Completed" && "bg-green-100 text-green-800",
+                                  justCompletedTaskId === task.id &&
+                                    "opacity-100 translate-y-0 bg-green-200/90 text-green-900",
                                   task.status === "NotApplicable" && "bg-gray-100 text-gray-600",
                                   task.status === "Unscheduled" && "bg-gray-100 text-gray-600",
                                   (task.status === "Scheduled" || task.status === "Confirmed") && "bg-blue-50 text-blue-700",

@@ -26,6 +26,7 @@ import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
 import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { badgeLabelForTaskStatus } from "@/lib/task-status"
 import { WorkItemMetadata } from "@/components/work-item-metadata"
+import { playTaskComplete } from "@/lib/feedback"
 import type { TaskRescheduleReason, TaskNotApplicableReason } from "@prisma/client"
 
 interface Contractor {
@@ -312,6 +313,9 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
 
       const updatedTask = await res.json()
       setCurrentTask(updatedTask)
+      if (newStatus === "Completed" && updatedTask.status === "Completed") {
+        playTaskComplete()
+      }
       onUpdate()
     } catch (error) {
       console.error("Failed to update status:", error)
