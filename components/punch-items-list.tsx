@@ -104,6 +104,7 @@ export function PunchItemsList({
   const [punchModalOpen, setPunchModalOpen] = useState(false)
   const [publicLink, setPublicLink] = useState<string | null>(null)
   const [publicLinkSentAt, setPublicLinkSentAt] = useState<string | null>(null)
+  const [createBanner, setCreateBanner] = useState<string | null>(null)
 
   const fetchPunchItems = useCallback(async () => {
     setLoading(true)
@@ -217,11 +218,18 @@ export function PunchItemsList({
     setPunchModalOpen(true)
   }
 
-  const handlePunchSuccess = () => {
+  const handlePunchSuccess = (result?: { createdCount: number }) => {
     fetchPunchItems()
     onUpdate()
     setPunchModalOpen(false)
     setEditingPunchItem(null)
+    if (result?.createdCount && result.createdCount > 0) {
+      const n = result.createdCount
+      setCreateBanner(
+        n === 1 ? "Created 1 punch item." : `Created ${n} punch items.`
+      )
+      window.setTimeout(() => setCreateBanner(null), 3500)
+    }
   }
 
   const handleShareViaWhatsApp = () => {
@@ -393,6 +401,15 @@ export function PunchItemsList({
             </DialogDescription>
           </DialogHeader>
 
+          {createBanner && (
+            <div
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+              role="status"
+            >
+              {createBanner}
+            </div>
+          )}
+
           <div className="min-w-0 space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="flex flex-wrap gap-2">
@@ -469,7 +486,7 @@ export function PunchItemsList({
                   }}
                 >
                   <Plus className="h-4 w-4 mr-1 shrink-0" />
-                  Add Punch
+                  Add Punch List
                 </Button>
               </div>
             </div>
