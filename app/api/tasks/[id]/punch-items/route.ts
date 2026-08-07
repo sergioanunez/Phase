@@ -86,6 +86,16 @@ export async function GET(
             companyName: true,
           },
         },
+        punchList: {
+          select: {
+            id: true,
+            dueDate: true,
+            assignedContractorId: true,
+            assignedContractor: {
+              select: { id: true, companyName: true },
+            },
+          },
+        },
         closedBy: {
           select: {
             id: true,

@@ -17,6 +17,8 @@ export const punchItemCreateBodySchema = z.object({
   severity: z.nativeEnum(PunchSeverity).optional().nullable(),
   assignedContractorId: z.string().optional().nullable(),
   dueDate: z.string().datetime().optional().nullable(),
+  /** Attach to an existing PunchList (must belong to same company/home/task). */
+  punchListId: z.string().min(1).optional().nullable(),
   deviceCreatedAt: z.string().datetime().optional(),
   source: z.string().max(64).optional(),
 })
@@ -136,6 +138,25 @@ export async function createPunchItemInTransaction(params: {
   const category = input.category ?? PunchCategory.Other
   const severity = input.severity ?? PunchSeverity.Minor
 
+  let punchListId: string | null = null
+  if (input.punchListId) {
+    const list = await tx.punchList.findFirst({
+      where: {
+        id: input.punchListId,
+        companyId,
+        homeId: task.homeId,
+      },
+    })
+    if (!list) {
+      throw new PermanentRejectionError({
+        code: "NOT_FOUND",
+        message: "Punch list not found",
+        httpHint: "NOT_FOUND",
+      })
+    }
+    punchListId = list.id
+  }
+
   let punchItem
   try {
     punchItem = await tx.punchItem.create({
@@ -143,6 +164,7 @@ export async function createPunchItemInTransaction(params: {
         companyId,
         homeId: task.homeId,
         relatedHomeTaskId: task.id,
+        punchListId,
         createdByUserId: actorUserId,
         clientGeneratedId: input.clientPunchItemId,
         assignedContractorId: input.assignedContractorId || null,

@@ -23,7 +23,6 @@ import {
   ChevronUp,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useTransactionEngine } from "@/components/transaction-engine-provider"
 import { createClientPunchItemId } from "@/lib/transactions/local-punch-items"
 import { playSuccess } from "@/lib/feedback"
 import {
@@ -289,7 +288,6 @@ export function PunchItemModal({
   editingPunchItem,
 }: PunchItemModalProps) {
   const { data: session } = useSession()
-  const te = useTransactionEngine()
   const composerId = useId()
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [title, setTitle] = useState("")
@@ -304,7 +302,6 @@ export function PunchItemModal({
   const draftRootRef = useRef<HTMLDivElement>(null)
 
   const isEditing = !!editingPunchItem
-  const useTransactionCreate = te.enabled && te.ready && !isEditing
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -472,69 +469,58 @@ export function PunchItemModal({
     input?.click()
   }
 
-  const createOnePunchItem = async (draft: DraftPunchItem) => {
-    const contractor = contractors.find((c) => c.id === assignedContractorId)
-    const payload = {
-      title: draft.title.trim(),
-      assignedContractorId: assignedContractorId || null,
-      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+  const createPunchListOnline = async (items: DraftPunchItem[]) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new Error(
+        "Creating a Punch List requires a connection. Connect and try again."
+      )
     }
 
-    const canUseTe = useTransactionCreate && draft.files.length === 0
-
-    if (canUseTe) {
-      if (!session?.user?.id || !session.user.companyId) {
-        throw new Error("You must be signed in to create a punch item")
-      }
-      const clientPunchItemId = createClientPunchItemId()
-      const deviceCreatedAt = new Date().toISOString()
-      await te.dispatch({
-        type: "PUNCH_ITEM_CREATE",
-        entityId: clientPunchItemId,
-        houseId: homeId ?? null,
-        payload: {
-          clientPunchItemId,
-          homeTaskId: taskId,
-          homeId: homeId ?? null,
-          title: draft.title.trim(),
-          description: null,
-          assignedContractorId: assignedContractorId || null,
-          assignedContractorName: contractor?.companyName ?? null,
-          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-          deviceCreatedAt,
-          source: "punch_list_modal",
-        },
-      })
-      return
-    }
-
-    const res = await fetch(`/api/tasks/${taskId}/punch-items`, {
+    const clientPunchListId = createClientPunchItemId()
+    const res = await fetch(`/api/tasks/${taskId}/punch-lists`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        assignedContractorId,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        clientPunchListId,
+        items: items.map((d) => ({
+          title: d.title.trim(),
+          clientPunchItemId: createClientPunchItemId(),
+        })),
+      }),
     })
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(
-        typeof data?.error === "string" ? data.error : "Failed to create punch item"
+        typeof data?.error === "string"
+          ? data.error
+          : Array.isArray(data?.error)
+            ? "Invalid punch list"
+            : "Failed to create punch list"
       )
     }
-    const created = (await res.json()) as { id?: string }
-    if (draft.files.length > 0 && created.id) {
+
+    const list = (await res.json()) as {
+      items?: Array<{ id: string; title: string }>
+    }
+
+    // Upload photos against created items by title order match
+    const createdItems = list.items ?? []
+    for (let i = 0; i < items.length; i++) {
+      const draft = items[i]
+      const created = createdItems[i]
+      if (!draft.files.length || !created?.id) continue
       const formData = new FormData()
-      for (const file of draft.files) {
-        formData.append("files", file)
-      }
+      for (const file of draft.files) formData.append("files", file)
       const upRes = await fetch(`/api/punch-items/${created.id}/photos`, {
         method: "POST",
         body: formData,
       })
       if (!upRes.ok) {
-        const data = await upRes.json().catch(() => ({}))
         throw new Error(
-          typeof data?.error === "string"
-            ? data.error
-            : "Punch item was created but photos failed to upload."
+          "Punch list was created but some photos failed to upload."
         )
       }
     }
@@ -544,7 +530,6 @@ export function PunchItemModal({
     setLoading(true)
     setError(null)
     try {
-      // Allow flushing the current composer line into the list
       let items = draftItems
       const pending = composerText.trim()
       if (pending) {
@@ -573,12 +558,7 @@ export function PunchItemModal({
         return
       }
 
-      for (const item of items) {
-        if (!item.title.trim()) {
-          throw new Error("Every punch item needs a description")
-        }
-        await createOnePunchItem(item)
-      }
+      await createPunchListOnline(items)
 
       const createdCount = items.length
       revokeDraftPreviews(items)

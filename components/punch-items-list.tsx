@@ -10,11 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { PunchItemModal } from "@/components/punch-item-modal"
+import { PunchListGroupCard } from "@/components/punch-list-group-card"
 import { PunchStatus } from "@prisma/client"
 import { format } from "date-fns"
-import { Plus, Edit2, MessageSquare, Check, Trash2, Mail, Copy, ExternalLink } from "lucide-react"
+import { Plus, MessageSquare, Mail, Copy, ExternalLink } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import {
   buildPunchlistWhatsAppText,
@@ -28,6 +28,12 @@ import {
   subscribeLocalPunchItems,
   type LocalPunchSyncStatus,
 } from "@/lib/transactions/local-punch-items"
+import {
+  filterPunchListGroups,
+  groupPunchItemsByList,
+} from "@/lib/punch/group-punch-lists"
+import { createClientPunchItemId } from "@/lib/transactions/local-punch-items"
+import { playSuccess } from "@/lib/feedback"
 
 interface Contractor {
   id: string
@@ -42,6 +48,13 @@ interface PunchItem {
   assignedContractor: {
     id: string
     companyName: string
+  } | null
+  punchListId?: string | null
+  punchList?: {
+    id: string
+    dueDate: string | null
+    assignedContractorId: string | null
+    assignedContractor: { id: string; companyName: string } | null
   } | null
   status: PunchStatus
   dueDate: string | null
@@ -105,6 +118,15 @@ export function PunchItemsList({
   const [publicLink, setPublicLink] = useState<string | null>(null)
   const [publicLinkSentAt, setPublicLinkSentAt] = useState<string | null>(null)
   const [createBanner, setCreateBanner] = useState<string | null>(null)
+  const [contractors, setContractors] = useState<Contractor[]>([])
+  const [editListId, setEditListId] = useState<string | null>(null)
+  const [editListContractorId, setEditListContractorId] = useState("")
+  const [editListDueDate, setEditListDueDate] = useState("")
+  const [editListSaving, setEditListSaving] = useState(false)
+  const [editListItemCount, setEditListItemCount] = useState(0)
+  const [editListOriginalContractorId, setEditListOriginalContractorId] = useState<string | null>(
+    null
+  )
 
   const fetchPunchItems = useCallback(async () => {
     setLoading(true)
@@ -188,30 +210,24 @@ export function PunchItemsList({
     return () => unsub?.()
   }, [te.enabled, te.engine, open, fetchPunchItems])
 
-  const filteredItems = punchItems.filter((item) => {
-    if (filter === "open") {
-      return item.status === "Open" || item.status === "ReadyForReview"
-    }
-    if (filter === "closed") {
-      return item.status === "Closed" || item.status === "Canceled"
-    }
-    return true
-  })
+  useEffect(() => {
+    if (!open) return
+    fetch("/api/contractors", { credentials: "same-origin" })
+      .then((res) => res.json())
+      .then((data) =>
+        setContractors(
+          Array.isArray(data)
+            ? data.filter((c: Contractor & { active?: boolean }) => c.active !== false)
+            : []
+        )
+      )
+      .catch(() => setContractors([]))
+  }, [open])
 
-  const getStatusColor = (status: PunchStatus) => {
-    switch (status) {
-      case "Open":
-        return "destructive"
-      case "ReadyForReview":
-        return "default"
-      case "Closed":
-        return "success"
-      case "Canceled":
-        return "outline"
-      default:
-        return "outline"
-    }
-  }
+  const filteredGroups = filterPunchListGroups(
+    groupPunchItemsByList(punchItems as never),
+    filter
+  )
 
   const handleEdit = (item: PunchItem) => {
     setEditingPunchItem(item)
@@ -229,6 +245,104 @@ export function PunchItemsList({
         n === 1 ? "Created 1 punch item." : `Created ${n} punch items.`
       )
       window.setTimeout(() => setCreateBanner(null), 3500)
+    }
+  }
+
+  const handleAddItemToList = async (
+    listId: string,
+    title: string,
+    files: File[]
+  ) => {
+    const clientPunchItemId = createClientPunchItemId()
+    const res = await fetch(`/api/punch-lists/${listId}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, clientPunchItemId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(
+        typeof data?.error === "string" ? data.error : "Failed to add item"
+      )
+    }
+    const created = (await res.json()) as { id?: string }
+    if (files.length > 0 && created.id) {
+      const formData = new FormData()
+      for (const file of files) formData.append("files", file)
+      const up = await fetch(`/api/punch-items/${created.id}/photos`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!up.ok) {
+        throw new Error("Item added but photos failed to upload")
+      }
+    }
+    playSuccess()
+    await fetchPunchItems()
+    onUpdate()
+  }
+
+  const openEditList = (group: {
+    id: string
+    kind: "list" | "legacy"
+    assignedContractorId: string | null
+    dueDate: string | null
+    totalCount: number
+  }) => {
+    if (group.kind !== "list") return
+    setEditListId(group.id)
+    setEditListContractorId(group.assignedContractorId ?? "")
+    setEditListOriginalContractorId(group.assignedContractorId)
+    setEditListDueDate(
+      group.dueDate ? new Date(group.dueDate).toISOString().slice(0, 10) : ""
+    )
+    setEditListItemCount(group.totalCount)
+  }
+
+  const saveEditList = async () => {
+    if (!editListId) return
+    if (
+      editListContractorId &&
+      editListOriginalContractorId &&
+      editListContractorId !== editListOriginalContractorId &&
+      editListItemCount > 0
+    ) {
+      const name =
+        contractors.find((c) => c.id === editListContractorId)?.companyName ??
+        "this contractor"
+      if (
+        !confirm(
+          `Move all ${editListItemCount} item${editListItemCount === 1 ? "" : "s"} to ${name}?`
+        )
+      ) {
+        return
+      }
+    }
+    setEditListSaving(true)
+    try {
+      const res = await fetch(`/api/punch-lists/${editListId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignedContractorId: editListContractorId || undefined,
+          dueDate: editListDueDate
+            ? new Date(editListDueDate).toISOString()
+            : null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Failed to update list"
+        )
+      }
+      setEditListId(null)
+      await fetchPunchItems()
+      onUpdate()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update list")
+    } finally {
+      setEditListSaving(false)
     }
   }
 
@@ -531,171 +645,87 @@ export function PunchItemsList({
 
             {loading ? (
               <div className="text-center py-8">Loading...</div>
-            ) : filteredItems.length === 0 ? (
+            ) : filteredGroups.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No punch items found
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border rounded-lg p-3 sm:p-4 space-y-2 hover:bg-accent/50 transition-colors min-w-0"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-                          <h4
-                            className={`font-medium break-words ${
-                              item.reportedCompleteAt && item.status !== "Closed"
-                                ? "line-through text-muted-foreground"
-                                : ""
-                            }`}
-                          >
-                            {item.title}
-                          </h4>
-                          <Badge variant={getStatusColor(item.status)} className="shrink-0">
-                            {item.status}
-                          </Badge>
-                          {item.syncStatus && item.syncStatus !== "synced" && (
-                            <Badge
-                              variant="outline"
-                              className={
-                                item.syncStatus === "needs_attention"
-                                  ? "shrink-0 border-amber-400 text-amber-900"
-                                  : "shrink-0"
-                              }
-                            >
-                              {item.syncStatus === "pending"
-                                ? "Waiting to sync"
-                                : item.syncStatus === "syncing"
-                                  ? "Syncing"
-                                  : "Needs attention"}
-                            </Badge>
-                          )}
-                          {item.reportedCompleteAt && item.status !== "Closed" && (
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 border-amber-300 bg-amber-50 text-amber-900"
-                            >
-                              Reported complete
-                            </Badge>
-                          )}
-                        </div>
-                        {item.reportedCompleteAt && item.status !== "Closed" && (
-                          <p className="text-[11px] text-muted-foreground">
-                            Reported by {item.reportedCompleteBy?.name ?? "Subcontractor"} ·{" "}
-                            {format(new Date(item.reportedCompleteAt), "MMM d, yyyy h:mm a")}
-                            {item.reportedCompleteNote
-                              ? ` — “${item.reportedCompleteNote}”`
-                              : ""}
-                          </p>
-                        )}
-                        {item.attentionMessage && (
-                          <p className="text-xs text-amber-800">{item.attentionMessage}</p>
-                        )}
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {item.description}
-                          </p>
-                        )}
-                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                          <span>
-                            Created: {format(new Date(item.createdAt), "MM/dd/yyyy")} by {item.createdBy.name}
-                          </span>
-                          {item.assignedContractor && (
-                            <span>Assigned: {item.assignedContractor.companyName}</span>
-                          )}
-                          {item.dueDate && (
-                            <span>
-                              Due: {format(new Date(item.dueDate), "MM/dd/yyyy")}
-                            </span>
-                          )}
-                          {item.closedAt && item.closedBy && (
-                            <span>
-                              Closed: {format(new Date(item.closedAt), "MM/dd/yyyy")} by {item.closedBy.name}
-                            </span>
-                          )}
-                        </div>
-                        {item.photos && item.photos.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.photos.slice(0, 5).map((photo) => (
-                              <a
-                                key={photo.id}
-                                href={photo.imageUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-block w-12 h-12 rounded border overflow-hidden bg-muted flex-shrink-0"
-                                title="View attachment"
-                              >
-                                {photo.imageUrl.toLowerCase().endsWith(".pdf") ? (
-                                  <span className="w-full h-full flex items-center justify-center text-xs">PDF</span>
-                                ) : (
-                                  <img src={photo.imageUrl} alt="" className="w-full h-full object-cover" />
-                                )}
-                              </a>
-                            ))}
-                            {item.photos.length > 5 && (
-                              <span className="text-xs text-muted-foreground self-center">+{item.photos.length - 5}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1 shrink-0 self-end sm:self-start justify-end">
-                        {(!item.syncStatus || item.syncStatus === "synced") && (
-                          <>
-                        {(item.status === "Open" || item.status === "ReadyForReview") &&
-                          canTenantVerifyPunch &&
-                          item.reportedCompleteAt && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleMarkComplete(item.id, true)}
-                            >
-                              Verify & complete
-                            </Button>
-                          )}
-                        {(item.status === "Open" || item.status === "ReadyForReview") &&
-                          (!item.reportedCompleteAt || !canTenantVerifyPunch) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMarkComplete(item.id, false)}
-                              className="text-green-600 hover:text-green-700 dark:text-green-400"
-                              title="Mark as complete"
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                          )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(item)}
-                          title="Edit punch item"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(item.id, item.title)}
-                          className="text-destructive hover:text-destructive"
-                          title="Delete punch item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              <div className="rounded-xl border border-border bg-white px-3">
+                {filteredGroups.map((group) => (
+                  <PunchListGroupCard
+                    key={group.id}
+                    group={group}
+                    canTenantVerifyPunch={canTenantVerifyPunch}
+                    onEditItem={(item) => {
+                      const full = punchItems.find((p) => p.id === item.id)
+                      if (full) handleEdit(full)
+                    }}
+                    onDeleteItem={handleDelete}
+                    onCompleteItem={handleMarkComplete}
+                    onAddItem={handleAddItemToList}
+                    onEditList={openEditList}
+                  />
                 ))}
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {editListId && (
+        <Dialog open={!!editListId} onOpenChange={(o) => !o && setEditListId(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Edit Punch List</DialogTitle>
+              <DialogDescription>
+                Changes apply to every item on this list.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Contractor</label>
+                <select
+                  value={editListContractorId}
+                  onChange={(e) => setEditListContractorId(e.target.value)}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  {contractors.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.companyName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Due Date</label>
+                <input
+                  type="date"
+                  value={editListDueDate}
+                  onChange={(e) => setEditListDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditListId(null)}
+                  disabled={editListSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void saveEditList()}
+                  disabled={editListSaving || !editListContractorId}
+                >
+                  {editListSaving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <PunchItemModal
         taskId={taskId}
