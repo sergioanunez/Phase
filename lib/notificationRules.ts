@@ -1,30 +1,44 @@
 /**
- * Rule engine for builder notifications (tenant-level only).
- * SUPERINTENDENT, MANAGER, ADMIN. No SUPER_ADMIN.
- * Dedup: same companyId + entityType + entityId + category + severity → update existing unresolved.
+ * Builder in-app + web-push notification policy (tenant-scoped).
  *
- * Hook points (wired / TODO):
- * - notifyTaskScheduled: app/api/tasks/[id]/route.ts (PATCH when status → Scheduled)
- * - notifyTaskRescheduled: app/api/tasks/[id]/reschedule/route.ts
- * - notifyTaskCompleted: app/api/tasks/[id]/route.ts (PATCH when status → Completed)
- * - notifyPunchItemsAddedToTask: app/api/tasks/[id]/punch-items/route.ts (POST, one notification per task)
- * - notifySmsConfirmationReceived: lib/twilio.ts handleInboundSMS (when contractor replies Y/N)
- * - notifyForecastSlip: app/api/homes/[id]/forecast/route.ts (when forecast date moves out)
- * - TODO notifyTaskOverdue: call from cron or schedule view when task.scheduledDate < today and status not Completed (e.g. app/api/calendar/events/route.ts or a daily job)
- * - TODO notifyConfirmationMissing: call from cron for tasks in PendingConfirm for > X hours (e.g. app/api/tasks/[id]/send-confirmation/route.ts or a scheduled job)
- * - TODO notifyIdleHome: call from cron or dashboard when home has no activity for > 48h (e.g. app/api/dashboard/portfolio/route.ts or lib/schedule-status.ts)
+ * RETAIN (contractor-driven only):
+ * - notifyTaskConfirmedByContractor — SMS / magic-link schedule confirmation
+ * - notifyTaskRescheduleRequestedByContractor — contractor unavailable / wants new date
+ * - notifyPunchListCompletedByContractor — contractor finished/submitted a Punch List
+ *
+ * SUPPRESSED (no-ops; Activity/audit may still record the action):
+ * - schedule / internal reschedule / internal complete
+ * - punch item created / completed by internals
+ * - forecast slip, overdue, idle, confirmation-missing TODOs
+ * - contractor "report task complete" (not a schedule confirmation)
+ *
+ * Dedup: unresolved row with same companyId + entityType + entityId + category + severity
+ * is updated instead of duplicated (upsertOrCreate).
  */
 
-import {
-  NotificationSeverity,
-  NotificationCategory,
-  NotificationEntityType,
-  NotificationTargetRole,
-} from "@prisma/client"
+import { type NotificationTargetRole } from "@prisma/client"
 import { prisma } from "./prisma"
 import { createNotification, type CreateNotificationData } from "./notifications"
 
-const BUILDERS_ROLES: NotificationTargetRole[] = ["SUPERINTENDENT", "MANAGER", "ADMIN"]
+export const TASK_RESCHEDULE_REQUEST_ENTITY_PREFIX = "task-reschedule-request:"
+
+export function taskRescheduleRequestEntityId(taskId: string): string {
+  return `${TASK_RESCHEDULE_REQUEST_ENTITY_PREFIX}${taskId}`
+}
+
+export function parseTaskIdFromNotificationEntityId(
+  entityType: string,
+  entityId: string | null | undefined
+): string | null {
+  if (!entityId) return null
+  if (entityType === "TASK") {
+    if (entityId.startsWith(TASK_RESCHEDULE_REQUEST_ENTITY_PREFIX)) {
+      return entityId.slice(TASK_RESCHEDULE_REQUEST_ENTITY_PREFIX.length) || null
+    }
+    if (!entityId.includes(":")) return entityId
+  }
+  return null
+}
 
 async function upsertOrCreate(data: CreateNotificationData) {
   const key = {
@@ -55,7 +69,8 @@ async function upsertOrCreate(data: CreateNotificationData) {
   return createNotification(data)
 }
 
-export async function notifyTaskScheduled(params: {
+/** @deprecated Policy: internal schedule actions do not create bell notifications. */
+export async function notifyTaskScheduled(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -64,23 +79,11 @@ export async function notifyTaskScheduled(params: {
   scheduledDate: Date
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, scheduledDate, targetRole = "ANY" } = params
-  const dateStr = scheduledDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-  return upsertOrCreate({
-    companyId,
-    severity: "INFO",
-    category: "SCHEDULE",
-    title: "Task scheduled",
-    message: `${taskName} at ${homeLabel} scheduled for ${dateStr}.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: false,
-  })
+  return null
 }
 
-export async function notifyTaskRescheduled(params: {
+/** @deprecated Policy: internal reschedule does not create bell notifications. */
+export async function notifyTaskRescheduled(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -89,23 +92,11 @@ export async function notifyTaskRescheduled(params: {
   isCriticalPath?: boolean
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, isCriticalPath, targetRole = "ANY" } = params
-  const severity: NotificationSeverity = isCriticalPath ? "CRITICAL" : "INFO"
-  return upsertOrCreate({
-    companyId,
-    severity,
-    category: "SCHEDULE",
-    title: isCriticalPath ? "Critical path task rescheduled" : "Task rescheduled",
-    message: `${taskName} at ${homeLabel} was rescheduled.${isCriticalPath ? " This task is on the critical path." : ""}`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: isCriticalPath,
-  })
+  return null
 }
 
-export async function notifyTaskCompleted(params: {
+/** @deprecated Policy: internal task completion does not create bell notifications. */
+export async function notifyTaskCompleted(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -113,23 +104,11 @@ export async function notifyTaskCompleted(params: {
   homeLabel: string
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, targetRole = "ANY" } = params
-  return upsertOrCreate({
-    companyId,
-    severity: "INFO",
-    category: "SCHEDULE",
-    title: "Task completed",
-    message: `${taskName} at ${homeLabel} has been marked complete.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: false,
-  })
+  return null
 }
 
-/** One notification per task when punch items are added (not per punch item). */
-export async function notifyPunchItemsAddedToTask(params: {
+/** @deprecated Policy: punch create does not create bell notifications. */
+export async function notifyPunchItemsAddedToTask(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -139,36 +118,11 @@ export async function notifyPunchItemsAddedToTask(params: {
   createdByUserId?: string | null
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, punchCount, createdByUserId, targetRole = "ANY" } = params
-  const countStr = punchCount != null && punchCount > 0 ? ` (${punchCount} ${punchCount === 1 ? "item" : "items"})` : ""
-  const row = await upsertOrCreate({
-    companyId,
-    severity: "ATTENTION",
-    category: "QUALITY",
-    title: "Punch items added to task",
-    message: `Punch items added to ${taskName} at ${homeLabel}${countStr}.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    createdByUserId,
-    targetRole,
-    requiresAction: true,
-  })
-  const { dispatchWebPushPunchlist } = await import("@/lib/web-push-dispatch")
-  dispatchWebPushPunchlist({
-    companyId,
-    homeId,
-    taskId,
-    taskName,
-    homeLabel,
-    title: "Punchlist updated",
-    body: `New punch item${punchCount === 1 ? "" : "s"} on ${taskName} at ${homeLabel}.`,
-    dedupSuffix: `add:${taskId}`,
-  }).catch((err) => console.error("[push] notifyPunchItemsAddedToTask:", err))
-  return row
+  return null
 }
 
-export async function notifyPunchItemCompleted(params: {
+/** @deprecated Policy: per-item punch complete does not create bell notifications. */
+export async function notifyPunchItemCompleted(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -178,43 +132,11 @@ export async function notifyPunchItemCompleted(params: {
   punchTitle: string
   targetRole?: NotificationTargetRole
 }) {
-  const {
-    companyId,
-    homeId,
-    taskId,
-    taskName,
-    homeLabel,
-    punchItemId,
-    punchTitle,
-    targetRole = "ANY",
-  } = params
-  const row = await upsertOrCreate({
-    companyId,
-    severity: "INFO",
-    category: "QUALITY",
-    title: "Punch item completed",
-    message: `"${punchTitle}" was marked complete on ${taskName} at ${homeLabel}.`,
-    entityType: "PUNCH",
-    entityId: punchItemId,
-    homeId,
-    targetRole,
-    requiresAction: false,
-  })
-  const { dispatchWebPushPunchlist } = await import("@/lib/web-push-dispatch")
-  dispatchWebPushPunchlist({
-    companyId,
-    homeId,
-    taskId,
-    taskName,
-    homeLabel,
-    title: "Punchlist item completed",
-    body: `"${punchTitle}" completed on ${taskName} at ${homeLabel}.`,
-    dedupSuffix: `closed:${punchItemId}`,
-  }).catch((err) => console.error("[push] notifyPunchItemCompleted:", err))
-  return row
+  return null
 }
 
-export async function notifyTaskOverdue(params: {
+/** @deprecated Not wired; kept as no-op under noise policy. */
+export async function notifyTaskOverdue(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -223,59 +145,11 @@ export async function notifyTaskOverdue(params: {
   scheduledDate: Date
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, scheduledDate, targetRole = "ANY" } = params
-  const dateStr = scheduledDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-  return upsertOrCreate({
-    companyId,
-    severity: "CRITICAL",
-    category: "SCHEDULE",
-    title: "Task overdue",
-    message: `${taskName} at ${homeLabel} was scheduled for ${dateStr} and is now overdue.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: true,
-  })
+  return null
 }
 
-export async function notifySmsConfirmationReceived(params: {
-  companyId: string
-  homeId: string
-  taskId: string
-  taskName: string
-  homeLabel: string
-  confirmed: boolean
-  targetRole?: NotificationTargetRole
-}) {
-  const { companyId, homeId, taskId, taskName, homeLabel, confirmed, targetRole = "ANY" } = params
-  const row = await upsertOrCreate({
-    companyId,
-    severity: "INFO",
-    category: "CONTRACTOR",
-    title: confirmed ? "Task confirmed via SMS" : "Task declined via SMS",
-    message: confirmed
-      ? `${taskName} at ${homeLabel} was confirmed by the contractor.`
-      : `${taskName} at ${homeLabel} was declined by the contractor.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: false,
-  })
-  const { dispatchWebPushSubcontractorReply } = await import("@/lib/web-push-dispatch")
-  dispatchWebPushSubcontractorReply({
-    companyId,
-    homeId,
-    taskId,
-    taskName,
-    homeLabel,
-    confirmed,
-  }).catch((err) => console.error("[push] notifySmsConfirmationReceived:", err))
-  return row
-}
-
-export async function notifyConfirmationMissing(params: {
+/** @deprecated Not wired; kept as no-op under noise policy. */
+export async function notifyConfirmationMissing(_params: {
   companyId: string
   homeId: string
   taskId: string
@@ -284,22 +158,11 @@ export async function notifyConfirmationMissing(params: {
   hoursPending: number
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, taskId, taskName, homeLabel, hoursPending, targetRole = "ANY" } = params
-  return upsertOrCreate({
-    companyId,
-    severity: "ATTENTION",
-    category: "CONTRACTOR",
-    title: "Confirmation pending",
-    message: `${taskName} at ${homeLabel} has been waiting for contractor confirmation for ${hoursPending}+ hours.`,
-    entityType: "TASK",
-    entityId: taskId,
-    homeId,
-    targetRole,
-    requiresAction: true,
-  })
+  return null
 }
 
-export async function notifyForecastSlip(params: {
+/** @deprecated Policy: forecast slip does not create bell notifications. */
+export async function notifyForecastSlip(_params: {
   companyId: string
   homeId: string
   homeLabel: string
@@ -307,41 +170,223 @@ export async function notifyForecastSlip(params: {
   newForecast: Date
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, homeLabel, previousForecast, newForecast, targetRole = "ANY" } = params
-  const prevStr = previousForecast.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-  const newStr = newForecast.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-  return upsertOrCreate({
-    companyId,
-    severity: "CRITICAL",
-    category: "SCHEDULE",
-    title: "Forecast slipped",
-    message: `${homeLabel} forecast moved from ${prevStr} to ${newStr}.`,
-    entityType: "HOME",
-    entityId: homeId,
-    homeId,
-    targetRole,
-    requiresAction: true,
-  })
+  return null
 }
 
-export async function notifyIdleHome(params: {
+/** @deprecated Not wired; kept as no-op under noise policy. */
+export async function notifyIdleHome(_params: {
   companyId: string
   homeId: string
   homeLabel: string
   hoursIdle: number
   targetRole?: NotificationTargetRole
 }) {
-  const { companyId, homeId, homeLabel, hoursIdle, targetRole = "ANY" } = params
-  return upsertOrCreate({
+  return null
+}
+
+/**
+ * Contractor confirmed a scheduled task via SMS / magic link.
+ * Dedup entity: TASK + taskId + CONTRACTOR + INFO
+ */
+export async function notifyTaskConfirmedByContractor(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  contractorName: string
+  confirmed: boolean
+  targetRole?: NotificationTargetRole
+}) {
+  const {
     companyId,
-    severity: "CRITICAL",
-    category: "SCHEDULE",
-    title: "Home idle",
-    message: `${homeLabel} has had no scheduled activity for ${hoursIdle}+ hours.`,
-    entityType: "HOME",
-    entityId: homeId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    contractorName,
+    confirmed,
+    targetRole = "ANY",
+  } = params
+
+  if (!confirmed) return null
+
+  const contractor = contractorName.trim() || "Contractor"
+  const row = await upsertOrCreate({
+    companyId,
+    severity: "INFO",
+    category: "CONTRACTOR",
+    title: "Task confirmed",
+    message: `${contractor} confirmed ${taskName} at ${homeLabel}.`,
+    entityType: "TASK",
+    entityId: taskId,
+    homeId,
+    targetRole,
+    requiresAction: false,
+  })
+
+  const { dispatchWebPushSubcontractorReply } = await import("@/lib/web-push-dispatch")
+  dispatchWebPushSubcontractorReply({
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    confirmed: true,
+    contractorName: contractor,
+  }).catch((err) => console.error("[push] notifyTaskConfirmedByContractor:", err))
+
+  return row
+}
+
+/**
+ * Contractor requested a reschedule (SMS N / magic-link Unavailable, or future explicit request).
+ * Dedup entity: TASK + task-reschedule-request:{id} + CONTRACTOR + ATTENTION
+ */
+export async function notifyTaskRescheduleRequestedByContractor(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  contractorName: string
+  /** Optional proposed date from contractor (when available). */
+  proposedDate?: Date | string | null
+  /** Stable request id when a dedicated RescheduleRequest exists; defaults to taskId. */
+  rescheduleRequestId?: string | null
+  targetRole?: NotificationTargetRole
+}) {
+  const {
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    contractorName,
+    proposedDate,
+    rescheduleRequestId,
+    targetRole = "ANY",
+  } = params
+
+  const contractor = contractorName.trim() || "Contractor"
+  const requestKey = (rescheduleRequestId ?? taskId).trim() || taskId
+  const entityId = taskRescheduleRequestEntityId(requestKey)
+
+  let dateLabel: string | null = null
+  if (proposedDate) {
+    const d = typeof proposedDate === "string" ? new Date(proposedDate) : proposedDate
+    if (!Number.isNaN(d.getTime())) {
+      dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    }
+  }
+
+  const message = dateLabel
+    ? `${contractor} requested ${dateLabel} for ${taskName} at ${homeLabel}.`
+    : `${contractor} requested a new date for ${taskName} at ${homeLabel}.`
+
+  const row = await upsertOrCreate({
+    companyId,
+    severity: "ATTENTION",
+    category: "CONTRACTOR",
+    title: "Reschedule requested",
+    message,
+    entityType: "TASK",
+    entityId,
     homeId,
     targetRole,
     requiresAction: true,
   })
+
+  const { dispatchWebPushRescheduleRequest } = await import("@/lib/web-push-dispatch")
+  dispatchWebPushRescheduleRequest({
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    contractorName: contractor,
+    proposedDateLabel: dateLabel,
+    dedupSuffix: requestKey,
+  }).catch((err) => console.error("[push] notifyTaskRescheduleRequestedByContractor:", err))
+
+  return row
 }
+
+/** @deprecated Prefer notifyTaskConfirmedByContractor / notifyTaskRescheduleRequestedByContractor. */
+export async function notifySmsConfirmationReceived(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  confirmed: boolean
+  contractorName?: string
+  targetRole?: NotificationTargetRole
+}) {
+  if (params.confirmed) {
+    return notifyTaskConfirmedByContractor({
+      ...params,
+      contractorName: params.contractorName ?? "Contractor",
+    })
+  }
+  return notifyTaskRescheduleRequestedByContractor({
+    ...params,
+    contractorName: params.contractorName ?? "Contractor",
+  })
+}
+
+/**
+ * Contractor completed/submitted an entire Punch List (list-level, not per item).
+ * Dedup entity: PUNCH + punchListKey + QUALITY + INFO
+ */
+export async function notifyPunchListCompletedByContractor(params: {
+  companyId: string
+  homeId: string
+  punchListKey: string
+  taskId?: string | null
+  homeLabel: string
+  contractorName: string
+  targetRole?: NotificationTargetRole
+}) {
+  const {
+    companyId,
+    homeId,
+    punchListKey,
+    taskId,
+    homeLabel,
+    contractorName,
+    targetRole = "ANY",
+  } = params
+
+  const contractor = contractorName.trim() || "Contractor"
+  const row = await upsertOrCreate({
+    companyId,
+    severity: "INFO",
+    category: "QUALITY",
+    title: "Punch list completed",
+    message: `${contractor} completed the punch list at ${homeLabel}.`,
+    entityType: "PUNCH",
+    entityId: punchListKey,
+    homeId,
+    targetRole,
+    requiresAction: true,
+  })
+
+  if (taskId) {
+    const { dispatchWebPushPunchlist } = await import("@/lib/web-push-dispatch")
+    dispatchWebPushPunchlist({
+      companyId,
+      homeId,
+      taskId,
+      taskName: "Punch list",
+      homeLabel,
+      title: "Punch list completed",
+      body: `${contractor} completed the punch list at ${homeLabel}.`,
+      dedupSuffix: `list-complete:${punchListKey}`,
+    }).catch((err) => console.error("[push] notifyPunchListCompletedByContractor:", err))
+  }
+
+  return row
+}
+
+export { upsertOrCreate as upsertOrCreateNotificationForTests }

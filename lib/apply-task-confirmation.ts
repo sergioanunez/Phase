@@ -60,15 +60,35 @@ export async function applyTaskConfirmationResponse(
   }
 
   if (companyId && task.home) {
-    const { notifySmsConfirmationReceived } = await import("@/lib/notificationRules")
-    await notifySmsConfirmationReceived({
-      companyId,
-      homeId: task.homeId,
-      taskId: task.id,
-      taskName: task.nameSnapshot,
-      homeLabel: task.home.addressOrLot ?? "Home",
-      confirmed: params.confirmed,
-    }).catch((err) => console.error("[confirmation] notifySmsConfirmationReceived:", err))
+    const contractorName = task.contractor?.companyName ?? "Contractor"
+    if (params.confirmed) {
+      const { notifyTaskConfirmedByContractor } = await import("@/lib/notificationRules")
+      await notifyTaskConfirmedByContractor({
+        companyId,
+        homeId: task.homeId,
+        taskId: task.id,
+        taskName: task.nameSnapshot,
+        homeLabel: task.home.addressOrLot ?? "Home",
+        contractorName,
+        confirmed: true,
+      }).catch((err) => console.error("[confirmation] notifyTaskConfirmedByContractor:", err))
+    } else {
+      // Product: Unavailable / SMS N = contractor reschedule request
+      const { notifyTaskRescheduleRequestedByContractor } = await import(
+        "@/lib/notificationRules"
+      )
+      await notifyTaskRescheduleRequestedByContractor({
+        companyId,
+        homeId: task.homeId,
+        taskId: task.id,
+        taskName: task.nameSnapshot,
+        homeLabel: task.home.addressOrLot ?? "Home",
+        contractorName,
+        rescheduleRequestId: task.id,
+      }).catch((err) =>
+        console.error("[confirmation] notifyTaskRescheduleRequestedByContractor:", err)
+      )
+    }
 
     const sourceLabel = params.source === "MagicLink" ? "magic link" : "SMS"
     const { createActivityEvent } = await import("@/lib/activity")
@@ -80,7 +100,7 @@ export async function applyTaskConfirmationResponse(
       title: params.confirmed
         ? `${task.nameSnapshot} confirmed via ${sourceLabel}`
         : `${task.nameSnapshot} marked unavailable via ${sourceLabel}`,
-      recipientName: task.contractor?.companyName ?? null,
+      recipientName: contractorName,
       metadata: { source: params.source, confirmationSource: params.source },
     }).catch(() => {})
   }

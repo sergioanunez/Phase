@@ -135,7 +135,7 @@ async function sendToUserBuilderDevices(
   }
 }
 
-/** After subcontractor SMS Y/N (deduped per task + outcome in a short window). */
+/** After contractor SMS / magic-link confirmation (deduped per task). */
 export async function dispatchWebPushSubcontractorReply(params: {
   companyId: string
   homeId: string
@@ -143,15 +143,17 @@ export async function dispatchWebPushSubcontractorReply(params: {
   taskName: string
   homeLabel: string
   confirmed: boolean
+  contractorName?: string
 }): Promise<void> {
-  const { companyId, homeId, taskId, taskName, homeLabel, confirmed } = params
-  const dedupKey = `sms-reply:${companyId}:${taskId}:${confirmed ? "y" : "n"}`
+  const { companyId, homeId, taskId, taskName, homeLabel, confirmed, contractorName } = params
+  if (!confirmed) return
+
+  const dedupKey = `sms-reply:${companyId}:${taskId}:y`
   if (await shouldDedup(dedupKey, DEDUP_SMS_MS)) return
 
-  const title = confirmed ? "Subcontractor confirmed" : "Subcontractor declined"
-  const body = confirmed
-    ? `${taskName} at ${homeLabel} was confirmed.`
-    : `${taskName} at ${homeLabel} was declined.`
+  const contractor = (contractorName ?? "Contractor").trim() || "Contractor"
+  const title = "Task confirmed"
+  const body = `${contractor} confirmed ${taskName} at ${homeLabel}.`
 
   await sendToCompanyBuilders(companyId, "subcontractor_reply", {
     title,
@@ -159,6 +161,46 @@ export async function dispatchWebPushSubcontractorReply(params: {
     type: "subcontractor_reply",
     url: `/homes/${homeId}?task=${taskId}`,
     tag: `task-${taskId}-sms`,
+    metadata: { homeId, taskId },
+  })
+}
+
+/** Contractor requested a reschedule (Unavailable / SMS N). */
+export async function dispatchWebPushRescheduleRequest(params: {
+  companyId: string
+  homeId: string
+  taskId: string
+  taskName: string
+  homeLabel: string
+  contractorName: string
+  proposedDateLabel?: string | null
+  dedupSuffix: string
+}): Promise<void> {
+  const {
+    companyId,
+    homeId,
+    taskId,
+    taskName,
+    homeLabel,
+    contractorName,
+    proposedDateLabel,
+    dedupSuffix,
+  } = params
+
+  const dedupKey = `reschedule-request:${companyId}:${dedupSuffix}`
+  if (await shouldDedup(dedupKey, DEDUP_SMS_MS)) return
+
+  const contractor = contractorName.trim() || "Contractor"
+  const body = proposedDateLabel
+    ? `${contractor} requested ${proposedDateLabel} for ${taskName} at ${homeLabel}.`
+    : `${contractor} requested a new date for ${taskName} at ${homeLabel}.`
+
+  await sendToCompanyBuilders(companyId, "subcontractor_reply", {
+    title: "Reschedule requested",
+    body,
+    type: "subcontractor_reply",
+    url: `/homes/${homeId}?task=${taskId}`,
+    tag: `task-${taskId}-reschedule-request`,
     metadata: { homeId, taskId },
   })
 }

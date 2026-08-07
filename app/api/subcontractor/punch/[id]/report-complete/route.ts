@@ -21,7 +21,9 @@ export async function POST(
     const { prisma } = await import("@/lib/prisma")
     const { requireRole } = await import("@/lib/rbac")
     const { canSubcontractorReportOnPunch } = await import("@/lib/subcontractor-report-access")
-    const { notifyTenantPunchReportedComplete } = await import("@/lib/notify-reported-complete")
+    const { maybeNotifyPunchListCompleteAfterContractorReport } = await import(
+      "@/lib/notify-reported-complete"
+    )
 
     const user = await requireRole("Subcontractor")
     const json = await request.json().catch(() => ({}))
@@ -66,10 +68,6 @@ export async function POST(
     if (!companyId) {
       return NextResponse.json({ error: "Punch has no tenant scope" }, { status: 400 })
     }
-    const reporter = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { name: true },
-    })
 
     let taskContractorName: string | null = null
     if (punch.relatedHomeTask.contractorId) {
@@ -103,16 +101,19 @@ export async function POST(
     })
 
     if (!wasAlreadyReported) {
-      await notifyTenantPunchReportedComplete({
+      await maybeNotifyPunchListCompleteAfterContractorReport({
         prisma,
         companyId,
         homeId: punch.homeId,
-        punchId: punch.id,
-        punchTitle: punch.title,
-        address: punch.home.addressOrLot,
+        homeLabel: punch.home.addressOrLot,
         contractorLabel,
-        reportingUserName: reporter?.name ?? "Subcontractor",
-      }).catch((err) => console.error("notifyTenantPunchReportedComplete:", err))
+        punchListId: punch.punchListId ?? null,
+        relatedHomeTaskId: punch.relatedHomeTaskId,
+        assignedContractorId: punch.assignedContractorId,
+        taskIdForLink: punch.relatedHomeTaskId,
+      }).catch((err) =>
+        console.error("maybeNotifyPunchListCompleteAfterContractorReport:", err)
+      )
     }
 
     return NextResponse.json(updated)

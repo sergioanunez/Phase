@@ -47,8 +47,18 @@ const FILTERS = [
 type FilterValue = (typeof FILTERS)[number]["value"]
 
 function getViewHref(n: HierarchyNotification): string {
-  if (n.homeId) return `/homes/${n.homeId}`
-  return "/"
+  if (!n.homeId) return "/"
+  // Deep-link to task when entity is a task confirmation or reschedule request.
+  if (n.entityType === "TASK" && n.entityId) {
+    const prefix = "task-reschedule-request:"
+    const taskId = n.entityId.startsWith(prefix)
+      ? n.entityId.slice(prefix.length)
+      : n.entityId.includes(":")
+        ? null
+        : n.entityId
+    if (taskId) return `/homes/${n.homeId}?task=${encodeURIComponent(taskId)}`
+  }
+  return `/homes/${n.homeId}`
 }
 
 function filterNotifications(
