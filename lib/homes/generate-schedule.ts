@@ -1,3 +1,4 @@
+import { createHash } from "crypto"
 import {
   buildTaskNodesFromPrismaTasks,
   computeHomeForecast,
@@ -32,10 +33,14 @@ export type ScheduleProposalRow = {
   contractorName: string | null
   status: string
   currentScheduledDate: string | null
-  proposedStart: string
-  proposedFinish: string
+  /** Null when blocked and no safe date can be proposed. */
+  proposedStart: string | null
+  proposedFinish: string | null
   durationDays: number
   isCritical: boolean
+  blocked?: boolean
+  blockedReason?: string | null
+  preservedExisting?: boolean
 }
 
 export type GenerateSchedulePreview = {
@@ -43,8 +48,12 @@ export type GenerateSchedulePreview = {
   modeLabel: string
   respectExistingScheduledDates: boolean
   scheduleBehaviorLabel: string
+  /** Tenant category name (optionalCategory), or null for all categories. */
+  category: string | null
+  categoryLabel: string
   anchorDate: string
   proposedCount: number
+  blockedCount: number
   completedSkipped: number
   proposedFirstDate: string | null
   proposedCompletionDate: string | null
@@ -53,6 +62,8 @@ export type GenerateSchedulePreview = {
   warnings: string[]
   error?: string
   hasCycle: boolean
+  /** Fingerprint of source task state for stale-preview detection on apply. */
+  sourceFingerprint: string
 }
 
 function startOfDay(d: Date): Date {
@@ -71,6 +82,46 @@ export function isScheduleTaskCompleted(task: Pick<ScheduleTaskInput, "status">)
 
 export function isScheduleTaskEligible(task: Pick<ScheduleTaskInput, "status">): boolean {
   return isTaskIncompleteForProgress(task.status)
+}
+
+export function taskMatchesCategory(
+  task: ScheduleTaskInput,
+  category: string | null | undefined
+): boolean {
+  if (!category) return true
+  return (task.templateItem?.optionalCategory ?? "") === category
+}
+
+/** Stable fingerprint of task schedule state for stale-preview checks. */
+export function computeTasksFingerprint(tasks: ScheduleTaskInput[]): string {
+  const parts = [...tasks]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(
+      (t) =>
+        `${t.id}:${t.status}:${t.scheduledDate ? new Date(t.scheduledDate).toISOString() : ""}`
+    )
+  return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32)
+}
+
+/**
+ * Direct incomplete predecessor outside the selected category with no scheduled date.
+ * Category-scoped generation must not invent dates that ignore this blocker.
+ */
+export function findUnscheduledExternalPredecessor(
+  task: ScheduleTaskInput,
+  tasksByTemplateItemId: Map<string, ScheduleTaskInput>,
+  templateDeps: Array<{ templateItemId: string; dependsOnItemId: string }>,
+  category: string
+): ScheduleTaskInput | null {
+  const deps = templateDeps.filter((d) => d.templateItemId === task.templateItemId)
+  for (const dep of deps) {
+    const pred = tasksByTemplateItemId.get(dep.dependsOnItemId)
+    if (!pred) continue
+    if (!isScheduleTaskEligible(pred)) continue
+    if (taskMatchesCategory(pred, category)) continue
+    if (pred.scheduledDate == null) return pred
+  }
+  return null
 }
 
 /**
@@ -123,6 +174,8 @@ export function buildSchedulePreview(params: {
   anchorDate: Date
   mode: GenerateScheduleMode
   respectExistingScheduledDates?: boolean
+  /** When set, only propose dates for this optionalCategory; never alter other categories. */
+  category?: string | null
 }): GenerateSchedulePreview {
   const {
     home,
@@ -131,21 +184,27 @@ export function buildSchedulePreview(params: {
     anchorDate,
     mode,
     respectExistingScheduledDates = true,
+    category = null,
   } = params
   const anchor = normalizeToWorkingDay(startOfDay(anchorDate))
   const modeLabel = mode === "critical" ? "Critical tasks only" : "All remaining tasks"
+  const categoryLabel = category ? category : "All categories"
   const scheduleBehaviorLabel = respectExistingScheduledDates
     ? "Respect existing scheduled dates"
     : "Recalculate all eligible tasks"
   const completedSkipped = tasks.filter(isScheduleTaskCompleted).length
+  const sourceFingerprint = computeTasksFingerprint(tasks)
 
   const emptyPreview = (partial: Partial<GenerateSchedulePreview>): GenerateSchedulePreview => ({
     mode,
     modeLabel,
     respectExistingScheduledDates,
     scheduleBehaviorLabel,
+    category,
+    categoryLabel,
     anchorDate: toDateOnlyISO(anchor),
     proposedCount: 0,
+    blockedCount: 0,
     completedSkipped,
     proposedFirstDate: null,
     proposedCompletionDate: null,
@@ -153,6 +212,7 @@ export function buildSchedulePreview(params: {
     rows: [],
     warnings: [],
     hasCycle: false,
+    sourceFingerprint,
     ...partial,
   })
 
@@ -161,23 +221,36 @@ export function buildSchedulePreview(params: {
     return emptyPreview({ error: "No remaining tasks to schedule." })
   }
 
+  const eligibleInCategory = eligible.filter((t) => taskMatchesCategory(t, category))
+  if (category && eligibleInCategory.length === 0) {
+    return emptyPreview({
+      error: `No applicable tasks in category “${category}”.`,
+      warnings: [`House has no remaining work items in ${category}.`],
+    })
+  }
+
+  // Respect OFF only clears dates inside the selected generation scope (category or all).
   const nodes = buildTaskNodesFromPrismaTasks(
-    tasks.map((t) => ({
-      id: t.id,
-      templateItemId: t.templateItemId,
-      nameSnapshot: t.nameSnapshot,
-      durationDaysSnapshot: t.durationDaysSnapshot,
-      status: t.status,
-      scheduledDate:
-        isScheduleTaskEligible(t) &&
-        respectExistingScheduledDates &&
-        t.scheduledDate
-          ? t.scheduledDate
-          : isScheduleTaskEligible(t)
-            ? null
-            : t.scheduledDate,
-      completedAt: t.completedAt,
-    })),
+    tasks.map((t) => {
+      const inScope = isScheduleTaskEligible(t) && taskMatchesCategory(t, category)
+      let scheduledDate = t.scheduledDate
+      if (inScope) {
+        if (respectExistingScheduledDates && t.scheduledDate) {
+          scheduledDate = t.scheduledDate
+        } else {
+          scheduledDate = null
+        }
+      }
+      return {
+        id: t.id,
+        templateItemId: t.templateItemId,
+        nameSnapshot: t.nameSnapshot,
+        durationDaysSnapshot: t.durationDaysSnapshot,
+        status: t.status,
+        scheduledDate,
+        completedAt: t.completedAt,
+      }
+    }),
     templateDeps
   )
 
@@ -193,21 +266,55 @@ export function buildSchedulePreview(params: {
   }
 
   const criticalIds = resolveCriticalTaskIds(tasks, cpm.criticalPathTaskIds)
-  const targetTasks =
+  let targetTasks =
     mode === "critical" ? eligible.filter((t) => criticalIds.has(t.id)) : eligible
+  targetTasks = targetTasks.filter((t) => taskMatchesCategory(t, category))
 
   if (mode === "critical" && targetTasks.length === 0) {
     return emptyPreview({
       warnings: cpm.warnings,
-      error: "No remaining critical tasks found. Try All remaining tasks.",
+      error: category
+        ? `No remaining critical tasks in “${category}”. Try All remaining tasks.`
+        : "No remaining critical tasks found. Try All remaining tasks.",
     })
   }
+
+  const tasksByTemplateItemId = new Map(tasks.map((t) => [t.templateItemId, t]))
+  const warnings = [...cpm.warnings]
 
   const rows: ScheduleProposalRow[] = targetTasks
     .map((task) => {
       const durationDays = Math.max(0, task.durationDaysSnapshot)
       const hasExistingSchedule =
         respectExistingScheduledDates && task.scheduledDate != null
+
+      if (category) {
+        const blocker = findUnscheduledExternalPredecessor(
+          task,
+          tasksByTemplateItemId,
+          templateDeps,
+          category
+        )
+        if (blocker && !hasExistingSchedule) {
+          return {
+            taskId: task.id,
+            taskName: task.nameSnapshot,
+            category: task.templateItem?.optionalCategory ?? null,
+            contractorName: task.contractor?.companyName ?? null,
+            status: task.status,
+            currentScheduledDate: task.scheduledDate
+              ? toDateOnlyISO(new Date(task.scheduledDate))
+              : null,
+            proposedStart: null,
+            proposedFinish: null,
+            durationDays,
+            isCritical: criticalIds.has(task.id),
+            blocked: true,
+            blockedReason: `Blocked by unscheduled dependency: ${blocker.nameSnapshot}`,
+            preservedExisting: false,
+          } satisfies ScheduleProposalRow
+        }
+      }
 
       let proposedStart: Date | undefined
       let proposedFinish: Date | undefined
@@ -220,7 +327,25 @@ export function buildSchedulePreview(params: {
         proposedFinish = cpm.taskEarlyFinish?.[task.id]
       }
 
-      if (!proposedStart || !proposedFinish) return null
+      if (!proposedStart || !proposedFinish) {
+        return {
+          taskId: task.id,
+          taskName: task.nameSnapshot,
+          category: task.templateItem?.optionalCategory ?? null,
+          contractorName: task.contractor?.companyName ?? null,
+          status: task.status,
+          currentScheduledDate: task.scheduledDate
+            ? toDateOnlyISO(new Date(task.scheduledDate))
+            : null,
+          proposedStart: null,
+          proposedFinish: null,
+          durationDays,
+          isCritical: criticalIds.has(task.id),
+          blocked: true,
+          blockedReason: "Impossible calculation — missing dependency dates",
+          preservedExisting: false,
+        } satisfies ScheduleProposalRow
+      }
 
       return {
         taskId: task.id,
@@ -228,17 +353,33 @@ export function buildSchedulePreview(params: {
         category: task.templateItem?.optionalCategory ?? null,
         contractorName: task.contractor?.companyName ?? null,
         status: task.status,
-        currentScheduledDate: task.scheduledDate ? toDateOnlyISO(new Date(task.scheduledDate)) : null,
+        currentScheduledDate: task.scheduledDate
+          ? toDateOnlyISO(new Date(task.scheduledDate))
+          : null,
         proposedStart: toDateOnlyISO(proposedStart),
         proposedFinish: toDateOnlyISO(proposedFinish),
         durationDays,
         isCritical: criticalIds.has(task.id),
-      }
+        blocked: false,
+        blockedReason: null,
+        preservedExisting: hasExistingSchedule,
+      } satisfies ScheduleProposalRow
     })
-    .filter((r): r is ScheduleProposalRow => r != null)
-    .sort((a, b) => a.proposedStart.localeCompare(b.proposedStart))
+    .sort((a, b) => {
+      const as = a.proposedStart ?? "9999"
+      const bs = b.proposedStart ?? "9999"
+      return as.localeCompare(bs)
+    })
 
-  const proposedStarts = rows.map((r) => new Date(r.proposedStart))
+  const blockedCount = rows.filter((r) => r.blocked).length
+  const datedRows = rows.filter((r) => r.proposedStart && !r.blocked)
+  if (blockedCount > 0) {
+    warnings.push(
+      `${blockedCount} task${blockedCount === 1 ? "" : "s"} blocked by unscheduled dependency or missing dates.`
+    )
+  }
+
+  const proposedStarts = datedRows.map((r) => new Date(r.proposedStart!))
   const proposedFirstDate =
     proposedStarts.length > 0
       ? toDateOnlyISO(
@@ -246,8 +387,13 @@ export function buildSchedulePreview(params: {
         )
       : null
 
+  const finishDates = datedRows
+    .map((r) => (r.proposedFinish ? new Date(r.proposedFinish) : null))
+    .filter((d): d is Date => d != null)
   const proposedCompletionDate =
-    rows.length > 0 && cpm.forecastDate ? toDateOnlyISO(cpm.forecastDate) : null
+    finishDates.length > 0
+      ? toDateOnlyISO(finishDates.reduce((max, d) => (d > max ? d : max), finishDates[0]!))
+      : null
 
   const totalWorkingDays =
     proposedFirstDate && proposedCompletionDate
@@ -259,15 +405,19 @@ export function buildSchedulePreview(params: {
     modeLabel,
     respectExistingScheduledDates,
     scheduleBehaviorLabel,
+    category,
+    categoryLabel,
     anchorDate: toDateOnlyISO(anchor),
-    proposedCount: rows.length,
+    proposedCount: datedRows.length,
+    blockedCount,
     completedSkipped,
     proposedFirstDate,
     proposedCompletionDate,
     totalWorkingDays,
     rows,
-    warnings: cpm.warnings,
+    warnings,
     hasCycle: false,
+    sourceFingerprint,
   }
 }
 
@@ -276,11 +426,12 @@ export function proposalsToScheduledDates(
 ): Array<{ taskId: string; scheduledDate: Date }> {
   return preview.rows
     .filter((row) => {
+      if (row.blocked || !row.proposedStart) return false
       if (!preview.respectExistingScheduledDates) return true
       return row.currentScheduledDate == null
     })
     .map((row) => ({
       taskId: row.taskId,
-      scheduledDate: startOfDay(new Date(row.proposedStart)),
+      scheduledDate: startOfDay(new Date(row.proposedStart!)),
     }))
 }

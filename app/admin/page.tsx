@@ -18,6 +18,7 @@ import { CreateUserDialog } from "@/components/create-user-dialog"
 import { InviteDeliveryFields } from "@/components/invites/invite-delivery-fields"
 import { EditUserDialog } from "@/components/edit-user-dialog"
 import { ImportHomesDialog } from "@/components/import-homes-dialog"
+import { BatchGenerateSchedulesDialog } from "@/components/homes/batch-generate-schedules-dialog"
 import { SettingsNav } from "@/components/settings-nav"
 import { Plus, Trash2, Upload, Edit2, Check, X, ArrowLeft, ChevronRight, Lock, Settings, GitBranch, FileText, Mail, Palette, Search, FileSpreadsheet, GanttChart, Link2, Printer } from "lucide-react"
 import { TemplateSummaryCard } from "@/components/template-summary-card"
@@ -264,6 +265,7 @@ export default function AdminPage() {
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [thumbnailDeleting, setThumbnailDeleting] = useState(false)
   const [importHomesOpen, setImportHomesOpen] = useState(false)
+  const [batchGenerateOpen, setBatchGenerateOpen] = useState(false)
   const [resendInviteUserId, setResendInviteUserId] = useState<string | null>(null)
   const resendInviteInProgressRef = useRef(false)
   const [manualInviteOpen, setManualInviteOpen] = useState(false)
@@ -1736,6 +1738,19 @@ export default function AdminPage() {
                     <Upload className="h-4 w-4 mr-1" />
                     Import from Excel
                   </Button>
+                  {selectedSubdivisionHomes.length > 0 &&
+                    (session?.user?.role === "Admin" ||
+                      session?.user?.role === "Manager" ||
+                      session?.user?.role === "Superintendent") && (
+                      <Button
+                        onClick={() => setBatchGenerateOpen(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <GanttChart className="h-4 w-4 mr-1" />
+                        Generate Schedules
+                      </Button>
+                    )}
                 </div>
 
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3896,6 +3911,22 @@ export default function AdminPage() {
                 onSuccess={handleRefresh}
                 subdivisionId={selectedSubdivisionId}
                 subdivisionName={selectedSubdivision.name}
+              />
+              <BatchGenerateSchedulesDialog
+                open={batchGenerateOpen}
+                onOpenChange={setBatchGenerateOpen}
+                subdivisionId={selectedSubdivisionId}
+                subdivisionName={selectedSubdivision.name}
+                homes={selectedSubdivisionHomes.map((h) => ({
+                  id: h.id,
+                  addressOrLot: h.addressOrLot,
+                }))}
+                canGenerate={
+                  session?.user?.role === "Admin" ||
+                  session?.user?.role === "Manager" ||
+                  session?.user?.role === "Superintendent"
+                }
+                onApplied={handleRefresh}
               />
             )}
       </div>

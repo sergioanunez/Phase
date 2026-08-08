@@ -23,10 +23,11 @@ type PreviewRow = {
   contractorName: string | null
   status: string
   currentScheduledDate: string | null
-  proposedStart: string
-  proposedFinish: string
+  proposedStart: string | null
+  proposedFinish: string | null
   durationDays: number
   isCritical: boolean
+  blocked?: boolean
 }
 
 type SchedulePreview = {
@@ -63,7 +64,8 @@ function formatDisplayDate(iso: string | null | undefined): string {
   return format(new Date(iso), "MMM d, yyyy")
 }
 
-function datesDiffer(current: string | null, proposed: string): boolean {
+function datesDiffer(current: string | null, proposed: string | null): boolean {
+  if (!proposed) return false
   if (!current) return true
   return current.slice(0, 10) !== proposed.slice(0, 10)
 }
