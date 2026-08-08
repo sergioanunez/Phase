@@ -3905,29 +3905,31 @@ export default function AdminPage() {
               </DialogContent>
             </Dialog>
             {selectedSubdivisionId && selectedSubdivision && (
-              <ImportHomesDialog
-                open={importHomesOpen}
-                onOpenChange={setImportHomesOpen}
-                onSuccess={handleRefresh}
-                subdivisionId={selectedSubdivisionId}
-                subdivisionName={selectedSubdivision.name}
-              />
-              <BatchGenerateSchedulesDialog
-                open={batchGenerateOpen}
-                onOpenChange={setBatchGenerateOpen}
-                subdivisionId={selectedSubdivisionId}
-                subdivisionName={selectedSubdivision.name}
-                homes={selectedSubdivisionHomes.map((h) => ({
-                  id: h.id,
-                  addressOrLot: h.addressOrLot,
-                }))}
-                canGenerate={
-                  session?.user?.role === "Admin" ||
-                  session?.user?.role === "Manager" ||
-                  session?.user?.role === "Superintendent"
-                }
-                onApplied={handleRefresh}
-              />
+              <>
+                <ImportHomesDialog
+                  open={importHomesOpen}
+                  onOpenChange={setImportHomesOpen}
+                  onSuccess={handleRefresh}
+                  subdivisionId={selectedSubdivisionId}
+                  subdivisionName={selectedSubdivision.name}
+                />
+                <BatchGenerateSchedulesDialog
+                  open={batchGenerateOpen}
+                  onOpenChange={setBatchGenerateOpen}
+                  subdivisionId={selectedSubdivisionId}
+                  subdivisionName={selectedSubdivision.name}
+                  homes={selectedSubdivisionHomes.map((h) => ({
+                    id: h.id,
+                    addressOrLot: h.addressOrLot,
+                  }))}
+                  canGenerate={
+                    session?.user?.role === "Admin" ||
+                    session?.user?.role === "Manager" ||
+                    session?.user?.role === "Superintendent"
+                  }
+                  onApplied={handleRefresh}
+                />
+              </>
             )}
       </div>
       {planViewerHome && (
