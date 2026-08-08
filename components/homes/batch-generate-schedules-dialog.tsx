@@ -14,6 +14,17 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import type { GenerateScheduleMode } from "@/lib/homes/generate-schedule"
+import { computeStaggeredAnchorDate } from "@/lib/homes/batch-generate-schedule"
+import {
+  canContinueBatchWizardStep1,
+  canContinueBatchWizardStep2,
+  canContinueBatchWizardStep3,
+  effectiveStaggerWorkingDays,
+  isStaggerIntervalValid,
+  wizardStepHelper,
+  wizardStepTitle,
+  type BatchWizardStep,
+} from "@/lib/homes/batch-generate-wizard"
 
 type CategoryOption = { id: string; name: string; itemCount: number }
 
@@ -83,6 +94,10 @@ function formatShortDate(iso: string | null | undefined): string {
   return format(new Date(iso), "MMM d")
 }
 
+function parseLocalDateInput(yyyyMmDd: string): Date {
+  return new Date(`${yyyyMmDd}T12:00:00`)
+}
+
 export function BatchGenerateSchedulesDialog({
   open,
   onOpenChange,
@@ -96,16 +111,17 @@ export function BatchGenerateSchedulesDialog({
   onOpenChange: (open: boolean) => void
   subdivisionId: string
   subdivisionName: string
-  /** Homes in saved display order */
   homes: BatchHomeOption[]
   canGenerate: boolean
   onApplied?: () => void
 }) {
+  const [step, setStep] = useState<BatchWizardStep>(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [orderedSelectedIds, setOrderedSelectedIds] = useState<string[]>([])
   const [baseAnchorDate, setBaseAnchorDate] = useState(format(new Date(), "yyyy-MM-dd"))
-  const [staggerWorkingDays, setStaggerWorkingDays] = useState(2)
-  const [customStagger, setCustomStagger] = useState("")
+  const [staggerEnabled, setStaggerEnabled] = useState(false)
+  const [staggerPreset, setStaggerPreset] = useState(2)
+  const [customStagger, setCustomStagger] = useState("2")
   const [staggerMode, setStaggerMode] = useState<"preset" | "custom">("preset")
   const [mode, setMode] = useState<GenerateScheduleMode>("critical")
   const [respectExisting, setRespectExisting] = useState(true)
@@ -119,16 +135,32 @@ export function BatchGenerateSchedulesDialog({
   const [error, setError] = useState<string | null>(null)
   const [applyOpen, setApplyOpen] = useState(false)
   const [resultMessage, setResultMessage] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+
+  const resetWizard = useCallback(() => {
+    const ids = homes.map((h) => h.id)
+    setStep(1)
+    setSelectedIds(ids)
+    setOrderedSelectedIds(ids)
+    setBaseAnchorDate(format(new Date(), "yyyy-MM-dd"))
+    setStaggerEnabled(false)
+    setStaggerPreset(2)
+    setCustomStagger("2")
+    setStaggerMode("preset")
+    setMode("critical")
+    setRespectExisting(true)
+    setCategoryScope("all")
+    setCategory("")
+    setPreview(null)
+    setExpandedHomeId(null)
+    setError(null)
+    setResultMessage(null)
+    setDirty(false)
+  }, [homes])
 
   useEffect(() => {
     if (!open) return
-    const ids = homes.map((h) => h.id)
-    setSelectedIds(ids)
-    setOrderedSelectedIds(ids)
-    setPreview(null)
-    setError(null)
-    setResultMessage(null)
-    setExpandedHomeId(null)
+    resetWizard()
     fetch("/api/settings/work-template-categories")
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: CategoryOption[]) =>
@@ -137,7 +169,7 @@ export function BatchGenerateSchedulesDialog({
         )
       )
       .catch(() => setCategories([]))
-  }, [open, homes])
+  }, [open, resetWizard])
 
   const homeById = useMemo(() => new Map(homes.map((h) => [h.id, h])), [homes])
 
@@ -146,12 +178,40 @@ export function BatchGenerateSchedulesDialog({
     [orderedSelectedIds, selectedIds]
   )
 
-  const effectiveStagger =
-    staggerMode === "custom"
-      ? Math.max(0, parseInt(customStagger || "0", 10) || 0)
-      : staggerWorkingDays
+  const staggerParams = {
+    staggerEnabled,
+    staggerMode,
+    staggerPreset,
+    customStagger,
+  }
+  const staggerDays = effectiveStaggerWorkingDays(staggerParams)
+
+  const liveStaggerPreview = useMemo(() => {
+    if (!canContinueBatchWizardStep3(baseAnchorDate)) return []
+    const base = parseLocalDateInput(baseAnchorDate)
+    return orderedSelected.map((id, orderIndex) => {
+      const h = homeById.get(id)
+      const anchor = computeStaggeredAnchorDate(base, orderIndex, staggerDays)
+      return {
+        homeId: id,
+        addressOrLot: h?.addressOrLot ?? id,
+        orderIndex,
+        anchorDate: anchor.toISOString(),
+      }
+    })
+  }, [baseAnchorDate, orderedSelected, homeById, staggerDays])
+
+  const markDirty = () => setDirty(true)
+
+  const requestClose = () => {
+    if (dirty || preview) {
+      if (!confirm("Discard schedule setup?")) return
+    }
+    onOpenChange(false)
+  }
 
   const toggleHome = (id: string) => {
+    markDirty()
     setSelectedIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id)
       return [...prev, id]
@@ -161,6 +221,7 @@ export function BatchGenerateSchedulesDialog({
   }
 
   const selectAll = () => {
+    markDirty()
     const ids = homes.map((h) => h.id)
     setSelectedIds(ids)
     setOrderedSelectedIds(ids)
@@ -168,11 +229,13 @@ export function BatchGenerateSchedulesDialog({
   }
 
   const clearAll = () => {
+    markDirty()
     setSelectedIds([])
     setPreview(null)
   }
 
   const moveSelected = (id: string, dir: -1 | 1) => {
+    markDirty()
     setOrderedSelectedIds((prev) => {
       const list = prev.filter((x) => selectedIds.includes(x))
       const idx = list.indexOf(id)
@@ -181,19 +244,38 @@ export function BatchGenerateSchedulesDialog({
       if (j < 0 || j >= list.length) return prev
       const next = [...list]
       ;[next[idx], next[j]] = [next[j]!, next[idx]!]
-      // Keep unselected ids after
       const rest = prev.filter((x) => !selectedIds.includes(x))
       return [...next, ...rest]
     })
     setPreview(null)
   }
 
-  const handleGeneratePreview = async () => {
-    if (!canGenerate || orderedSelected.length === 0) return
-    if (categoryScope === "one" && !category) {
-      setError("Select a work-item category")
+  const canContinue =
+    step === 1
+      ? canContinueBatchWizardStep1(selectedIds.length)
+      : step === 2
+        ? canContinueBatchWizardStep2({ categoryScope, category })
+        : canContinueBatchWizardStep3(baseAnchorDate) &&
+          isStaggerIntervalValid(staggerParams)
+
+  const goNext = () => {
+    if (!canContinue) return
+    if (step === 1) setStep(2)
+    else if (step === 2) setStep(3)
+  }
+
+  const goBack = () => {
+    setError(null)
+    if (preview) {
+      setPreview(null)
       return
     }
+    if (step === 3) setStep(2)
+    else if (step === 2) setStep(1)
+  }
+
+  const handleGeneratePreview = async () => {
+    if (!canGenerate || !canContinue || orderedSelected.length === 0) return
     setLoading(true)
     setError(null)
     setResultMessage(null)
@@ -206,7 +288,7 @@ export function BatchGenerateSchedulesDialog({
           body: JSON.stringify({
             homeIds: orderedSelected,
             baseAnchorDate,
-            staggerWorkingDays: effectiveStagger,
+            staggerWorkingDays: staggerDays,
             mode,
             respectExistingScheduledDates: respectExisting,
             category: categoryScope === "one" ? category : null,
@@ -244,7 +326,7 @@ export function BatchGenerateSchedulesDialog({
           body: JSON.stringify({
             homeIds: orderedSelected,
             baseAnchorDate,
-            staggerWorkingDays: effectiveStagger,
+            staggerWorkingDays: staggerDays,
             mode,
             respectExistingScheduledDates: respectExisting,
             category: categoryScope === "one" ? category : null,
@@ -259,7 +341,10 @@ export function BatchGenerateSchedulesDialog({
       }
       setApplyOpen(false)
       setResultMessage(
-        `Schedules applied · ${data.appliedHomes} house${data.appliedHomes === 1 ? "" : "s"} · ${data.tasksUpdated} tasks · ${data.staggerWorkingDays}-day stagger`
+        `Schedules applied · ${data.appliedHomes} house${data.appliedHomes === 1 ? "" : "s"} · ${data.tasksUpdated} tasks` +
+          (staggerEnabled
+            ? ` · ${data.staggerWorkingDays}-day stagger`
+            : " · same start date")
       )
       const stale = (data.results ?? []).filter(
         (r: { status: string }) => r.status === "stale" || r.status === "error"
@@ -270,6 +355,7 @@ export function BatchGenerateSchedulesDialog({
         )
       }
       setPreview(null)
+      setDirty(false)
       onApplied?.()
     } catch {
       setError("Apply failed")
@@ -290,36 +376,89 @@ export function BatchGenerateSchedulesDialog({
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }, [preview, subdivisionName])
 
+  const workLabel =
+    categoryScope === "one" && category ? category : "All categories"
+  const scopeLabel =
+    mode === "critical" ? "Critical tasks only" : "All remaining tasks"
+
+  const showingPreview = preview != null
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex h-[min(92vh,900px)] w-full max-w-[min(56rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0">
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) requestClose()
+          else onOpenChange(true)
+        }}
+      >
+        <DialogContent className="flex h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(92vh,900px)] sm:max-w-[min(40rem,calc(100vw-1.5rem))] sm:rounded-xl sm:border">
           <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
             <div className="flex items-start justify-between gap-2">
-              <div>
-                <DialogTitle>Generate Schedules</DialogTitle>
-                <DialogDescription>
-                  {subdivisionName} · configure → preview → apply
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {showingPreview
+                    ? "Preview"
+                    : `Step ${step} of 3 · ${subdivisionName}`}
+                </p>
+                <DialogTitle className="text-lg">
+                  {showingPreview
+                    ? "Batch Schedule Preview"
+                    : wizardStepTitle(step)}
+                </DialogTitle>
+                <DialogDescription className="text-sm">
+                  {showingPreview
+                    ? `${preview.houseCount} houses · ${preview.categoryLabel} · ${preview.modeLabel} · ${
+                        preview.staggerWorkingDays > 0
+                          ? `${preview.staggerWorkingDays} working-day stagger`
+                          : "Same start date"
+                      }`
+                    : wizardStepHelper(step)}
                 </DialogDescription>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => onOpenChange(false)}
+                className="h-8 w-8 shrink-0 p-0"
+                onClick={requestClose}
+                aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
+
+            {!showingPreview && (
+              <ol className="mt-3 flex gap-1.5">
+                {(
+                  [
+                    [1, "Houses"],
+                    [2, "Work"],
+                    [3, "Start Dates"],
+                  ] as const
+                ).map(([n, label]) => (
+                  <li
+                    key={n}
+                    className={cn(
+                      "flex-1 rounded-full px-2 py-1 text-center text-[11px] font-medium",
+                      step === n
+                        ? "bg-primary text-primary-foreground"
+                        : step > n
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {n}. {label}
+                  </li>
+                ))}
+              </ol>
+            )}
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
-            {/* Step 1 — houses */}
-            <section className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">1. Select houses</h3>
-                <div className="flex gap-2">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+            {!showingPreview && step === 1 && (
+              <section className="space-y-3">
+                <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="outline" onClick={selectAll}>
                     Select All
                   </Button>
@@ -327,15 +466,12 @@ export function BatchGenerateSchedulesDialog({
                     Clear All
                   </Button>
                 </div>
-              </div>
-              <ul className="divide-y divide-border rounded-lg border border-border">
-                {homes.map((h) => {
-                  const checked = selectedIds.includes(h.id)
-                  return (
+                <ul className="divide-y divide-border rounded-lg border border-border">
+                  {homes.map((h) => (
                     <li key={h.id} className="flex items-center gap-3 px-3 py-2.5">
                       <input
                         type="checkbox"
-                        checked={checked}
+                        checked={selectedIds.includes(h.id)}
                         onChange={() => toggleHome(h.id)}
                         className="h-4 w-4"
                       />
@@ -346,242 +482,304 @@ export function BatchGenerateSchedulesDialog({
                         ) : null}
                       </div>
                     </li>
-                  )
-                })}
-              </ul>
-            </section>
+                  ))}
+                </ul>
 
-            {/* Session order */}
-            {orderedSelected.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold">House order (for stagger)</h3>
-                <p className="text-xs text-muted-foreground">
-                  Session order only — does not change the subdivision’s saved sequence.
-                </p>
-                <ol className="space-y-1.5">
-                  {orderedSelected.map((id, index) => {
-                    const h = homeById.get(id)
-                    if (!h) return null
-                    return (
-                      <li
-                        key={id}
-                        className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5"
-                      >
-                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                        <span className="w-6 text-xs text-muted-foreground">{index + 1}.</span>
-                        <span className="min-w-0 flex-1 truncate text-sm">{h.addressOrLot}</span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          disabled={index === 0}
-                          onClick={() => moveSelected(id, -1)}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          disabled={index === orderedSelected.length - 1}
-                          onClick={() => moveSelected(id, 1)}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </li>
-                    )
-                  })}
-                </ol>
+                {orderedSelected.length > 1 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Order for stagger</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Session order only — does not change the subdivision’s saved sequence.
+                    </p>
+                    <ol className="space-y-1.5">
+                      {orderedSelected.map((id, index) => {
+                        const h = homeById.get(id)
+                        if (!h) return null
+                        return (
+                          <li
+                            key={id}
+                            className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5"
+                          >
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <span className="w-6 text-xs text-muted-foreground">
+                              {index + 1}.
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm">
+                              {h.addressOrLot}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              disabled={index === 0}
+                              onClick={() => moveSelected(id, -1)}
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              disabled={index === orderedSelected.length - 1}
+                              onClick={() => moveSelected(id, 1)}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  </div>
+                )}
               </section>
             )}
 
-            {/* Config */}
-            <section className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-semibold">2. First house starts</label>
-                <input
-                  type="date"
-                  value={baseAnchorDate}
-                  onChange={(e) => {
-                    setBaseAnchorDate(e.target.value)
-                    setPreview(null)
-                  }}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold">
-                  3. Stagger house starts by
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[0, 1, 2, 3].map((n) => (
-                    <Button
-                      key={n}
-                      type="button"
-                      size="sm"
-                      variant={
-                        staggerMode === "preset" && staggerWorkingDays === n
-                          ? "default"
-                          : "outline"
-                      }
-                      onClick={() => {
-                        setStaggerMode("preset")
-                        setStaggerWorkingDays(n)
-                        setPreview(null)
+            {!showingPreview && step === 2 && (
+              <section className="space-y-6">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Category</h3>
+                  <div className="flex flex-col gap-2 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={categoryScope === "all"}
+                        onChange={() => {
+                          markDirty()
+                          setCategoryScope("all")
+                        }}
+                      />
+                      All categories
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={categoryScope === "one"}
+                        onChange={() => {
+                          markDirty()
+                          setCategoryScope("one")
+                        }}
+                      />
+                      One category
+                    </label>
+                  </div>
+                  {categoryScope === "one" && (
+                    <select
+                      value={category}
+                      onChange={(e) => {
+                        markDirty()
+                        setCategory(e.target.value)
                       }}
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                     >
-                      {n} {n === 1 ? "day" : "days"}
-                    </Button>
-                  ))}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={staggerMode === "custom" ? "default" : "outline"}
-                    onClick={() => {
-                      setStaggerMode("custom")
-                      setPreview(null)
-                    }}
-                  >
-                    Custom
-                  </Button>
+                      <option value="">Select category…</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                {staggerMode === "custom" && (
-                  <input
-                    type="number"
-                    min={0}
-                    max={365}
-                    value={customStagger}
-                    onChange={(e) => {
-                      setCustomStagger(e.target.value)
-                      setPreview(null)
-                    }}
-                    placeholder="Working days"
-                    className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  />
-                )}
-              </div>
-            </section>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold">4. Work item category</h3>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={categoryScope === "all"}
-                    onChange={() => {
-                      setCategoryScope("all")
-                      setPreview(null)
-                    }}
-                  />
-                  All categories
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={categoryScope === "one"}
-                    onChange={() => {
-                      setCategoryScope("one")
-                      setPreview(null)
-                    }}
-                  />
-                  One category
-                </label>
-              </div>
-              {categoryScope === "one" && (
-                <select
-                  value={category}
-                  onChange={(e) => {
-                    setCategory(e.target.value)
-                    setPreview(null)
-                  }}
-                  className="w-full max-w-md rounded-lg border border-border px-3 py-2 text-sm"
-                >
-                  <option value="">Select category…</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </section>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Task scope</h3>
+                  <div className="flex flex-col gap-2 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={mode === "critical"}
+                        onChange={() => {
+                          markDirty()
+                          setMode("critical")
+                        }}
+                      />
+                      Critical tasks only
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={mode === "all"}
+                        onChange={() => {
+                          markDirty()
+                          setMode("all")
+                        }}
+                      />
+                      All remaining tasks
+                    </label>
+                  </div>
+                </div>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold">5. Task scope</h3>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={mode === "critical"}
-                    onChange={() => {
-                      setMode("critical")
-                      setPreview(null)
-                    }}
-                  />
-                  Critical tasks only
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={mode === "all"}
-                    onChange={() => {
-                      setMode("all")
-                      setPreview(null)
-                    }}
-                  />
-                  All remaining tasks
-                </label>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={respectExisting}
-                  onChange={(e) => {
-                    setRespectExisting(e.target.checked)
-                    setPreview(null)
-                  }}
-                />
-                Respect existing scheduled dates
-              </label>
-            </section>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                disabled={!canGenerate || loading || orderedSelected.length === 0}
-                onClick={() => void handleGeneratePreview()}
-              >
-                {loading ? "Generating schedules…" : "Generate Preview"}
-              </Button>
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {resultMessage && (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-                {resultMessage}
-              </p>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Existing dates</h3>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={respectExisting}
+                      onChange={(e) => {
+                        markDirty()
+                        setRespectExisting(e.target.checked)
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium">Respect existing scheduled dates</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Keep dates that are already scheduled and generate only the remaining
+                        eligible work. When off, only regenerate dates within the selected
+                        category/task scope. Completed and N/A tasks are never changed.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </section>
             )}
 
-            {preview && (
-              <section className="space-y-4 border-t border-border pt-4">
+            {!showingPreview && step === 3 && (
+              <section className="space-y-5">
                 <div>
-                  <h3 className="text-base font-semibold">Batch Schedule Preview</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {preview.houseCount} houses · {preview.staggerWorkingDays} working-day
-                    stagger · {preview.categoryLabel} · {preview.modeLabel}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    <span className="text-emerald-700">✓ {preview.readyCount} ready</span>
-                    {preview.reviewCount > 0 ? (
-                      <span className="ml-3 text-amber-700">
-                        ⚠ {preview.reviewCount} require review
+                  <label className="mb-1 block text-sm font-semibold">
+                    First house starts
+                  </label>
+                  <input
+                    type="date"
+                    value={baseAnchorDate}
+                    onChange={(e) => {
+                      markDirty()
+                      setBaseAnchorDate(e.target.value)
+                      setPreview(null)
+                    }}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={staggerEnabled}
+                      onChange={(e) => {
+                        markDirty()
+                        setStaggerEnabled(e.target.checked)
+                        setPreview(null)
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium">Stagger house starts</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Start each house a few working days after the previous one.
                       </span>
-                    ) : null}
+                    </span>
+                  </label>
+
+                  {staggerEnabled && (
+                    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                      <p className="text-sm font-medium">Days between house starts</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[1, 2, 3].map((n) => (
+                          <Button
+                            key={n}
+                            type="button"
+                            size="sm"
+                            variant={
+                              staggerMode === "preset" && staggerPreset === n
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => {
+                              markDirty()
+                              setStaggerMode("preset")
+                              setStaggerPreset(n)
+                              setPreview(null)
+                            }}
+                          >
+                            {n} {n === 1 ? "working day" : "working days"}
+                          </Button>
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={staggerMode === "custom" ? "default" : "outline"}
+                          onClick={() => {
+                            markDirty()
+                            setStaggerMode("custom")
+                            setPreview(null)
+                          }}
+                        >
+                          Custom
+                        </Button>
+                      </div>
+                      {staggerMode === "custom" && (
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={customStagger}
+                          onChange={(e) => {
+                            markDirty()
+                            setCustomStagger(e.target.value)
+                            setPreview(null)
+                          }}
+                          placeholder="Working days"
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
+                        />
+                      )}
+
+                      {liveStaggerPreview.length > 0 &&
+                        isStaggerIntervalValid(staggerParams) && (
+                          <ul className="mt-2 space-y-1 border-t border-border pt-2 text-sm">
+                            {liveStaggerPreview.map((row) => (
+                              <li
+                                key={row.homeId}
+                                className="flex justify-between gap-3"
+                              >
+                                <span className="truncate">{row.addressOrLot}</span>
+                                <span className="shrink-0 text-muted-foreground">
+                                  {formatShortDate(row.anchorDate)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-sm">
+                  <p className="font-semibold">
+                    {orderedSelected.length} house
+                    {orderedSelected.length === 1 ? "" : "s"}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    {workLabel}
+                    <br />
+                    {scopeLabel}
+                    <br />
+                    {respectExisting
+                      ? "Respect existing dates"
+                      : "Recalculate eligible dates"}
+                  </p>
+                  <p className="mt-2">
+                    {staggerEnabled && isStaggerIntervalValid(staggerParams)
+                      ? `Starts ${formatShortDate(baseAnchorDate + "T12:00:00")} · ${staggerDays}-day stagger`
+                      : `All start ${formatShortDate(baseAnchorDate + "T12:00:00")}`}
                   </p>
                 </div>
+              </section>
+            )}
+
+            {showingPreview && (
+              <section className="space-y-4">
+                <p className="text-sm">
+                  <span className="text-emerald-700">✓ {preview.readyCount} ready</span>
+                  {preview.reviewCount > 0 ? (
+                    <span className="ml-3 text-amber-700">
+                      ⚠ {preview.reviewCount} require review
+                    </span>
+                  ) : null}
+                </p>
 
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-sm">
@@ -615,20 +813,22 @@ export function BatchGenerateSchedulesDialog({
 
                 <ul className="space-y-2">
                   {preview.homes.map((h) => {
-                    const open = expandedHomeId === h.homeId
+                    const openRow = expandedHomeId === h.homeId
                     return (
                       <li
                         key={h.homeId}
                         className={cn(
                           "rounded-lg border px-3 py-2",
-                          h.needsReview ? "border-amber-300 bg-amber-50/40" : "border-border"
+                          h.needsReview
+                            ? "border-amber-300 bg-amber-50/40"
+                            : "border-border"
                         )}
                       >
                         <button
                           type="button"
                           className="flex w-full items-start justify-between gap-2 text-left"
                           onClick={() =>
-                            setExpandedHomeId(open ? null : h.homeId)
+                            setExpandedHomeId(openRow ? null : h.homeId)
                           }
                         >
                           <div>
@@ -636,25 +836,17 @@ export function BatchGenerateSchedulesDialog({
                             <p className="text-xs text-muted-foreground">
                               Anchor: {formatDisplayDate(h.anchorDate)} ·{" "}
                               {h.preview.proposedCount} tasks proposed
-                              {h.preview.proposedCompletionDate
-                                ? ` · finish ${formatShortDate(h.preview.proposedCompletionDate)}`
-                                : ""}
-                              {h.preview.blockedCount > 0
-                                ? ` · ${h.preview.blockedCount} blocked`
-                                : ""}
+                              {h.preview.error ? ` · ${h.preview.error}` : ""}
                             </p>
-                            {h.preview.error ? (
-                              <p className="text-xs text-destructive">{h.preview.error}</p>
-                            ) : null}
                           </div>
                           <ChevronDown
                             className={cn(
                               "h-4 w-4 shrink-0 transition-transform",
-                              open && "rotate-180"
+                              openRow && "rotate-180"
                             )}
                           />
                         </button>
-                        {open && (
+                        {openRow && (
                           <div className="mt-2 overflow-x-auto">
                             <table className="w-full text-xs">
                               <thead className="text-muted-foreground">
@@ -667,11 +859,11 @@ export function BatchGenerateSchedulesDialog({
                               </thead>
                               <tbody>
                                 {h.preview.rows.map((row) => (
-                                  <tr key={row.taskId} className="border-t border-border/60">
-                                    <td className="p-1">
-                                      {row.taskName}
-                                      {row.isCritical ? " · Critical" : ""}
-                                    </td>
+                                  <tr
+                                    key={row.taskId}
+                                    className="border-t border-border/60"
+                                  >
+                                    <td className="p-1">{row.taskName}</td>
                                     <td className="p-1">
                                       {formatShortDate(row.currentScheduledDate)}
                                     </td>
@@ -697,25 +889,63 @@ export function BatchGenerateSchedulesDialog({
                     )
                   })}
                 </ul>
-
-                <div className="flex flex-wrap gap-2 pb-2">
-                  <Button
-                    type="button"
-                    disabled={preview.totalApplyTasks === 0 || applying}
-                    onClick={() => setApplyOpen(true)}
-                  >
-                    Apply Schedules
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleExportPdf}
-                  >
-                    Print / Export PDF
-                  </Button>
-                </div>
               </section>
             )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {resultMessage && (
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                {resultMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-border px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={
+                  showingPreview || step > 1 ? goBack : requestClose
+                }
+              >
+                {showingPreview || step > 1 ? "Back" : "Cancel"}
+              </Button>
+
+              <div className="flex flex-wrap gap-2">
+                {showingPreview ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={handleExportPdf}>
+                      Print / Export PDF
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={preview.totalApplyTasks === 0 || applying}
+                      onClick={() => setApplyOpen(true)}
+                    >
+                      Apply Schedules
+                    </Button>
+                  </>
+                ) : step < 3 ? (
+                  <Button type="button" disabled={!canContinue} onClick={goNext}>
+                    Continue
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={
+                      !canGenerate ||
+                      !canContinue ||
+                      loading ||
+                      orderedSelected.length === 0
+                    }
+                    onClick={() => void handleGeneratePreview()}
+                  >
+                    {loading ? "Generating schedules…" : "Generate Preview"}
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -730,7 +960,9 @@ export function BatchGenerateSchedulesDialog({
               <br />
               Category: {preview?.categoryLabel}
               <br />
-              Stagger: {preview?.staggerWorkingDays} working days
+              {preview && preview.staggerWorkingDays > 0
+                ? `Stagger: ${preview.staggerWorkingDays} working days`
+                : "Same start date"}
               <br />
               Tasks affected: {preview?.totalApplyTasks}
             </DialogDescription>
@@ -778,7 +1010,7 @@ function buildBatchExportHtml(preview: BatchPreview, subdivisionName: string): s
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Batch Schedule</title>
   <style>
     body{font-family:system-ui,sans-serif;margin:24px;font-size:12px;color:#111}
-    h1{font-size:20px;margin:0 0 8px} h2{font-size:14px;margin:20px 0 6px;page-break-before:auto}
+    h1{font-size:20px;margin:0 0 8px} h2{font-size:14px;margin:20px 0 6px}
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}
     th{background:#f3f3f3}
@@ -791,8 +1023,12 @@ function buildBatchExportHtml(preview: BatchPreview, subdivisionName: string): s
     <div>Generated: ${generatedAt}</div>
     <div>Category: ${escapeHtml(preview.categoryLabel)}</div>
     <div>Mode: ${escapeHtml(preview.modeLabel)}</div>
-    <div>Stagger: ${preview.staggerWorkingDays} working days</div>
-    <div>${preview.scheduleBehaviorLabel}</div>
+    <div>${
+      preview.staggerWorkingDays > 0
+        ? `Stagger: ${preview.staggerWorkingDays} working days`
+        : "Same start date"
+    }</div>
+    <div>${escapeHtml(preview.scheduleBehaviorLabel)}</div>
   </div>
   ${sections}
   <script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});</script>
