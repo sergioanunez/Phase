@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { format } from "date-fns"
-import { ChevronDown, ChevronUp, GripVertical, X } from "lucide-react"
+import { ChevronDown, ChevronUp, GripVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -395,38 +395,26 @@ export function BatchGenerateSchedulesDialog({
       >
         <DialogContent className="flex h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(92vh,900px)] sm:max-w-[min(40rem,calc(100vw-1.5rem))] sm:rounded-xl sm:border">
           <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {showingPreview
-                    ? "Preview"
-                    : `Step ${step} of 3 · ${subdivisionName}`}
-                </p>
-                <DialogTitle className="text-lg">
-                  {showingPreview
-                    ? "Batch Schedule Preview"
-                    : wizardStepTitle(step)}
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  {showingPreview
-                    ? `${preview.houseCount} houses · ${preview.categoryLabel} · ${preview.modeLabel} · ${
-                        preview.staggerWorkingDays > 0
-                          ? `${preview.staggerWorkingDays} working-day stagger`
-                          : "Same start date"
-                      }`
-                    : wizardStepHelper(step)}
-                </DialogDescription>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 shrink-0 p-0"
-                onClick={requestClose}
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <div className="min-w-0 pr-8">
+              <p className="text-xs font-medium text-muted-foreground">
+                {showingPreview
+                  ? "Preview"
+                  : `Step ${step} of 3 · ${subdivisionName}`}
+              </p>
+              <DialogTitle className="text-lg">
+                {showingPreview
+                  ? "Batch Schedule Preview"
+                  : wizardStepTitle(step)}
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                {showingPreview
+                  ? `${preview.houseCount} houses · ${preview.categoryLabel} · ${preview.modeLabel} · ${
+                      preview.staggerWorkingDays > 0
+                        ? `${preview.staggerWorkingDays} working-day stagger`
+                        : "Same start date"
+                    }`
+                  : wizardStepHelper(step)}
+              </DialogDescription>
             </div>
 
             {!showingPreview && (
