@@ -485,55 +485,6 @@ export function BatchGenerateSchedulesDialog({
                     </li>
                   ))}
                 </ul>
-
-                {orderedSelected.length > 1 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Order for stagger</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Session order only — does not change the subdivision’s saved sequence.
-                    </p>
-                    <ol className="space-y-1.5">
-                      {orderedSelected.map((id, index) => {
-                        const h = homeById.get(id)
-                        if (!h) return null
-                        return (
-                          <li
-                            key={id}
-                            className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5"
-                          >
-                            <GripVertical className="h-4 w-4 text-muted-foreground" />
-                            <span className="w-6 text-xs text-muted-foreground">
-                              {index + 1}.
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm">
-                              {h.addressOrLot}
-                            </span>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              disabled={index === 0}
-                              onClick={() => moveSelected(id, -1)}
-                            >
-                              <ChevronUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              disabled={index === orderedSelected.length - 1}
-                              onClick={() => moveSelected(id, 1)}
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                          </li>
-                        )
-                      })}
-                    </ol>
-                  </div>
-                )}
               </section>
             )}
 
@@ -676,61 +627,113 @@ export function BatchGenerateSchedulesDialog({
                   </label>
 
                   {staggerEnabled && (
-                    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
-                      <p className="text-sm font-medium">Days between house starts</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[1, 2, 3].map((n) => (
+                    <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-3">
+                      {orderedSelected.length > 1 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Order for stagger</p>
+                          <p className="text-xs text-muted-foreground">
+                            First house starts on the date above. Session order only —
+                            does not change the subdivision’s saved sequence.
+                          </p>
+                          <ol className="space-y-1.5">
+                            {orderedSelected.map((id, index) => {
+                              const h = homeById.get(id)
+                              if (!h) return null
+                              return (
+                                <li
+                                  key={id}
+                                  className="flex items-center gap-2 rounded-md border border-border bg-white px-2 py-1.5"
+                                >
+                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  <span className="w-6 text-xs text-muted-foreground">
+                                    {index + 1}.
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-sm">
+                                    {h.addressOrLot}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    disabled={index === 0}
+                                    onClick={() => moveSelected(id, -1)}
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    disabled={index === orderedSelected.length - 1}
+                                    onClick={() => moveSelected(id, 1)}
+                                  >
+                                    <ChevronDown className="h-4 w-4" />
+                                  </Button>
+                                </li>
+                              )
+                            })}
+                          </ol>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Days between house starts</p>
+                        <div className="flex flex-wrap gap-2">
+                          {[1, 2, 3].map((n) => (
+                            <Button
+                              key={n}
+                              type="button"
+                              size="sm"
+                              variant={
+                                staggerMode === "preset" && staggerPreset === n
+                                  ? "default"
+                                  : "outline"
+                              }
+                              onClick={() => {
+                                markDirty()
+                                setStaggerMode("preset")
+                                setStaggerPreset(n)
+                                setPreview(null)
+                              }}
+                            >
+                              {n} {n === 1 ? "working day" : "working days"}
+                            </Button>
+                          ))}
                           <Button
-                            key={n}
                             type="button"
                             size="sm"
-                            variant={
-                              staggerMode === "preset" && staggerPreset === n
-                                ? "default"
-                                : "outline"
-                            }
+                            variant={staggerMode === "custom" ? "default" : "outline"}
                             onClick={() => {
                               markDirty()
-                              setStaggerMode("preset")
-                              setStaggerPreset(n)
+                              setStaggerMode("custom")
                               setPreview(null)
                             }}
                           >
-                            {n} {n === 1 ? "working day" : "working days"}
+                            Custom
                           </Button>
-                        ))}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={staggerMode === "custom" ? "default" : "outline"}
-                          onClick={() => {
-                            markDirty()
-                            setStaggerMode("custom")
-                            setPreview(null)
-                          }}
-                        >
-                          Custom
-                        </Button>
+                        </div>
+                        {staggerMode === "custom" && (
+                          <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={customStagger}
+                            onChange={(e) => {
+                              markDirty()
+                              setCustomStagger(e.target.value)
+                              setPreview(null)
+                            }}
+                            placeholder="Working days"
+                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
+                          />
+                        )}
                       </div>
-                      {staggerMode === "custom" && (
-                        <input
-                          type="number"
-                          min={1}
-                          max={365}
-                          value={customStagger}
-                          onChange={(e) => {
-                            markDirty()
-                            setCustomStagger(e.target.value)
-                            setPreview(null)
-                          }}
-                          placeholder="Working days"
-                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
-                        />
-                      )}
 
                       {liveStaggerPreview.length > 0 &&
                         isStaggerIntervalValid(staggerParams) && (
-                          <ul className="mt-2 space-y-1 border-t border-border pt-2 text-sm">
+                          <ul className="space-y-1 border-t border-border pt-2 text-sm">
                             {liveStaggerPreview.map((row) => (
                               <li
                                 key={row.homeId}
