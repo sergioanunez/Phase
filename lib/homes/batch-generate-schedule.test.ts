@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest"
-import {
-  buildBatchSchedulePreview,
-  computeStaggeredAnchorDate,
-} from "./batch-generate-schedule"
+import { buildBatchSchedulePreview } from "./batch-generate-schedule"
+import { computeStaggeredAnchorDate } from "./batch-generate-wizard"
 import {
   buildSchedulePreview,
   computeTasksFingerprint,

@@ -7,7 +7,7 @@ import {
   isStaggerIntervalValid,
   wizardStepTitle,
 } from "./batch-generate-wizard"
-import { computeStaggeredAnchorDate } from "./batch-generate-schedule"
+import { computeStaggeredAnchorDate } from "./batch-generate-wizard"
 
 describe("batch wizard step gates", () => {
   it("opens conceptually on step 1 (title)", () => {

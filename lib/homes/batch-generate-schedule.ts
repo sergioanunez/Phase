@@ -3,7 +3,7 @@
  * Stagger uses working days only (addWorkingDays).
  */
 
-import { addWorkingDays, normalizeToWorkingDay } from "@/lib/working-days"
+import { normalizeToWorkingDay } from "@/lib/working-days"
 import {
   buildSchedulePreview,
   proposalsToScheduledDates,
@@ -11,6 +11,9 @@ import {
   type GenerateSchedulePreview,
   type ScheduleTaskInput,
 } from "@/lib/homes/generate-schedule"
+import { computeStaggeredAnchorDate } from "@/lib/homes/batch-generate-wizard"
+
+export { computeStaggeredAnchorDate } from "@/lib/homes/batch-generate-wizard"
 
 export type BatchHouseInput = {
   homeId: string
@@ -58,18 +61,6 @@ function startOfDay(d: Date): Date {
 
 function toDateOnlyISO(d: Date): string {
   return startOfDay(d).toISOString()
-}
-
-/** Anchor for house at order index with working-day stagger from base. */
-export function computeStaggeredAnchorDate(
-  baseAnchorDate: Date,
-  orderIndex: number,
-  staggerWorkingDays: number
-): Date {
-  const base = normalizeToWorkingDay(startOfDay(baseAnchorDate))
-  const stagger = Math.max(0, Math.floor(staggerWorkingDays))
-  if (orderIndex <= 0 || stagger === 0) return base
-  return addWorkingDays(base, orderIndex * stagger)
 }
 
 export function buildBatchSchedulePreview(params: {

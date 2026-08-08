@@ -13,18 +13,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import type { GenerateScheduleMode } from "@/lib/homes/generate-schedule"
-import { computeStaggeredAnchorDate } from "@/lib/homes/batch-generate-schedule"
 import {
   canContinueBatchWizardStep1,
   canContinueBatchWizardStep2,
   canContinueBatchWizardStep3,
+  computeStaggeredAnchorDate,
   effectiveStaggerWorkingDays,
   isStaggerIntervalValid,
   wizardStepHelper,
   wizardStepTitle,
   type BatchWizardStep,
 } from "@/lib/homes/batch-generate-wizard"
+
+type GenerateScheduleMode = "critical" | "all"
 
 type CategoryOption = { id: string; name: string; itemCount: number }
 

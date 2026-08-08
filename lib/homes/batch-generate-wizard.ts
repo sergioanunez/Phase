@@ -1,9 +1,29 @@
 /**
  * Pure helpers for the Batch Schedule Generator wizard UX.
- * No scheduling engine changes — validation / stagger UI mapping only.
+ * Client-safe (no Node builtins). Validation / stagger UI mapping only.
  */
 
+import { addWorkingDays, normalizeToWorkingDay } from "@/lib/working-days"
+
 export type BatchWizardStep = 1 | 2 | 3
+
+function startOfDay(d: Date): Date {
+  const out = new Date(d)
+  out.setHours(0, 0, 0, 0)
+  return out
+}
+
+/** Anchor for house at order index with working-day stagger from base. */
+export function computeStaggeredAnchorDate(
+  baseAnchorDate: Date,
+  orderIndex: number,
+  staggerWorkingDays: number
+): Date {
+  const base = normalizeToWorkingDay(startOfDay(baseAnchorDate))
+  const stagger = Math.max(0, Math.floor(staggerWorkingDays))
+  if (orderIndex <= 0 || stagger === 0) return base
+  return addWorkingDays(base, orderIndex * stagger)
+}
 
 export function canContinueBatchWizardStep1(selectedHouseCount: number): boolean {
   return selectedHouseCount >= 1
