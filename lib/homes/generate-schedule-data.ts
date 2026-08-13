@@ -34,6 +34,7 @@ export async function loadHomeForScheduleGeneration(
           scheduledDate: true,
           completedAt: true,
           isCriticalPath: true,
+          contractorId: true,
           templateItem: {
             select: {
               optionalCategory: true,
@@ -59,6 +60,7 @@ export function mapTasksForScheduleGeneration(
     scheduledDate: t.scheduledDate,
     completedAt: t.completedAt,
     isCriticalPath: t.isCriticalPath,
+    contractorId: t.contractorId ?? null,
     templateItem: t.templateItem,
     contractor: t.contractor,
   }))

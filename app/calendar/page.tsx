@@ -20,6 +20,7 @@ import {
   SelectedContractorChip,
   type ContractorFilterOption,
 } from "@/components/calendar/contractor-filter"
+import { CalendarExportDialog } from "@/components/calendar/calendar-export-dialog"
 import { WeekHeaderCard } from "@/components/calendar/week-header-card"
 import { DayCard } from "@/components/calendar/day-card"
 import { MonthGrid } from "@/components/calendar/month-grid"
@@ -92,6 +93,7 @@ export default function CalendarPage() {
   const [contractorPickerOpen, setContractorPickerOpen] = useState(false)
   const [contractorOptions, setContractorOptions] = useState<ContractorFilterOption[]>([])
   const [contractorsLoading, setContractorsLoading] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const weekStart = useMemo(
     () => startOfWeek(weekAnchor, { weekStartsOn: 1 }),
@@ -270,11 +272,20 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-[#F6F7F9] pb-24 pt-20">
       <div className="app-container px-4">
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Where do you need to be — and what work is happening there?
-          </p>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Where do you need to be — and what work is happening there?
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="shrink-0 rounded-full border border-[#E6E8EF] bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-[#F6F7F9]"
+          >
+            Print / Export
+          </button>
         </div>
 
         <div className="sticky top-16 z-10 mb-4 flex flex-col rounded-2xl border border-[#E6E8EF] bg-[#F6F7F9] p-3 shadow-sm">
@@ -491,6 +502,13 @@ export default function CalendarPage() {
         loading={contractorsLoading}
         selectedId={contractorFilter?.id ?? null}
         onSelect={(c) => setContractorFilter(c)}
+      />
+
+      <CalendarExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        preselectedContractor={contractorFilter}
+        subdivisionId={communityFilter}
       />
     </div>
   )

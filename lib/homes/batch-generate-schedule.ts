@@ -41,6 +41,9 @@ export type BatchSchedulePreview = {
   modeLabel: string
   category: string | null
   categoryLabel: string
+  contractorId: string | null
+  contractorLabel: string | null
+  workScopeLabel: string
   respectExistingScheduledDates: boolean
   scheduleBehaviorLabel: string
   baseAnchorDate: string
@@ -71,6 +74,8 @@ export function buildBatchSchedulePreview(params: {
   mode: GenerateScheduleMode
   respectExistingScheduledDates?: boolean
   category?: string | null
+  contractorId?: string | null
+  contractorName?: string | null
 }): BatchSchedulePreview {
   const {
     housesInOrder,
@@ -79,8 +84,13 @@ export function buildBatchSchedulePreview(params: {
     staggerWorkingDays,
     mode,
     respectExistingScheduledDates = true,
-    category = null,
+    category: categoryParam = null,
+    contractorId: contractorIdParam = null,
+    contractorName = null,
   } = params
+
+  const contractorId = contractorIdParam || null
+  const category = contractorId ? null : categoryParam || null
 
   const homes: BatchHomePreviewResult[] = housesInOrder.map((house, orderIndex) => {
     const anchor = computeStaggeredAnchorDate(
@@ -96,6 +106,8 @@ export function buildBatchSchedulePreview(params: {
       mode,
       respectExistingScheduledDates,
       category,
+      contractorId,
+      contractorName,
     })
     const applyCount = proposalsToScheduledDates(preview).length
     const needsReview =
@@ -123,12 +135,19 @@ export function buildBatchSchedulePreview(params: {
   const totalProposedTasks = homes.reduce((n, h) => n + h.preview.proposedCount, 0)
   const totalApplyTasks = homes.reduce((n, h) => n + h.applyCount, 0)
   const first = homes[0]?.preview
+  const contractorLabel = first?.contractorLabel ?? (contractorId ? contractorName : null)
+  const workScopeLabel =
+    first?.workScopeLabel ??
+    (contractorLabel ? contractorLabel : category ? category : "All work")
 
   return {
     mode,
     modeLabel: first?.modeLabel ?? (mode === "critical" ? "Critical tasks only" : "All remaining tasks"),
     category,
     categoryLabel: category ? category : "All categories",
+    contractorId,
+    contractorLabel: contractorLabel ?? null,
+    workScopeLabel,
     respectExistingScheduledDates,
     scheduleBehaviorLabel:
       first?.scheduleBehaviorLabel ??

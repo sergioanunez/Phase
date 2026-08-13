@@ -75,6 +75,10 @@ export function ContractorPickerSheet({
   loading,
   selectedId,
   onSelect,
+  title = "Contractor",
+  showAllOption = true,
+  allOptionLabel = "All Contractors",
+  countSuffix = "tasks",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -82,6 +86,12 @@ export function ContractorPickerSheet({
   loading?: boolean
   selectedId: string | null
   onSelect: (contractor: ContractorFilterOption | null) => void
+  title?: string
+  /** When false, selection requires picking a contractor (no clear-all row). */
+  showAllOption?: boolean
+  allOptionLabel?: string
+  /** Shown after the numeric count, e.g. "tasks". Empty string hides the word. */
+  countSuffix?: string
 }) {
   const [query, setQuery] = useState("")
 
@@ -109,7 +119,7 @@ export function ContractorPickerSheet({
         )}
       >
         <DialogHeader className="border-b border-border px-4 py-3 text-left">
-          <DialogTitle className="text-base">Contractor</DialogTitle>
+          <DialogTitle className="text-base">{title}</DialogTitle>
         </DialogHeader>
 
         <div className="border-b border-border px-4 py-3">
@@ -131,21 +141,24 @@ export function ContractorPickerSheet({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => {
-              onSelect(null)
-              onOpenChange(false)
-            }}
-            className={cn(
-              "flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted/50",
-              !selectedId && "bg-primary/5 font-medium text-primary"
-            )}
-          >
-            <span>All Contractors</span>
-          </button>
-
-          <div className="mx-4 border-t border-border" />
+          {showAllOption ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(null)
+                  onOpenChange(false)
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted/50",
+                  !selectedId && "bg-primary/5 font-medium text-primary"
+                )}
+              >
+                <span>{allOptionLabel}</span>
+              </button>
+              <div className="mx-4 border-t border-border" />
+            </>
+          ) : null}
 
           {loading ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -175,6 +188,7 @@ export function ContractorPickerSheet({
                       <span className="min-w-0 truncate">{c.name}</span>
                       <span className="shrink-0 tabular-nums text-muted-foreground">
                         {c.taskCount}
+                        {countSuffix ? ` ${countSuffix}` : ""}
                       </span>
                     </button>
                   </li>

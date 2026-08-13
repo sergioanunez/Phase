@@ -21,16 +21,42 @@ describe("batch wizard step gates", () => {
 
   it("requires category when one-category scope selected", () => {
     expect(
-      canContinueBatchWizardStep2({ categoryScope: "one", category: "" })
+      canContinueBatchWizardStep2({
+        workScope: "category",
+        category: "",
+        contractorId: null,
+      })
     ).toBe(false)
     expect(
       canContinueBatchWizardStep2({
-        categoryScope: "one",
+        workScope: "category",
         category: "Foundation",
+        contractorId: null,
       })
     ).toBe(true)
     expect(
-      canContinueBatchWizardStep2({ categoryScope: "all", category: "" })
+      canContinueBatchWizardStep2({
+        workScope: "all",
+        category: "",
+        contractorId: null,
+      })
+    ).toBe(true)
+  })
+
+  it("requires contractor when contractor scope selected", () => {
+    expect(
+      canContinueBatchWizardStep2({
+        workScope: "contractor",
+        category: "",
+        contractorId: null,
+      })
+    ).toBe(false)
+    expect(
+      canContinueBatchWizardStep2({
+        workScope: "contractor",
+        category: "",
+        contractorId: "c1",
+      })
     ).toBe(true)
   })
 

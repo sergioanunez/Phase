@@ -19,11 +19,19 @@ export type ScheduleTaskInput = {
   scheduledDate: Date | null
   completedAt: Date | null
   isCriticalPath: boolean
+  /** Assigned trade for HomeTask; used by contractor-scoped generation. */
+  contractorId: string | null
   templateItem: {
     optionalCategory: string | null
     isCriticalGate: boolean
   } | null
   contractor: { companyName: string } | null
+}
+
+/** Category and contractor are alternative scopes for this milestone (not combined). */
+export type ScheduleGenerationScope = {
+  category?: string | null
+  contractorId?: string | null
 }
 
 export type ScheduleProposalRow = {
@@ -48,9 +56,15 @@ export type GenerateSchedulePreview = {
   modeLabel: string
   respectExistingScheduledDates: boolean
   scheduleBehaviorLabel: string
-  /** Tenant category name (optionalCategory), or null for all categories. */
+  /** Tenant category name (optionalCategory), or null when not category-scoped. */
   category: string | null
   categoryLabel: string
+  /** Selected contractor/trade id, or null when not contractor-scoped. */
+  contractorId: string | null
+  /** Display name for contractor scope (preview / print). */
+  contractorLabel: string | null
+  /** Human label for the active work scope (all / category / contractor). */
+  workScopeLabel: string
   anchorDate: string
   proposedCount: number
   blockedCount: number
@@ -92,6 +106,28 @@ export function taskMatchesCategory(
   return (task.templateItem?.optionalCategory ?? "") === category
 }
 
+export function taskMatchesContractor(
+  task: ScheduleTaskInput,
+  contractorId: string | null | undefined
+): boolean {
+  if (!contractorId) return true
+  return task.contractorId === contractorId
+}
+
+export function taskMatchesGenerationScope(
+  task: ScheduleTaskInput,
+  scope: ScheduleGenerationScope
+): boolean {
+  return (
+    taskMatchesCategory(task, scope.category) &&
+    taskMatchesContractor(task, scope.contractorId)
+  )
+}
+
+export function hasNarrowScheduleScope(scope: ScheduleGenerationScope): boolean {
+  return Boolean(scope.category) || Boolean(scope.contractorId)
+}
+
 /** Stable fingerprint of task schedule state for stale-preview checks. */
 export function computeTasksFingerprint(tasks: ScheduleTaskInput[]): string {
   const parts = [...tasks]
@@ -104,21 +140,26 @@ export function computeTasksFingerprint(tasks: ScheduleTaskInput[]): string {
 }
 
 /**
- * Direct incomplete predecessor outside the selected category with no scheduled date.
- * Category-scoped generation must not invent dates that ignore this blocker.
+ * Direct incomplete predecessor outside the selected scope with no scheduled date.
+ * Scoped generation must not invent dates that ignore this blocker.
+ * Does not schedule or mutate the external predecessor.
  */
 export function findUnscheduledExternalPredecessor(
   task: ScheduleTaskInput,
   tasksByTemplateItemId: Map<string, ScheduleTaskInput>,
   templateDeps: Array<{ templateItemId: string; dependsOnItemId: string }>,
-  category: string
+  scope: ScheduleGenerationScope | string
 ): ScheduleTaskInput | null {
+  const normalized: ScheduleGenerationScope =
+    typeof scope === "string" ? { category: scope } : scope
+  if (!hasNarrowScheduleScope(normalized)) return null
+
   const deps = templateDeps.filter((d) => d.templateItemId === task.templateItemId)
   for (const dep of deps) {
     const pred = tasksByTemplateItemId.get(dep.dependsOnItemId)
     if (!pred) continue
     if (!isScheduleTaskEligible(pred)) continue
-    if (taskMatchesCategory(pred, category)) continue
+    if (taskMatchesGenerationScope(pred, normalized)) continue
     if (pred.scheduledDate == null) return pred
   }
   return null
@@ -176,6 +217,10 @@ export function buildSchedulePreview(params: {
   respectExistingScheduledDates?: boolean
   /** When set, only propose dates for this optionalCategory; never alter other categories. */
   category?: string | null
+  /** When set, only propose dates for this contractor; never alter other trades. */
+  contractorId?: string | null
+  /** Display name when contractorId is set (preview / export labels). */
+  contractorName?: string | null
 }): GenerateSchedulePreview {
   const {
     home,
@@ -184,11 +229,29 @@ export function buildSchedulePreview(params: {
     anchorDate,
     mode,
     respectExistingScheduledDates = true,
-    category = null,
+    category: categoryParam = null,
+    contractorId: contractorIdParam = null,
+    contractorName = null,
   } = params
+
+  // Milestone: category and contractor are alternative scopes (not combined).
+  const contractorId = contractorIdParam || null
+  const category = contractorId ? null : categoryParam || null
+  const scope: ScheduleGenerationScope = { category, contractorId }
+
   const anchor = normalizeToWorkingDay(startOfDay(anchorDate))
   const modeLabel = mode === "critical" ? "Critical tasks only" : "All remaining tasks"
+  const contractorLabel = contractorId
+    ? contractorName?.trim() ||
+      tasks.find((t) => t.contractorId === contractorId)?.contractor?.companyName ||
+      "Selected contractor"
+    : null
   const categoryLabel = category ? category : "All categories"
+  const workScopeLabel = contractorLabel
+    ? contractorLabel
+    : category
+      ? category
+      : "All work"
   const scheduleBehaviorLabel = respectExistingScheduledDates
     ? "Respect existing scheduled dates"
     : "Recalculate all eligible tasks"
@@ -202,6 +265,9 @@ export function buildSchedulePreview(params: {
     scheduleBehaviorLabel,
     category,
     categoryLabel,
+    contractorId,
+    contractorLabel,
+    workScopeLabel,
     anchorDate: toDateOnlyISO(anchor),
     proposedCount: 0,
     blockedCount: 0,
@@ -221,18 +287,24 @@ export function buildSchedulePreview(params: {
     return emptyPreview({ error: "No remaining tasks to schedule." })
   }
 
-  const eligibleInCategory = eligible.filter((t) => taskMatchesCategory(t, category))
-  if (category && eligibleInCategory.length === 0) {
+  const eligibleInScope = eligible.filter((t) => taskMatchesGenerationScope(t, scope))
+  if (hasNarrowScheduleScope(scope) && eligibleInScope.length === 0) {
     return emptyPreview({
-      error: `No applicable tasks in category “${category}”.`,
-      warnings: [`House has no remaining work items in ${category}.`],
+      error: contractorId
+        ? `No applicable tasks for ${workScopeLabel}.`
+        : `No applicable tasks in category “${category}”.`,
+      warnings: [
+        contractorId
+          ? `House has no remaining work items assigned to ${workScopeLabel}.`
+          : `House has no remaining work items in ${category}.`,
+      ],
     })
   }
 
-  // Respect OFF only clears dates inside the selected generation scope (category or all).
+  // Respect OFF only clears dates inside the selected generation scope.
   const nodes = buildTaskNodesFromPrismaTasks(
     tasks.map((t) => {
-      const inScope = isScheduleTaskEligible(t) && taskMatchesCategory(t, category)
+      const inScope = isScheduleTaskEligible(t) && taskMatchesGenerationScope(t, scope)
       let scheduledDate = t.scheduledDate
       if (inScope) {
         if (respectExistingScheduledDates && t.scheduledDate) {
@@ -268,14 +340,16 @@ export function buildSchedulePreview(params: {
   const criticalIds = resolveCriticalTaskIds(tasks, cpm.criticalPathTaskIds)
   let targetTasks =
     mode === "critical" ? eligible.filter((t) => criticalIds.has(t.id)) : eligible
-  targetTasks = targetTasks.filter((t) => taskMatchesCategory(t, category))
+  targetTasks = targetTasks.filter((t) => taskMatchesGenerationScope(t, scope))
 
   if (mode === "critical" && targetTasks.length === 0) {
     return emptyPreview({
       warnings: cpm.warnings,
-      error: category
-        ? `No remaining critical tasks in “${category}”. Try All remaining tasks.`
-        : "No remaining critical tasks found. Try All remaining tasks.",
+      error: contractorId
+        ? `No remaining critical tasks for ${workScopeLabel}. Try All remaining tasks.`
+        : category
+          ? `No remaining critical tasks in “${category}”. Try All remaining tasks.`
+          : "No remaining critical tasks found. Try All remaining tasks.",
     })
   }
 
@@ -288,12 +362,12 @@ export function buildSchedulePreview(params: {
       const hasExistingSchedule =
         respectExistingScheduledDates && task.scheduledDate != null
 
-      if (category) {
+      if (hasNarrowScheduleScope(scope)) {
         const blocker = findUnscheduledExternalPredecessor(
           task,
           tasksByTemplateItemId,
           templateDeps,
-          category
+          scope
         )
         if (blocker && !hasExistingSchedule) {
           return {
@@ -407,6 +481,9 @@ export function buildSchedulePreview(params: {
     scheduleBehaviorLabel,
     category,
     categoryLabel,
+    contractorId,
+    contractorLabel,
+    workScopeLabel,
     anchorDate: toDateOnlyISO(anchor),
     proposedCount: datedRows.length,
     blockedCount,

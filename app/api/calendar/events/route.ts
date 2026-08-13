@@ -27,6 +27,8 @@ export interface CalendarEventPayload {
   homeLabel?: string
   contractorId?: string
   contractorName?: string
+  /** Working-day duration when present (tasks only); for export display. */
+  durationDays?: number
   status?: "on_track" | "at_risk" | "behind" | "completed" | "overdue"
 }
 
@@ -142,6 +144,7 @@ export async function GET(request: NextRequest) {
           homeLabel: task.home.addressOrLot,
           contractorId: task.contractorId ?? task.contractor?.id ?? undefined,
           contractorName: task.contractor?.companyName ?? undefined,
+          durationDays: task.durationDaysSnapshot ?? undefined,
           status: isCompleted
             ? ("completed" as const)
             : isOverdue

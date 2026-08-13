@@ -30,11 +30,15 @@ export function canContinueBatchWizardStep1(selectedHouseCount: number): boolean
 }
 
 export function canContinueBatchWizardStep2(params: {
-  categoryScope: "all" | "one"
+  workScope: "all" | "category" | "contractor"
   category: string
+  contractorId: string | null
 }): boolean {
-  if (params.categoryScope === "one") {
+  if (params.workScope === "category") {
     return params.category.trim().length > 0
+  }
+  if (params.workScope === "contractor") {
+    return Boolean(params.contractorId)
   }
   return true
 }
@@ -96,7 +100,7 @@ export function wizardStepHelper(step: BatchWizardStep): string {
     case 1:
       return "Choose the homes you want to generate schedules for."
     case 2:
-      return "Choose which part of the construction schedule Phase should generate."
+      return "Choose all work, one category, or one contractor / trade."
     case 3:
       return "Choose when the selected homes should begin."
   }

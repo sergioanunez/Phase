@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import {
+  ContractorPickerSheet,
+  type ContractorFilterOption,
+} from "@/components/calendar/contractor-filter"
+import {
   canContinueBatchWizardStep1,
   canContinueBatchWizardStep2,
   canContinueBatchWizardStep3,
@@ -26,6 +30,7 @@ import {
 } from "@/lib/homes/batch-generate-wizard"
 
 type GenerateScheduleMode = "critical" | "all"
+type WorkScope = "all" | "category" | "contractor"
 
 type CategoryOption = { id: string; name: string; itemCount: number }
 
@@ -66,6 +71,9 @@ type BatchPreview = {
   modeLabel: string
   category: string | null
   categoryLabel: string
+  contractorId: string | null
+  contractorLabel: string | null
+  workScopeLabel: string
   respectExistingScheduledDates: boolean
   scheduleBehaviorLabel: string
   baseAnchorDate: string
@@ -126,9 +134,14 @@ export function BatchGenerateSchedulesDialog({
   const [staggerMode, setStaggerMode] = useState<"preset" | "custom">("preset")
   const [mode, setMode] = useState<GenerateScheduleMode>("critical")
   const [respectExisting, setRespectExisting] = useState(true)
-  const [categoryScope, setCategoryScope] = useState<"all" | "one">("all")
+  const [workScope, setWorkScope] = useState<WorkScope>("all")
   const [category, setCategory] = useState("")
   const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [selectedContractor, setSelectedContractor] =
+    useState<ContractorFilterOption | null>(null)
+  const [contractorOptions, setContractorOptions] = useState<ContractorFilterOption[]>([])
+  const [contractorsLoading, setContractorsLoading] = useState(false)
+  const [contractorPickerOpen, setContractorPickerOpen] = useState(false)
   const [preview, setPreview] = useState<BatchPreview | null>(null)
   const [expandedHomeId, setExpandedHomeId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -150,8 +163,10 @@ export function BatchGenerateSchedulesDialog({
     setStaggerMode("preset")
     setMode("critical")
     setRespectExisting(true)
-    setCategoryScope("all")
+    setWorkScope("all")
     setCategory("")
+    setSelectedContractor(null)
+    setContractorOptions([])
     setPreview(null)
     setExpandedHomeId(null)
     setError(null)
@@ -171,6 +186,39 @@ export function BatchGenerateSchedulesDialog({
       )
       .catch(() => setCategories([]))
   }, [open, resetWizard])
+
+  useEffect(() => {
+    if (!open || workScope !== "contractor" || orderedSelectedIds.length === 0) return
+    const homeIds = orderedSelectedIds.filter((id) => selectedIds.includes(id))
+    if (homeIds.length === 0) return
+    let cancelled = false
+    setContractorsLoading(true)
+    fetch(`/api/subdivisions/${subdivisionId}/generate-schedules/contractors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ homeIds }),
+    })
+      .then((r) => (r.ok ? r.json() : { contractors: [] }))
+      .then((data: { contractors?: ContractorFilterOption[] }) => {
+        if (cancelled) return
+        const list = Array.isArray(data.contractors) ? data.contractors : []
+        setContractorOptions(list)
+        if (selectedContractor && !list.some((c) => c.id === selectedContractor.id)) {
+          setSelectedContractor(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setContractorOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setContractorsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // Intentionally omit selectedContractor to avoid refetch loops when clearing invalid selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, workScope, subdivisionId, selectedIds, orderedSelectedIds])
 
   const homeById = useMemo(() => new Map(homes.map((h) => [h.id, h])), [homes])
 
@@ -255,9 +303,18 @@ export function BatchGenerateSchedulesDialog({
     step === 1
       ? canContinueBatchWizardStep1(selectedIds.length)
       : step === 2
-        ? canContinueBatchWizardStep2({ categoryScope, category })
+        ? canContinueBatchWizardStep2({
+            workScope,
+            category,
+            contractorId: selectedContractor?.id ?? null,
+          })
         : canContinueBatchWizardStep3(baseAnchorDate) &&
           isStaggerIntervalValid(staggerParams)
+
+  const scopePayload = () => ({
+    category: workScope === "category" ? category : null,
+    contractorId: workScope === "contractor" ? selectedContractor?.id ?? null : null,
+  })
 
   const goNext = () => {
     if (!canContinue) return
@@ -292,7 +349,7 @@ export function BatchGenerateSchedulesDialog({
             staggerWorkingDays: staggerDays,
             mode,
             respectExistingScheduledDates: respectExisting,
-            category: categoryScope === "one" ? category : null,
+            ...scopePayload(),
           }),
         }
       )
@@ -330,7 +387,7 @@ export function BatchGenerateSchedulesDialog({
             staggerWorkingDays: staggerDays,
             mode,
             respectExistingScheduledDates: respectExisting,
-            category: categoryScope === "one" ? category : null,
+            ...scopePayload(),
             fingerprints,
           }),
         }
@@ -378,7 +435,11 @@ export function BatchGenerateSchedulesDialog({
   }, [preview, subdivisionName])
 
   const workLabel =
-    categoryScope === "one" && category ? category : "All categories"
+    workScope === "contractor" && selectedContractor
+      ? selectedContractor.name
+      : workScope === "category" && category
+        ? category
+        : "All work"
   const scopeLabel =
     mode === "critical" ? "Critical tasks only" : "All remaining tasks"
 
@@ -408,7 +469,7 @@ export function BatchGenerateSchedulesDialog({
               </DialogTitle>
               <DialogDescription className="text-sm">
                 {showingPreview
-                  ? `${preview.houseCount} houses · ${preview.categoryLabel} · ${preview.modeLabel} · ${
+                  ? `${preview.houseCount} houses · ${preview.workScopeLabel ?? preview.categoryLabel} · ${preview.modeLabel} · ${
                       preview.staggerWorkingDays > 0
                         ? `${preview.staggerWorkingDays} working-day stagger`
                         : "Same start date"
@@ -479,32 +540,47 @@ export function BatchGenerateSchedulesDialog({
             {!showingPreview && step === 2 && (
               <section className="space-y-6">
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold">Category</h3>
+                  <h3 className="text-sm font-semibold">Generate schedule for</h3>
                   <div className="flex flex-col gap-2 text-sm">
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
-                        checked={categoryScope === "all"}
+                        checked={workScope === "all"}
                         onChange={() => {
                           markDirty()
-                          setCategoryScope("all")
+                          setWorkScope("all")
+                          setCategory("")
+                          setSelectedContractor(null)
                         }}
                       />
-                      All categories
+                      All work
                     </label>
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
-                        checked={categoryScope === "one"}
+                        checked={workScope === "category"}
                         onChange={() => {
                           markDirty()
-                          setCategoryScope("one")
+                          setWorkScope("category")
+                          setSelectedContractor(null)
                         }}
                       />
                       One category
                     </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={workScope === "contractor"}
+                        onChange={() => {
+                          markDirty()
+                          setWorkScope("contractor")
+                          setCategory("")
+                        }}
+                      />
+                      One contractor / trade
+                    </label>
                   </div>
-                  {categoryScope === "one" && (
+                  {workScope === "category" && (
                     <select
                       value={category}
                       onChange={(e) => {
@@ -520,6 +596,33 @@ export function BatchGenerateSchedulesDialog({
                         </option>
                       ))}
                     </select>
+                  )}
+                  {workScope === "contractor" && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Contractor
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setContractorPickerOpen(true)}
+                        className="flex w-full items-center justify-between rounded-lg border border-border bg-white px-3 py-2.5 text-left text-sm hover:bg-muted/40"
+                      >
+                        <span
+                          className={cn(
+                            !selectedContractor && "text-muted-foreground"
+                          )}
+                        >
+                          {selectedContractor
+                            ? selectedContractor.name
+                            : "Select contractor…"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedContractor
+                            ? `${selectedContractor.taskCount} tasks`
+                            : "▼"}
+                        </span>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -568,7 +671,7 @@ export function BatchGenerateSchedulesDialog({
                       <span className="mt-0.5 block text-xs text-muted-foreground">
                         Keep dates that are already scheduled and generate only the remaining
                         eligible work. When off, only regenerate dates within the selected
-                        category/task scope. Completed and N/A tasks are never changed.
+                        work scope. Completed and N/A tasks are never changed.
                       </span>
                     </span>
                   </label>
@@ -764,6 +867,18 @@ export function BatchGenerateSchedulesDialog({
 
             {showingPreview && (
               <section className="space-y-4">
+                {preview.contractorLabel ? (
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <p className="font-semibold">{preview.contractorLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {preview.houseCount} houses · {preview.totalProposedTasks} work items ·{" "}
+                      {preview.modeLabel}
+                      {preview.staggerWorkingDays > 0
+                        ? ` · ${preview.staggerWorkingDays}-day house stagger`
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
                 <p className="text-sm">
                   <span className="text-emerald-700">✓ {preview.readyCount} ready</span>
                   {preview.reviewCount > 0 ? (
@@ -950,7 +1065,7 @@ export function BatchGenerateSchedulesDialog({
               Apply generated schedules to {preview?.readyCount ?? 0} house
               {(preview?.readyCount ?? 0) === 1 ? "" : "s"}?
               <br />
-              Category: {preview?.categoryLabel}
+              Scope: {preview?.workScopeLabel ?? preview?.categoryLabel}
               <br />
               {preview && preview.staggerWorkingDays > 0
                 ? `Stagger: ${preview.staggerWorkingDays} working days`
@@ -969,6 +1084,21 @@ export function BatchGenerateSchedulesDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ContractorPickerSheet
+        open={contractorPickerOpen}
+        onOpenChange={setContractorPickerOpen}
+        contractors={contractorOptions}
+        loading={contractorsLoading}
+        selectedId={selectedContractor?.id ?? null}
+        showAllOption={false}
+        title="Select contractor"
+        countSuffix="tasks"
+        onSelect={(c) => {
+          markDirty()
+          setSelectedContractor(c)
+        }}
+      />
     </>
   )
 }
@@ -1013,7 +1143,7 @@ function buildBatchExportHtml(preview: BatchPreview, subdivisionName: string): s
   <div class="meta">
     <div><strong>${escapeHtml(subdivisionName)}</strong></div>
     <div>Generated: ${generatedAt}</div>
-    <div>Category: ${escapeHtml(preview.categoryLabel)}</div>
+    <div>Scope: ${escapeHtml(preview.workScopeLabel ?? preview.categoryLabel)}</div>
     <div>Mode: ${escapeHtml(preview.modeLabel)}</div>
     <div>${
       preview.staggerWorkingDays > 0

@@ -13,6 +13,7 @@ const baseTask = {
   completedAt: null,
   isCriticalPath: false,
   templateItem: { optionalCategory: "Foundation", isCriticalGate: false },
+  contractorId: null,
   contractor: null,
 }
 

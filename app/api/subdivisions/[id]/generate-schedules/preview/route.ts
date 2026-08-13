@@ -14,17 +14,27 @@ import { isTaskIncompleteForProgress } from "@/lib/task-status"
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-const bodySchema = z.object({
-  homeIds: z.array(z.string().min(1)).min(1).max(200),
-  baseAnchorDate: z
-    .string()
-    .min(1)
-    .refine((v) => /^\d{4}-\d{2}-\d{2}/.test(v), "Invalid anchor date"),
-  staggerWorkingDays: z.number().int().min(0).max(365).default(0),
-  mode: z.enum(["critical", "all"]).default("critical"),
-  respectExistingScheduledDates: z.boolean().default(true),
-  category: z.string().min(1).nullable().optional(),
-})
+const bodySchema = z
+  .object({
+    homeIds: z.array(z.string().min(1)).min(1).max(200),
+    baseAnchorDate: z
+      .string()
+      .min(1)
+      .refine((v) => /^\d{4}-\d{2}-\d{2}/.test(v), "Invalid anchor date"),
+    staggerWorkingDays: z.number().int().min(0).max(365).default(0),
+    mode: z.enum(["critical", "all"]).default("critical"),
+    respectExistingScheduledDates: z.boolean().default(true),
+    category: z.string().min(1).nullable().optional(),
+    contractorId: z.string().min(1).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.category && data.contractorId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose either one category or one contractor, not both.",
+      })
+    }
+  })
 
 function homeStatusLabel(tasks: { status: string }[]): string {
   if (tasks.length === 0) return "No tasks"
@@ -97,6 +107,7 @@ export async function POST(
             scheduledDate: true,
             completedAt: true,
             isCriticalPath: true,
+            contractorId: true,
             templateItem: {
               select: { optionalCategory: true, isCriticalGate: true },
             },
@@ -111,6 +122,22 @@ export async function POST(
         { error: "One or more homes were not found in this subdivision." },
         { status: 400 }
       )
+    }
+
+    let contractorName: string | null = null
+    if (parsed.data.contractorId) {
+      const contractor = await prisma.contractor.findFirst({
+        where: {
+          id: parsed.data.contractorId,
+          companyId: ctx.companyId!,
+          active: true,
+        },
+        select: { id: true, companyName: true },
+      })
+      if (!contractor) {
+        return NextResponse.json({ error: "Contractor not found" }, { status: 404 })
+      }
+      contractorName = contractor.companyName
     }
 
     for (const home of homes) {
@@ -154,7 +181,9 @@ export async function POST(
       staggerWorkingDays: parsed.data.staggerWorkingDays,
       mode: parsed.data.mode,
       respectExistingScheduledDates: parsed.data.respectExistingScheduledDates,
-      category: parsed.data.category ?? null,
+      category: parsed.data.contractorId ? null : parsed.data.category ?? null,
+      contractorId: parsed.data.contractorId ?? null,
+      contractorName,
     })
 
     return NextResponse.json({
