@@ -13,6 +13,17 @@ type PrismaLike = Pick<
 >
 
 /**
+ * True when a template item should get a new itemPosition (append to category).
+ * Same-category edits must keep the current position so save does not jump the item to the end.
+ */
+export function shouldAppendItemPositionOnCategoryAssign(params: {
+  previousCategoryId: string | null | undefined
+  nextCategoryId: string
+}): boolean {
+  return params.previousCategoryId !== params.nextCategoryId
+}
+
+/**
  * Single global execution order: categories by categoryPosition, items by itemPosition.
  * Writes sequenceOrder (Flow / schedules) and optionalCategory (gates, legacy reads).
  */

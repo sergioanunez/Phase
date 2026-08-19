@@ -87,7 +87,7 @@ export async function PATCH(
       }
     }
 
-    const { ensureWorkTemplateCategoryByName, nextItemPosition, recomputeGlobalSequenceForCompany } =
+    const { ensureWorkTemplateCategoryByName, nextItemPosition, recomputeGlobalSequenceForCompany, shouldAppendItemPositionOnCategoryAssign } =
       await import("@/lib/work-template-sequence")
 
     const updateData: any = {}
@@ -114,7 +114,16 @@ export async function PATCH(
       }
       updateData.workTemplateCategoryId = cat.id
       updateData.optionalCategory = cat.name
-      updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+      // Only append to end when the item actually moves to a different category.
+      // Edit saves always resend optionalCategory; bumping position then jumped items to the bottom.
+      if (
+        shouldAppendItemPositionOnCategoryAssign({
+          previousCategoryId: before.workTemplateCategoryId,
+          nextCategoryId: cat.id,
+        })
+      ) {
+        updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+      }
     } else if (data.workTemplateCategoryId !== undefined && !data.workTemplateCategoryId) {
       updateData.workTemplateCategoryId = null
       if (data.optionalCategory !== undefined) {
@@ -124,7 +133,14 @@ export async function PATCH(
       const cat = await ensureWorkTemplateCategoryByName(prisma, ctx.companyId, data.optionalCategory)
       updateData.workTemplateCategoryId = cat.id
       updateData.optionalCategory = cat.name
-      updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+      if (
+        shouldAppendItemPositionOnCategoryAssign({
+          previousCategoryId: before.workTemplateCategoryId,
+          nextCategoryId: cat.id,
+        })
+      ) {
+        updateData.itemPosition = await nextItemPosition(prisma, cat.id)
+      }
     }
 
     if (Object.keys(updateData).length === 0) {
