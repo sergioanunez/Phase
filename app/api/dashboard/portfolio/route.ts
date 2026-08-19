@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getScheduleStatus, type ScheduleStatus } from "@/lib/schedule-status"
-import { isTaskIncompleteForProgress } from "@/lib/task-status"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
+import { isTaskIncompleteForProgress } from "@/lib/task-status"
+import {
+  countByScheduleStatus,
+  groupHomesByScheduleStatus,
+  type DashboardHouseRowData,
+  type DrilldownHomeInput,
+} from "@/lib/dashboard/drilldown"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
-const isBuild = () =>
-  process.env.NEXT_PHASE === "phase-production-build" || (process.env.VERCEL === "1" && process.env.CI === "1")
-
 export interface PortfolioResponse {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
+  homesByStatus: Record<"not_started" | "on_track" | "at_risk" | "behind", DashboardHouseRowData[]>
   bottlenecks: Array<{ key: string; label: string; count: number }>
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
@@ -38,21 +41,38 @@ export async function GET(request: NextRequest) {
       where.id = { in: assignments.map((a) => a.homeId) }
     }
 
-    // Load homes with forecast/target and tasks with category for aggregates only
+    // Same home set as before; extra fields only for in-place drill-down lists.
     const homes = await prisma.home.findMany({
       where,
       select: {
         id: true,
+        addressOrLot: true,
+        displayOrder: true,
+        createdAt: true,
+        isComplete: true,
         forecastCompletionDate: true,
         targetCompletionDate: true,
         startDate: true,
+        subdivision: { select: { id: true, name: true } },
         tasks: {
           select: {
             id: true,
             status: true,
             scheduledDate: true,
             completedAt: true,
-            templateItem: { select: { optionalCategory: true, name: true } },
+            updatedAt: true,
+            isCriticalPath: true,
+            durationDaysSnapshot: true,
+            nameSnapshot: true,
+            templateItem: {
+              select: {
+                name: true,
+                optionalCategory: true,
+                sortOrder: true,
+                sequenceOrder: true,
+                isCriticalGate: true,
+              },
+            },
           },
         },
       },
@@ -61,26 +81,34 @@ export async function GET(request: NextRequest) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Schedule status counts (not started first, then forecast vs target)
-    let notStarted = 0
-    let onTrack = 0
-    let atRisk = 0
-    let behind = 0
-    const statusByHome: Array<ScheduleStatus> = []
+    const drillHomes: DrilldownHomeInput[] = homes.map((home) => ({
+      id: home.id,
+      addressOrLot: home.addressOrLot,
+      startDate: home.startDate,
+      createdAt: home.createdAt,
+      displayOrder: home.displayOrder,
+      isComplete: home.isComplete,
+      forecastCompletionDate: home.forecastCompletionDate,
+      targetCompletionDate: home.targetCompletionDate,
+      subdivision: home.subdivision,
+      tasks: home.tasks.map((t) => ({
+        id: t.id,
+        status: t.status,
+        scheduledDate: t.scheduledDate,
+        completedAt: t.completedAt,
+        updatedAt: t.updatedAt,
+        isCriticalPath: t.isCriticalPath,
+        durationDaysSnapshot: t.durationDaysSnapshot,
+        name: t.nameSnapshot || t.templateItem.name,
+        optionalCategory: t.templateItem.optionalCategory,
+        sortOrder: t.templateItem.sortOrder,
+        sequenceOrder: t.templateItem.sequenceOrder ?? null,
+        isCriticalGate: t.templateItem.isCriticalGate,
+      })),
+    }))
 
-    for (const home of homes) {
-      const scheduledTaskCount = home.tasks.filter((t) => t.scheduledDate != null).length
-      const status = getScheduleStatus(
-        home.forecastCompletionDate?.toISOString() ?? null,
-        home.targetCompletionDate?.toISOString() ?? null,
-        { startDate: home.startDate, scheduledTaskCount }
-      )
-      statusByHome.push(status)
-      if (status === "not_started") notStarted++
-      else if (status === "on_track") onTrack++
-      else if (status === "at_risk") atRisk++
-      else behind++
-    }
+    const homesByStatus = groupHomesByScheduleStatus(drillHomes)
+    const { notStarted, onTrack, atRisk, behind } = countByScheduleStatus(drillHomes)
 
     const activeHomesCount = homes.length
 
@@ -209,6 +237,7 @@ export async function GET(request: NextRequest) {
     const body: PortfolioResponse = {
       activeHomesCount,
       statusCounts: { notStarted, onTrack, atRisk, behind },
+      homesByStatus,
       bottlenecks,
       inspectionsUpcoming,
       kpis,

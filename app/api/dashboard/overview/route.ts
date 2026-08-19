@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { handleApiError } from "@/lib/api-response"
 import { isBuildTime, buildGuardResponse } from "@/lib/buildGuard"
 import type { PulseMilestoneDebugRow } from "@/lib/dashboard/pulse"
+import type { DashboardHouseRowData, DrilldownHomeInput } from "@/lib/dashboard/drilldown"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -21,6 +22,10 @@ export async function GET(request: NextRequest) {
       COMPLETE_PHASE_KEY,
     } = await import("@/lib/dashboard/phaseDistribution")
     const { computePulseBySubdivision } = await import("@/lib/dashboard/pulse")
+    const {
+      groupHomesByPhase,
+      selectNextCriticalIncompleteTask,
+    } = await import("@/lib/dashboard/drilldown")
     const {
       buildOrderedTemplateCategoryNames,
       categoryCriticalPathDurationByName,
@@ -48,7 +53,11 @@ export async function GET(request: NextRequest) {
       if (assignments.length > 0) {
         where.id = { in: assignments.map((a) => a.homeId) }
       } else {
-        return NextResponse.json({ phaseDistribution: { phases: [], totalActiveHomes: 0, hasTemplate: false }, pulse: [] })
+        return NextResponse.json({
+          phaseDistribution: { phases: [], totalActiveHomes: 0, hasTemplate: false },
+          pulse: [],
+          homesByPhase: {},
+        })
       }
     }
 
@@ -59,8 +68,10 @@ export async function GET(request: NextRequest) {
         addressOrLot: true,
         startDate: true,
         createdAt: true,
+        displayOrder: true,
         isComplete: true,
         forecastCompletionDate: true,
+        targetCompletionDate: true,
         subdivision: {
           select: {
             id: true,
@@ -76,6 +87,7 @@ export async function GET(request: NextRequest) {
             updatedAt: true,
             isCriticalPath: true,
             durationDaysSnapshot: true,
+            nameSnapshot: true,
             templateItem: {
               select: {
                 name: true,
@@ -95,6 +107,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         phaseDistribution: { phases: [], totalActiveHomes: 0, hasTemplate: false },
         pulse: [],
+        homesByPhase: {},
       })
     }
 
@@ -115,6 +128,32 @@ export async function GET(request: NextRequest) {
           sortOrder: t.templateItem.sortOrder,
           sequenceOrder: t.templateItem.sequenceOrder ?? null,
         },
+      })),
+    }))
+
+    const drillHomes: DrilldownHomeInput[] = homes.map((h) => ({
+      id: h.id,
+      addressOrLot: h.addressOrLot,
+      startDate: h.startDate,
+      createdAt: h.createdAt,
+      displayOrder: h.displayOrder,
+      isComplete: h.isComplete,
+      forecastCompletionDate: h.forecastCompletionDate,
+      targetCompletionDate: h.targetCompletionDate,
+      subdivision: h.subdivision,
+      tasks: h.tasks.map((t) => ({
+        id: t.id,
+        status: t.status,
+        scheduledDate: t.scheduledDate,
+        completedAt: t.completedAt,
+        updatedAt: t.updatedAt,
+        isCriticalPath: t.isCriticalPath,
+        durationDaysSnapshot: t.durationDaysSnapshot,
+        name: t.nameSnapshot || t.templateItem.name,
+        optionalCategory: t.templateItem.optionalCategory,
+        sortOrder: t.templateItem.sortOrder,
+        sequenceOrder: t.templateItem.sequenceOrder ?? null,
+        isCriticalGate: t.templateItem.isCriticalGate,
       })),
     }))
 
@@ -287,7 +326,24 @@ export async function GET(request: NextRequest) {
       console.log("[dashboard:pulse-milestone] homes with completed tasks but no milestone label:", pulseDebugRows)
     }
 
-    return NextResponse.json({ phaseDistribution, pulse })
+    const nextByHome = new Map(
+      drillHomes.map((h) => [h.id, selectNextCriticalIncompleteTask(h.tasks)])
+    )
+    for (const group of pulse) {
+      for (const home of group.homes) {
+        const next = nextByHome.get(home.homeId)
+        home.nextCriticalTaskId = next?.taskId ?? null
+        home.nextCriticalTaskName = next?.taskName ?? null
+      }
+    }
+
+    const phaseHomes = groupHomesByPhase(drillHomes)
+    const homesByPhase: Record<string, DashboardHouseRowData[]> = {}
+    for (const [key, group] of phaseHomes) {
+      homesByPhase[key] = group.homes
+    }
+
+    return NextResponse.json({ phaseDistribution, pulse, homesByPhase })
   } catch (error) {
     console.error("Dashboard overview error:", error)
     return handleApiError(error)

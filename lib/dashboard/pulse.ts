@@ -30,8 +30,11 @@ export type PulseHome = {
   homeId: string
   address: string
   notStarted: boolean
+  lastCriticalTaskId: string | null
   lastCriticalTaskName: string | null
   lastCriticalCompletedAt: string | null
+  nextCriticalTaskId?: string | null
+  nextCriticalTaskName?: string | null
 }
 
 export type PulseSubdivisionGroup = {
@@ -203,6 +206,7 @@ export function computePulseBySubdivision(
       homeId: home.id,
       address: home.addressOrLot,
       notStarted,
+      lastCriticalTaskId: taskId,
       lastCriticalTaskName: taskName,
       lastCriticalCompletedAt: completedAt ? completedAt.toISOString() : null,
     })

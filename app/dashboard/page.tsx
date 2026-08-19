@@ -12,10 +12,21 @@ import { BottleneckListCard } from "@/components/dashboard/bottleneck-list-card"
 import { UpcomingInspectionsCard } from "@/components/dashboard/upcoming-inspections-card"
 import { KPIGrid } from "@/components/dashboard/kpi-grid"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
+import { DashboardHouseDrilldown } from "@/components/dashboard/dashboard-house-drilldown"
+import {
+  PORTFOLIO_STATUS_TITLES,
+  canOpenDrilldown,
+  parseInspectParam,
+  serializeInspectParam,
+  type DashboardDrilldownContext,
+  type DashboardHouseRowData,
+} from "@/lib/dashboard/drilldown"
+import type { ScheduleStatus } from "@/lib/schedule-status"
 
 interface PortfolioData {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
+  homesByStatus?: Record<ScheduleStatus, DashboardHouseRowData[]>
   bottlenecks: Array<{ key: string; label: string; count: number }>
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
@@ -51,8 +62,11 @@ type PulseHome = {
   homeId: string
   address: string
   notStarted: boolean
+  lastCriticalTaskId?: string | null
   lastCriticalTaskName: string | null
   lastCriticalCompletedAt: string | null
+  nextCriticalTaskId?: string | null
+  nextCriticalTaskName?: string | null
 }
 
 type PulseSubdivisionGroup = {
@@ -74,10 +88,32 @@ function getPhaseColorByIndex(index: number): string {
   return PHASE_GRADIENT_COLORS[Math.min(index, PHASE_GRADIENT_COLORS.length - 1)]
 }
 
+function pulseHomesToRows(
+  group: PulseSubdivisionGroup
+): DashboardHouseRowData[] {
+  return group.homes.map((home, index) => ({
+    homeId: home.homeId,
+    address: home.address,
+    subdivisionName: group.subdivisionName,
+    startDate: null,
+    forecastDate: null,
+    targetDate: null,
+    daysBehind: null,
+    nextCriticalTaskId: home.nextCriticalTaskId ?? null,
+    nextCriticalTaskName: home.nextCriticalTaskName ?? null,
+    lastMilestoneTaskId: home.lastCriticalTaskId ?? null,
+    lastMilestoneName: home.lastCriticalTaskName,
+    lastMilestoneCompletedAt: home.lastCriticalCompletedAt,
+    displayOrder: index,
+  }))
+}
+
 function PhaseDistributionCard({
   phaseDistribution,
+  onPhaseSelect,
 }: {
   phaseDistribution: PhaseDistribution
+  onPhaseSelect?: (phase: PhaseRow) => void
 }) {
   const [animate, setAnimate] = useState(false)
   const hasAnimated = useRef(false)
@@ -140,11 +176,8 @@ function PhaseDistributionCard({
               <button
                 key={phase.key}
                 type="button"
-                onClick={() => {
-                  const url = new URL(window.location.origin + "/homes")
-                  url.searchParams.set("phase", phase.key)
-                  window.location.href = url.pathname + url.search
-                }}
+                aria-label={`View ${phase.count} homes in ${phase.name}`}
+                onClick={() => onPhaseSelect?.(phase)}
                 className="w-full min-w-0 text-left"
               >
                 <div className="flex min-w-0 items-start gap-2">
@@ -192,9 +225,21 @@ export default function DashboardPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(true)
   const [phaseDistribution, setPhaseDistribution] = useState<PhaseDistribution | null>(null)
   const [pulseGroups, setPulseGroups] = useState<PulseSubdivisionGroup[]>([])
+  const [homesByPhase, setHomesByPhase] = useState<Record<string, DashboardHouseRowData[]>>({})
+  const [drilldown, setDrilldown] = useState<DashboardDrilldownContext | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [, setTick] = useState(0)
   const [freshnessLabel, setFreshnessLabel] = useState<"just_now" | "lt_min" | null>(null)
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("phase-dashboard-scroll")
+    if (saved) window.scrollTo(0, Number(saved) || 0)
+    const onScroll = () => {
+      sessionStorage.setItem("phase-dashboard-scroll", String(window.scrollY))
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   useEffect(() => {
     if (session?.user === undefined) return
@@ -246,9 +291,11 @@ export default function DashboardPage() {
           if (overviewData) {
             setPhaseDistribution(overviewData.phaseDistribution ?? null)
             setPulseGroups(overviewData.pulse ?? [])
+            setHomesByPhase(overviewData.homesByPhase ?? {})
           } else {
             setPhaseDistribution(null)
             setPulseGroups([])
+            setHomesByPhase({})
           }
           const now = new Date()
           setLastUpdated(now)
@@ -297,6 +344,12 @@ export default function DashboardPage() {
   const portfolioFallback: PortfolioData = {
     activeHomesCount: 0,
     statusCounts: { notStarted: 0, onTrack: 0, atRisk: 0, behind: 0 },
+    homesByStatus: {
+      not_started: [],
+      on_track: [],
+      at_risk: [],
+      behind: [],
+    },
     bottlenecks: [],
     inspectionsUpcoming: [],
     kpis: [
@@ -307,6 +360,71 @@ export default function DashboardPage() {
     ],
   }
   const data = portfolio ?? portfolioFallback
+
+  const emptyHomesByStatus: Record<ScheduleStatus, DashboardHouseRowData[]> = {
+    not_started: [],
+    on_track: [],
+    at_risk: [],
+    behind: [],
+  }
+
+  const openDrilldown = (ctx: DashboardDrilldownContext, count: number) => {
+    if (!canOpenDrilldown(count)) return
+    setDrilldown(ctx)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("inspect", serializeInspectParam(ctx))
+    router.replace(`/dashboard?${params.toString()}`, { scroll: false })
+  }
+
+  const closeDrilldown = () => {
+    setDrilldown(null)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("inspect")
+    const qs = params.toString()
+    router.replace(qs ? `/dashboard?${qs}` : "/dashboard", { scroll: false })
+  }
+
+  const homesByStatus = data.homesByStatus ?? emptyHomesByStatus
+
+  useEffect(() => {
+    const parsed = parseInspectParam(searchParams.get("inspect"))
+    if (!parsed) {
+      setDrilldown(null)
+      return
+    }
+    if (parsed.kind === "portfolio") {
+      const status = parsed.key as ScheduleStatus
+      setDrilldown({
+        kind: "portfolio",
+        status,
+        title: PORTFOLIO_STATUS_TITLES[status],
+      })
+      return
+    }
+    if (parsed.kind === "timeline") {
+      const phase = phaseDistribution?.phases.find((p) => p.key === parsed.key)
+      setDrilldown({
+        kind: "timeline",
+        phaseKey: parsed.key,
+        title: phase?.name ?? parsed.key.replace(/^category:/, ""),
+      })
+      return
+    }
+    const group = pulseGroups.find((g) => g.subdivisionId === parsed.key)
+    setDrilldown({
+      kind: "pulse",
+      subdivisionId: parsed.key,
+      title: group?.subdivisionName ?? "Field Pulse",
+    })
+  }, [searchParams, phaseDistribution, pulseGroups])
+
+  const drilldownHouses: DashboardHouseRowData[] = (() => {
+    if (!drilldown) return []
+    if (drilldown.kind === "portfolio") return homesByStatus[drilldown.status] ?? []
+    if (drilldown.kind === "timeline") return homesByPhase[drilldown.phaseKey] ?? []
+    const group = pulseGroups.find((g) => g.subdivisionId === drilldown.subdivisionId)
+    return group ? pulseHomesToRows(group) : []
+  })()
 
   if (portfolioLoading && !portfolio) {
     return (
@@ -376,11 +494,25 @@ export default function DashboardPage() {
           <PortfolioOverviewCard
             activeHomesCount={data.activeHomesCount}
             statusCounts={data.statusCounts}
+            onStatusSelect={(status, count) =>
+              openDrilldown(
+                { kind: "portfolio", status, title: PORTFOLIO_STATUS_TITLES[status] },
+                count
+              )
+            }
           />
 
           {/* 2) Phase Distribution */}
           {phaseDistribution && (
-            <PhaseDistributionCard phaseDistribution={phaseDistribution} />
+            <PhaseDistributionCard
+              phaseDistribution={phaseDistribution}
+              onPhaseSelect={(phase) =>
+                openDrilldown(
+                  { kind: "timeline", phaseKey: phase.key, title: phase.name },
+                  phase.count
+                )
+              }
+            />
           )}
 
           {/* 3) Field Pulse */}
@@ -390,60 +522,31 @@ export default function DashboardPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Last milestone completed
               </p>
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 space-y-2">
                 {pulseGroups.map((group) => (
-                  <details
+                  <button
                     key={group.subdivisionId}
-                    className="rounded-lg border border-muted bg-muted/40 p-3"
+                    type="button"
+                    aria-label={`View ${group.homes.length} homes in ${group.subdivisionName} Field Pulse`}
+                    onClick={() =>
+                      openDrilldown(
+                        {
+                          kind: "pulse",
+                          subdivisionId: group.subdivisionId,
+                          title: group.subdivisionName,
+                        },
+                        group.homes.length
+                      )
+                    }
+                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-muted bg-muted/40 px-3 py-3 text-left hover:bg-muted/70"
                   >
-                    <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-foreground">
-                      <span>{group.subdivisionName}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {group.homes.length} homes
-                      </span>
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      {group.homes.map((home) => (
-                        <button
-                          key={home.homeId}
-                          type="button"
-                          onClick={() => {
-                            window.location.href = `/homes/${home.homeId}`
-                          }}
-                          className="w-full rounded-md bg-white px-3 py-2 text-left text-sm hover:bg-muted"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-foreground">
-                              {home.address}
-                            </span>
-                            {home.notStarted && (
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
-                                Not started
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {home.lastCriticalTaskName ? (
-                              <>
-                                {home.lastCriticalTaskName}
-                                {home.lastCriticalCompletedAt ? (
-                                  <>
-                                    {" "}
-                                    ·{" "}
-                                    {formatDistanceToNow(new Date(home.lastCriticalCompletedAt), {
-                                      addSuffix: true,
-                                    })}
-                                  </>
-                                ) : null}
-                              </>
-                            ) : (
-                              "—"
-                            )}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
+                    <span className="min-w-0 break-words text-sm font-semibold text-foreground">
+                      {group.subdivisionName}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {group.homes.length} homes
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -462,6 +565,16 @@ export default function DashboardPage() {
           <ActivityFeed activities={activities} loading={activitiesLoading} />
         </div>
       </div>
+
+      <DashboardHouseDrilldown
+        open={drilldown != null}
+        onOpenChange={(next) => {
+          if (!next) closeDrilldown()
+        }}
+        title={drilldown?.title ?? ""}
+        kind={drilldown?.kind ?? "portfolio"}
+        houses={drilldownHouses}
+      />
     </div>
   )
 }
