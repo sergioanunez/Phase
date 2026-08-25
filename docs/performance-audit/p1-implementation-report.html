@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Phase Performance Optimization P1 — Implementation Report</title>
+  <style>
+    :root {
+      --ink: #1a1d26;
+      --muted: #5c6478;
+      --line: #d8dce6;
+      --accent: #1e4d8c;
+      --bg-soft: #f6f7f9;
+      --ok: #0f6b3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 8.5in;
+      margin: 0 auto;
+      padding: 0.15in 0.1in;
+    }
+    h1 {
+      font-size: 18pt;
+      margin: 0 0 0.12in;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      font-size: 12.5pt;
+      margin: 0.4in 0 0.12in;
+      padding-bottom: 0.05in;
+      border-bottom: 1.5px solid var(--accent);
+      color: var(--accent);
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 11pt;
+      margin: 0.22in 0 0.08in;
+      page-break-after: avoid;
+    }
+    p { margin: 0 0 0.12in; }
+    .meta {
+      color: var(--muted);
+      font-size: 9.5pt;
+      margin-bottom: 0.2in;
+    }
+    .callout {
+      background: var(--bg-soft);
+      border-left: 3px solid var(--accent);
+      padding: 0.14in 0.16in;
+      margin: 0.12in 0 0.18in;
+    }
+    .verdict {
+      display: inline-block;
+      background: #e8f6ee;
+      color: var(--ok);
+      font-weight: 700;
+      padding: 0.04in 0.12in;
+      border-radius: 4px;
+      font-size: 10pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.08in 0 0.18in;
+      font-size: 8.5pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 0.06in 0.07in;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--bg-soft); font-weight: 600; }
+    tr { page-break-inside: avoid; }
+    ul, ol { margin: 0.05in 0 0.14in; padding-left: 0.22in; }
+    li { margin-bottom: 0.04in; }
+    pre, code, .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 8pt;
+    }
+    pre {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      padding: 0.12in;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      page-break-inside: avoid;
+    }
+    .small { font-size: 9pt; color: var(--muted); }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Phase Performance Optimization P1</h1>
+    <p class="meta">
+      Implementation report · Task mutation local patch + background reconciliation ·
+      Conservative P1 only (no optimistic UI, no Transaction Engine migration)
+    </p>
+
+    <div class="callout">
+      <p><strong>Status:</strong> <span class="verdict">P1 COMPLETE</span></p>
+      <p>
+        Successful mutations patch the returned task immediately. Forecast and gates
+        reconcile in the background without blocking the House Details UI.
+      </p>
+    </div>
+
+    <h2>1. Files changed</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mono">lib/homes/patch-home-task.ts</span></td>
+          <td><span class="mono">patchHomeTask</span>, <span class="mono">mergeHomeTask</span>, <span class="mono">applyForecastReconcileToHome</span></td>
+        </tr>
+        <tr>
+          <td><span class="mono">lib/homes/mutation-reconcile.ts</span></td>
+          <td>Kind policy (gates / N/A skip-recompute), debounce constant</td>
+        </tr>
+        <tr>
+          <td><span class="mono">lib/homes/mutation-perf.ts</span></td>
+          <td>Dev-only <span class="mono">performance.mark</span> / <span class="mono">measure</span> (T0–T5)</td>
+        </tr>
+        <tr>
+          <td><span class="mono">lib/homes/patch-home-task.test.ts</span></td>
+          <td>Unit tests (7 passed)</td>
+        </tr>
+        <tr>
+          <td><span class="mono">components/homes/home-detail-page.tsx</span></td>
+          <td>Patch + coalesced reconcile wiring</td>
+        </tr>
+        <tr>
+          <td><span class="mono">components/task-modal.tsx</span></td>
+          <td>Passes <span class="mono">{ task, kind }</span> on all mutation paths</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Previous mutation flow</h2>
+    <pre>Mutation
+→ wait for API
+→ GET /forecast
+→ GET /gates
+→ setHome(full home)
+→ entire House Details page rerenders</pre>
+    <p>
+      The superintendent waited for expensive forecast reconciliation before the
+      confirmed task state was reliably reflected (or saw a second full-home replace
+      after an initial patch on inline complete).
+    </p>
+
+    <h2>3. New mutation flow</h2>
+    <pre>Mutation
+→ server confirms
+→ immediately merge returned task into local home.tasks
+→ UI reflects new task state
+→ debounced background reconcile (forecast fields only; gates only when needed)</pre>
+    <p>
+      Forecast correctness is preserved; timing of reconciliation moved off the visual
+      critical path.
+    </p>
+
+    <h2>4. How local task patching works</h2>
+    <p>
+      <span class="mono">patchHomeTask(home, updated)</span> finds the task by id, merges
+      server fields onto that row, and preserves sibling tasks and unrelated home data.
+      Updates use functional <span class="mono">setHome</span> / selected-task merges —
+      no direct mutation of state objects.
+    </p>
+    <p>
+      Applied consistently after successful responses for Complete (inline + modal),
+      Start (modal), Mark N/A (card + modal), Schedule, Reschedule, and related modal
+      paths (cancel-schedule, confirm, mark-applicable).
+    </p>
+
+    <h2>5. How forecast reconciliation works</h2>
+    <ul>
+      <li>Does <strong>not</strong> await forecast before showing the mutation result.</li>
+      <li>After patch, schedules a background reconcile for the home.</li>
+      <li>Default path: <span class="mono">GET /api/homes/[id]/forecast</span> (recompute + persist as before).</li>
+      <li>N/A path: <span class="mono">GET /api/homes/[id]</span> — uses already-persisted forecast from POST /not-applicable.</li>
+      <li>Applies via <span class="mono">applyForecastReconcileToHome</span>: home-level forecast fields + per-task forecast/punch-derived fields only.</li>
+    </ul>
+
+    <h2>6. How requests are coalesced</h2>
+    <ul>
+      <li>Debounce: <strong>350ms</strong> (<span class="mono">FORECAST_RECONCILE_DEBOUNCE_MS</span>).</li>
+      <li>Rapid mutations on the same home share one pending reconcile.</li>
+      <li><span class="mono">refreshGates</span> ORs across coalesced kinds.</li>
+      <li><span class="mono">skipRecompute</span> stays true only if <em>all</em> coalesced kinds allow it (N/A-only batches).</li>
+      <li>Only the latest in-flight generation’s result is applied.</li>
+    </ul>
+
+    <h2>7. How stale-response protection works</h2>
+    <p>
+      Background responses never call full <span class="mono">setHome(remote)</span> for
+      mutation follow-up. They merge forecast-derived fields onto the current local home.
+      Local status, scheduled dates, confirmation fields, and N/A fields from newer
+      mutations are preserved even if an older forecast payload still shows prior status.
+    </p>
+    <p class="small">
+      Covered by unit test: complete/start local status survives a stale forecast that
+      still lists Confirmed.
+    </p>
+
+    <h2>8. Which mutations still refresh gates</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mutation</th>
+          <th>Gates refresh?</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete / Start / N/A / Schedule / Reschedule</td>
+          <td><strong>No</strong></td>
+          <td>Punch-based gate statuses are unchanged by these actions</td>
+        </tr>
+        <tr>
+          <td>Punch list updates</td>
+          <td><strong>Yes</strong></td>
+          <td>Open punch counts can change critical-gate blocking</td>
+        </tr>
+        <tr>
+          <td>Catch-up / generate schedule</td>
+          <td>Full <span class="mono">refreshHomeData</span></td>
+          <td>Explicit bulk refresh path (unchanged)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">
+      Policy is documented in <span class="mono">lib/homes/mutation-reconcile.ts</span>.
+      Server category/punch gate checks on schedule/reschedule are unchanged.
+    </p>
+
+    <h2>9. How N/A duplicate forecast was eliminated</h2>
+    <p>
+      POST <span class="mono">/not-applicable</span> already runs
+      <span class="mono">computeHomeForecastAndPersist</span>.
+      The client no longer immediately calls <span class="mono">GET /forecast</span>
+      (which would recompute again). It patches the returned task, then background-loads
+      <span class="mono">GET /homes/[id]</span> to pick up persisted forecast fields.
+    </p>
+
+    <h2>10. Performance instrumentation added</h2>
+    <p>Development-only (no-op in production builds):</p>
+    <ul>
+      <li><strong>T0</strong> — action initiated</li>
+      <li><strong>T1</strong> — mutation request sent (inline complete)</li>
+      <li><strong>T2</strong> — mutation response received</li>
+      <li><strong>T3</strong> — local task patch applied</li>
+      <li><strong>T4</strong> — background reconciliation started</li>
+      <li><strong>T5</strong> — background reconciliation completed</li>
+    </ul>
+    <p>
+      Uses <span class="mono">performance.mark</span> /
+      <span class="mono">performance.measure</span>. No analytics vendor. No PII. No
+      production console spam.
+    </p>
+
+    <h2>11. Tests performed</h2>
+    <ul>
+      <li><span class="mono">lib/homes/patch-home-task.test.ts</span> — <strong>7 passed</strong></li>
+      <li>Patch merges only the matching task; siblings preserved</li>
+      <li>Stale forecast cannot revert newer local status</li>
+      <li>Gate refresh skipped for the five high-frequency kinds</li>
+      <li>N/A marked as forecast-already-persisted</li>
+    </ul>
+    <p class="small">
+      Manual field scenarios (rapid complete, A then B before reconcile, mobile viewport)
+      should be verified in the running app; no Transaction Engine or API contract tests
+      were required for P1.
+    </p>
+
+    <h2>12. Remaining performance bottlenecks</h2>
+    <ul>
+      <li>Still wait for mutation API before showing success (no true optimistic UI — P2).</li>
+      <li>Full House Details React tree still rerenders on <span class="mono">setHome</span> (memoization / split state — later phase).</li>
+      <li>Schedule/reschedule server guard query cost unchanged.</li>
+      <li>Flow Start still refetches <span class="mono">/api/flow</span> (Flow list page, not House Details).</li>
+    </ul>
+
+    <h2>Approximate timing (expected)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Interval</th>
+          <th>Expected</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mutation response → visible task update</td>
+          <td>~0–16ms after JSON parse (local patch)</td>
+        </tr>
+        <tr>
+          <td>Background reconciliation</td>
+          <td>350ms debounce + forecast/home RTT (often 500ms–2s), non-blocking</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Success criteria checklist</h2>
+    <ul>
+      <li>Successful mutation updates the affected task without waiting for full forecast reconciliation</li>
+      <li>Single task mutation does not unnecessarily replace/reload the entire home for status display</li>
+      <li>Forecast correctness preserved (background reconcile)</li>
+      <li>Gate correctness preserved (refresh when punch state can change)</li>
+      <li>Rapid mutations protected against stale background overwrites</li>
+      <li>Mark N/A no longer double-computes forecast</li>
+      <li>Scheduling / dependency / confirmation semantics unchanged</li>
+      <li>No Transaction Engine migration</li>
+      <li>No true optimistic UI (P2 deferred)</li>
+    </ul>
+
+    <div class="callout" style="margin-top: 0.3in;">
+      <p><strong>Explicitly not in this phase:</strong> optimistic mutations, rollback,
+      offline queue, Transaction Engine status types, API redesign, React Query / SWR /
+      Redux / Zustand.</p>
+    </div>
+  </div>
+</body>
+</html>

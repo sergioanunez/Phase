@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,19 @@ import { CatchUpScheduleDialog } from "@/components/catch-up-schedule-dialog"
 import { WorkItemMetadata } from "@/components/work-item-metadata"
 import { playTaskComplete } from "@/lib/feedback"
 import type { TaskNotApplicableReason } from "@prisma/client"
+import {
+  applyForecastReconcileToHome,
+  mergeHomeTask,
+  patchHomeTask,
+} from "@/lib/homes/patch-home-task"
+import {
+  FORECAST_RECONCILE_DEBOUNCE_MS,
+  mutationForecastAlreadyPersisted,
+  mutationNeedsGateRefresh,
+  type TaskMutationClientResult,
+  type TaskMutationKind,
+} from "@/lib/homes/mutation-reconcile"
+import { beginMutationPerf, type MutationPerfSession } from "@/lib/homes/mutation-perf"
 
 interface HomeTask {
   id: string
@@ -142,6 +155,139 @@ export function HomeDetailPage() {
   const [headerCardEl, setHeaderCardEl] = useState<HTMLDivElement | null>(null)
   const headerInView = useHouseHeaderInView(headerCardEl, home?.id)
 
+  /** Bumps on every local task patch — stale forecast responses never replace status. */
+  const mutationGenRef = useRef(0)
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconcileInFlightRef = useRef(0)
+  const pendingReconcileRef = useRef<{
+    homeId: string
+    refreshGates: boolean
+    /** Prefer GET /homes (no CPM recompute) when true for all coalesced requests. */
+    skipRecompute: boolean
+  } | null>(null)
+  const activePerfRef = useRef<MutationPerfSession | null>(null)
+
+  const applyLocalTaskPatch = (updated: { id: string; [key: string]: unknown }) => {
+    mutationGenRef.current += 1
+    setHome((prev) => patchHomeTask(prev, updated) as Home | null)
+    setSelectedTask((prev) =>
+      prev && prev.id === updated.id
+        ? (mergeHomeTask(prev, updated) as HomeTask)
+        : prev
+    )
+  }
+
+  const runBackgroundReconcile = (homeId: string) => {
+    const pending = pendingReconcileRef.current
+    if (!pending || pending.homeId !== homeId) return
+    pendingReconcileRef.current = null
+
+    const skipRecompute = pending.skipRecompute
+    const refreshGates = pending.refreshGates
+    const flightId = ++reconcileInFlightRef.current
+    const startedGen = mutationGenRef.current
+    activePerfRef.current?.mark("t4")
+
+    const url = skipRecompute
+      ? `/api/homes/${homeId}`
+      : `/api/homes/${homeId}/forecast`
+
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) {
+          if (!skipRecompute) {
+            const fallback = await fetch(`/api/homes/${homeId}`)
+            return fallback.ok ? fallback.json() : null
+          }
+          return null
+        }
+        const data = await res.json()
+        if (data?.error) return null
+        return data
+      })
+      .then((data) => {
+        if (flightId !== reconcileInFlightRef.current) return
+        if (!data) return
+        // Always merge forecast-derived fields only — never full setHome after mutations.
+        // startedGen is recorded for instrumentation; applyForecastReconcileToHome
+        // already preserves mutation-confirmed status fields.
+        void startedGen
+        setHome((prev) =>
+          prev ? (applyForecastReconcileToHome(prev, data) as Home) : prev
+        )
+        activePerfRef.current?.mark("t5")
+        activePerfRef.current?.finish()
+        activePerfRef.current = null
+      })
+      .catch(() => {})
+
+    if (refreshGates) {
+      fetch(`/api/homes/${homeId}/gates`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (flightId !== reconcileInFlightRef.current) return
+          setGateStatuses(Array.isArray(data) ? data : [])
+        })
+        .catch(() => {})
+    }
+  }
+
+  const scheduleBackgroundReconcile = (opts: {
+    homeId: string
+    kind: TaskMutationKind
+  }) => {
+    const needsGates = mutationNeedsGateRefresh(opts.kind)
+    const skipRecompute = mutationForecastAlreadyPersisted(opts.kind)
+    const prev = pendingReconcileRef.current
+    pendingReconcileRef.current = {
+      homeId: opts.homeId,
+      refreshGates: Boolean(prev?.refreshGates) || needsGates,
+      // Only skip recompute if every coalesced mutation already persisted forecast.
+      skipRecompute: prev
+        ? prev.skipRecompute && skipRecompute
+        : skipRecompute,
+    }
+    if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current)
+    reconcileTimerRef.current = setTimeout(() => {
+      reconcileTimerRef.current = null
+      runBackgroundReconcile(opts.homeId)
+    }, FORECAST_RECONCILE_DEBOUNCE_MS)
+  }
+
+  /**
+   * P1 path: patch local task from mutation response, then background reconcile.
+   * Does not await forecast before showing the confirmed change.
+   */
+  const handleTaskMutation = (result: TaskMutationClientResult) => {
+    const homeId = params.id as string | undefined
+    if (result.task) {
+      applyLocalTaskPatch(result.task)
+      activePerfRef.current?.mark("t3")
+      if (result.kind === "complete" && result.task.status === "Completed") {
+        playTaskComplete()
+        setJustCompletedTaskId(result.task.id as string)
+        window.setTimeout(() => {
+          setJustCompletedTaskId((id) =>
+            id === result.task!.id ? null : id
+          )
+        }, 320)
+      }
+    }
+    if (homeId) {
+      scheduleBackgroundReconcile({ homeId, kind: result.kind })
+    }
+    if (result.kind === "reschedule") {
+      setRescheduleHistoryRefresh((n) => n + 1)
+      setActivityRefreshKey((n) => n + 1)
+    }
+    if (result.kind === "na" || result.kind === "complete") {
+      setActivityRefreshKey((n) => n + 1)
+    }
+    if (result.closeModal !== false) {
+      setModalOpen(false)
+    }
+  }
+
   const refreshHomeData = () => {
     if (!params.id) return
     const homeId = params.id as string
@@ -151,6 +297,7 @@ export function HomeDetailPage() {
         if (data) setHome(data)
       })
       .catch(() => {})
+    // Explicit full refresh (catch-up / generate schedule) — allow full replace once.
     fetch(`/api/homes/${homeId}/forecast`)
       .then((res) => res.json().then((d) => ({ ok: res.ok, data: d })))
       .then(({ ok, data }) => {
@@ -160,6 +307,12 @@ export function HomeDetailPage() {
     setRescheduleHistoryRefresh((n) => n + 1)
     setActivityRefreshKey((n) => n + 1)
   }
+
+  useEffect(() => {
+    return () => {
+      if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (!params.id) return
@@ -312,35 +465,6 @@ export function HomeDetailPage() {
     setModalOpen(true)
   }
 
-  const handleTaskUpdate = () => {
-    if (params.id) {
-      fetch(`/api/homes/${params.id}/forecast`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && !data.error) setHome(data)
-          else
-            fetch(`/api/homes/${params.id}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((d) => d && setHome(d))
-        })
-        .catch(() =>
-          fetch(`/api/homes/${params.id}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => d && setHome(d))
-        )
-      
-      // Refresh gate statuses
-      fetch(`/api/homes/${params.id}/gates`)
-        .then((res) => res.json())
-        .then((data) => setGateStatuses(Array.isArray(data) ? data : []))
-        .catch((err) => {
-          console.error("Failed to fetch gate statuses:", err)
-        })
-    }
-    setRescheduleHistoryRefresh((n) => n + 1)
-    setModalOpen(false)
-  }
-
   const handlePunchClick = (e: React.MouseEvent, task: HomeTask) => {
     e.stopPropagation()
     setPunchTaskId(task.id)
@@ -390,20 +514,9 @@ export function HomeDetailPage() {
   const handleMarkCompleted = (e: React.MouseEvent, task: HomeTask) => {
     e.stopPropagation()
     setMarkingTaskId(task.id)
-    // #region agent log
-    const markStart = Date.now()
-    fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "app/homes/[id]/page.tsx:handleMarkCompleted",
-        message: "mark completed click",
-        data: { step: "click", taskId: task.id, ms: markStart },
-        timestamp: markStart,
-        hypothesisId: "H4",
-      }),
-    }).catch(() => {})
-    // #endregion
+    const perf = beginMutationPerf("complete")
+    activePerfRef.current = perf
+    perf.mark("t1")
     fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -414,112 +527,26 @@ export function HomeDetailPage() {
         return res.json().then((data) => Promise.reject(new Error(data?.error || "Failed to update")))
       })
       .then((updatedTask) => {
-        // Optimistic update: show task as completed immediately so UI doesn't wait for forecast
-        setHome((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            tasks: prev.tasks.map((t) =>
-              t.id === updatedTask.id
-                ? {
-                    ...t,
-                    status: updatedTask.status as TaskStatus,
-                    completedAt: updatedTask.completedAt != null ? (typeof updatedTask.completedAt === "string" ? updatedTask.completedAt : (updatedTask.completedAt as Date).toISOString()) : null,
-                  }
-                : t
-            ),
-          }
+        perf.mark("t2")
+        handleTaskMutation({
+          task: updatedTask,
+          kind: "complete",
+          closeModal: false,
         })
-        if (updatedTask.status === "Completed") {
-          playTaskComplete()
-          setJustCompletedTaskId(updatedTask.id)
-          window.setTimeout(() => {
-            setJustCompletedTaskId((id) => (id === updatedTask.id ? null : id))
-          }, 320)
-        }
-        // #region agent log
-        fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "app/homes/[id]/page.tsx:handleMarkCompleted",
-            message: "PATCH resolved",
-            data: { step: "patchDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
-            timestamp: Date.now(),
-            hypothesisId: "H4",
-          }),
-        }).catch(() => {})
-        // #endregion
-        if (params.id) {
-          fetch(`/api/homes/${params.id}/forecast`)
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => {
-              // #region agent log
-              fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  location: "app/homes/[id]/page.tsx:handleMarkCompleted",
-                  message: "forecast resolved",
-                  data: { step: "forecastDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
-                  timestamp: Date.now(),
-                  hypothesisId: "H4",
-                }),
-              }).catch(() => {})
-              // #endregion
-              if (data && !data.error) setHome(data)
-              else
-                fetch(`/api/homes/${params.id}`)
-                  .then((r) => (r.ok ? r.json() : null))
-                  .then((d) => d && setHome(d))
-            })
-            .catch(() =>
-              fetch(`/api/homes/${params.id}`)
-                .then((r) => (r.ok ? r.json() : null))
-                .then((d) => d && setHome(d))
-            )
-          fetch(`/api/homes/${params.id}/gates`)
-            .then((res) => res.json())
-            .then((data) => {
-              // #region agent log
-              fetch("http://127.0.0.1:7242/ingest/e312e361-00a8-46be-b4af-dc6d93b8db2f", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  location: "app/homes/[id]/page.tsx:handleMarkCompleted",
-                  message: "gates resolved",
-                  data: { step: "gatesDone", taskId: task.id, ms: Date.now(), sinceStart: Date.now() - markStart },
-                  timestamp: Date.now(),
-                  hypothesisId: "H4",
-                }),
-              }).catch(() => {})
-              // #endregion
-              setGateStatuses(Array.isArray(data) ? data : [])
-            })
-            .catch(() => {})
-        }
       })
-      .catch((err) => alert(err.message || "Failed to mark completed"))
+      .catch((err) => {
+        activePerfRef.current = null
+        alert(err.message || "Failed to mark completed")
+      })
       .finally(() => setMarkingTaskId(null))
   }
 
   const handlePunchUpdate = () => {
-    if (params.id) {
-      fetch(`/api/homes/${params.id}/forecast`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && !data.error) setHome(data)
-          else
-            fetch(`/api/homes/${params.id}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((d) => d && setHome(d))
-        })
-        .catch(() =>
-          fetch(`/api/homes/${params.id}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => d && setHome(d))
-        )
-    }
+    if (!params.id) return
+    scheduleBackgroundReconcile({
+      homeId: params.id as string,
+      kind: "punch",
+    })
   }
 
   if (loading) {
@@ -1180,7 +1207,12 @@ export function HomeDetailPage() {
           task={selectedTask}
           open={modalOpen}
           onOpenChange={setModalOpen}
-          onUpdate={handleTaskUpdate}
+          onUpdate={(result) => {
+            const perf = beginMutationPerf(result.kind)
+            activePerfRef.current = perf
+            perf.mark("t2")
+            handleTaskMutation(result)
+          }}
           homeLabel={home.addressOrLot}
         />
       )}
@@ -1193,8 +1225,15 @@ export function HomeDetailPage() {
             if (!open) setMarkNaTask(null)
           }}
           task={markNaTask}
-          onSuccess={() => {
-            handleTaskUpdate()
+          onSuccess={(updated) => {
+            const perf = beginMutationPerf("na")
+            activePerfRef.current = perf
+            perf.mark("t2")
+            handleTaskMutation({
+              task: updated as { id: string },
+              kind: "na",
+              closeModal: false,
+            })
             setMarkNaTask(null)
           }}
         />

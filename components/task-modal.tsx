@@ -26,8 +26,8 @@ import { labelForRescheduleReason } from "@/lib/reschedule-reason-labels"
 import { labelForNotApplicableReason } from "@/lib/not-applicable-reason-labels"
 import { badgeLabelForTaskStatus } from "@/lib/task-status"
 import { WorkItemMetadata } from "@/components/work-item-metadata"
-import { playTaskComplete } from "@/lib/feedback"
 import type { TaskRescheduleReason, TaskNotApplicableReason } from "@prisma/client"
+import type { TaskMutationClientResult } from "@/lib/homes/mutation-reconcile"
 
 interface Contractor {
   id: string
@@ -72,7 +72,7 @@ interface TaskModalProps {
   task: Task
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdate: () => void
+  onUpdate: (result: TaskMutationClientResult) => void
   /** Home address for reschedule confirmation context */
   homeLabel?: string
 }
@@ -136,7 +136,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         setCurrentTask(updatedTask)
         setScheduledDate("")
         setContractorId("")
-        onUpdate()
+        onUpdate({ task: updatedTask, kind: "cancel-schedule" })
         if (mayNotifyContractor) {
           alert("Schedule cancelled and cancellation SMS sent to contractor.")
         }
@@ -196,11 +196,15 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
       if (res.ok) {
         const updatedTask = await res.json()
         setCurrentTask(updatedTask)
-        onUpdate()
-        // Don't close modal if we just scheduled a task that didn't have a date before - allow user to send SMS
         const justScheduled = !task.scheduledDate && scheduledDate
-        if (justScheduled && contractorId) {
-          // Just scheduled with contractor, keep modal open so user can send SMS
+        const keepOpenForSms = Boolean(justScheduled && contractorId)
+        onUpdate({
+          task: updatedTask,
+          kind: "schedule",
+          closeModal: !keepOpenForSms,
+        })
+        if (keepOpenForSms) {
+          // Keep modal open so user can send SMS
         } else {
           onOpenChange(false)
         }
@@ -269,7 +273,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         setCurrentTask(updatedTask)
         setScheduledDate(effectiveScheduledDate)
         setContractorId(effectiveContractorId)
-        onUpdate()
+        onUpdate({ task: updatedTask, kind: "schedule", closeModal: false })
       }
 
       const res = await fetch(`/api/tasks/${currentTask.id}/send-confirmation`, {
@@ -282,8 +286,10 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         if (taskRes.ok) {
           const updatedTask = await taskRes.json()
           setCurrentTask(updatedTask)
+          onUpdate({ task: updatedTask, kind: "confirm", closeModal: false })
+        } else {
+          onUpdate({ kind: "confirm", closeModal: false })
         }
-        onUpdate()
       } else {
         const data = await res.json()
         alert(data.error || "Failed to send SMS")
@@ -313,10 +319,13 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
 
       const updatedTask = await res.json()
       setCurrentTask(updatedTask)
-      if (newStatus === "Completed" && updatedTask.status === "Completed") {
-        playTaskComplete()
-      }
-      onUpdate()
+      const kind =
+        newStatus === "Completed"
+          ? "complete"
+          : newStatus === "InProgress"
+            ? "start"
+            : "other"
+      onUpdate({ task: updatedTask, kind })
     } catch (error) {
       console.error("Failed to update status:", error)
       alert(error instanceof Error ? error.message : "Failed to update status")
@@ -339,7 +348,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         return
       }
       setCurrentTask(data)
-      onUpdate()
+      onUpdate({ task: data, kind: "mark-applicable" })
     } catch (error) {
       console.error(error)
       alert("Failed to mark task applicable")
@@ -724,7 +733,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
       task={currentTask}
       onSuccess={(updated) => {
         setCurrentTask(updated as Task)
-        onUpdate()
+        onUpdate({ task: updated as Task, kind: "na" })
       }}
     />
 
@@ -751,7 +760,7 @@ export function TaskModal({ task, open, onOpenChange, onUpdate, homeLabel = "" }
         msg += smsResent ? " Confirmation resent." : ""
         if (warnings.length) msg += "\n\n" + warnings.join("\n")
         alert(msg)
-        onUpdate()
+        onUpdate({ task: t, kind: "reschedule" })
       }}
     />
     </>

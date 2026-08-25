@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Phase Task Mutation Performance Audit</title>
+  <style>
+    :root {
+      --ink: #1a1d26;
+      --muted: #5c6478;
+      --line: #d8dce6;
+      --accent: #1e4d8c;
+      --bg-soft: #f6f7f9;
+      --warn: #8a5a00;
+      --ok: #0f6b3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 8.5in;
+      margin: 0 auto;
+      padding: 0.15in 0.1in;
+    }
+    h1 {
+      font-size: 20pt;
+      margin: 0 0 0.15in;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      font-size: 13pt;
+      margin: 0.45in 0 0.15in;
+      padding-bottom: 0.06in;
+      border-bottom: 1.5px solid var(--accent);
+      color: var(--accent);
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 11pt;
+      margin: 0.28in 0 0.1in;
+      color: var(--ink);
+      page-break-after: avoid;
+    }
+    p { margin: 0 0 0.12in; }
+    .meta {
+      color: var(--muted);
+      font-size: 9.5pt;
+      margin-bottom: 0.25in;
+    }
+    .callout {
+      background: var(--bg-soft);
+      border-left: 3px solid var(--accent);
+      padding: 0.14in 0.16in;
+      margin: 0.15in 0 0.2in;
+    }
+    .verdict {
+      display: inline-block;
+      background: #e8f6ee;
+      color: var(--ok);
+      font-weight: 700;
+      padding: 0.04in 0.12in;
+      border-radius: 4px;
+      font-size: 10pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.1in 0 0.2in;
+      font-size: 8.5pt;
+      page-break-inside: auto;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 0.06in 0.07in;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--bg-soft);
+      font-weight: 600;
+    }
+    tr { page-break-inside: avoid; }
+    ul, ol { margin: 0.05in 0 0.15in; padding-left: 0.22in; }
+    li { margin-bottom: 0.04in; }
+    pre, code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 8pt;
+    }
+    pre {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      padding: 0.12in;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+    }
+    .mono { font-family: Consolas, "Courier New", monospace; font-size: 8.5pt; }
+    .small { font-size: 9pt; color: var(--muted); }
+    .rank { font-weight: 700; color: var(--accent); }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      h2 { page-break-before: auto; }
+      .section-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Phase Task Mutation Performance Audit</h1>
+    <p class="meta">
+      Read-only audit · High-frequency superintendent task mutations ·
+      Generated from repository analysis · Do not modify code based on this document alone without an implementation plan
+    </p>
+
+    <div class="callout">
+      <p><strong>Scope:</strong> Complete, Start, Mark N/A, Schedule, Reschedule.</p>
+      <p><strong>Not in scope:</strong> code changes, Transaction Engine migrations, caching, optimistic UI implementation.</p>
+      <p><strong>Verdict:</strong> <span class="verdict">READY TO OPTIMIZE</span></p>
+    </div>
+
+    <h2>1. Executive Summary</h2>
+    <p>
+      Superintendent task mutations in Phase are <strong>legacy online REST → Prisma</strong> paths.
+      <strong>None</strong> of the five audited workflows use the Transaction Engine (only punch-item create does).
+    </p>
+    <p>The dominant perceived-latency pattern on House Details:</p>
+    <ol>
+      <li><strong>User waits for the mutation API</strong> before most UI updates (inline complete is <em>post-response</em>, not true optimistic).</li>
+      <li><strong>Every successful mutation triggers</strong> <span class="mono">GET /api/homes/[id]/forecast</span>, which recomputes CPM, persists forecast fields on every task, and returns the full home + all tasks payload.</li>
+      <li><strong>Gates are refetched</strong> in parallel (<span class="mono">GET /api/homes/[id]/gates</span>), loading all home tasks again and running N punch counts.</li>
+      <li><span class="mono">setHome(fullHome)</span> <strong>rerenders the entire ~1,250-line</strong> <span class="mono">HomeDetailPage</span>, including every category accordion and every work-item card.</li>
+    </ol>
+    <p>
+      <strong>Heaviest server paths:</strong> Schedule (duplicate full-home task loads for guards), Mark N/A (forecast persist on server plus client forecast refetch), Reschedule with SMS (Twilio in-request).
+    </p>
+    <p>
+      <strong>Best existing pattern:</strong> Inline complete applies a local task patch immediately <em>after</em> PATCH returns, then background-refetches forecast/gates — but the button still shows “Saving…” until PATCH completes.
+    </p>
+
+    <h2>2. Five Workflow Maps</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Client entry</th>
+          <th>API</th>
+          <th>Method</th>
+          <th>Primary DB mutations</th>
+          <th>Post-mutation client</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Complete</strong></td>
+          <td><span class="mono">HomeDetailPage.handleMarkCompleted</span></td>
+          <td><span class="mono">/api/tasks/[id]</span></td>
+          <td>PATCH</td>
+          <td>homeTask.update; optional contractorAssignment.upsert; auditLog; recalculateHomeCompletion</td>
+          <td>After PATCH: patch one task; play sound; background /forecast + /gates</td>
+        </tr>
+        <tr>
+          <td><strong>Complete</strong></td>
+          <td><span class="mono">TaskModal.handleStatusChange("Completed")</span></td>
+          <td>same</td>
+          <td>PATCH</td>
+          <td>same</td>
+          <td>Waits PATCH; setCurrentTask; onUpdate → forecast + gates; closes modal</td>
+        </tr>
+        <tr>
+          <td><strong>Start</strong></td>
+          <td><span class="mono">TaskActionSheet.handleStart</span> (Flow)</td>
+          <td><span class="mono">/api/tasks/[id]/start</span></td>
+          <td>POST</td>
+          <td>homeTask.update; activityEvent.create</td>
+          <td>Waits POST; onSuccess → full Flow refetch</td>
+        </tr>
+        <tr>
+          <td><strong>Start</strong></td>
+          <td><span class="mono">TaskModal.handleStatusChange("InProgress")</span></td>
+          <td><span class="mono">/api/tasks/[id]</span></td>
+          <td>PATCH</td>
+          <td>Same as complete + audit + recalc; no task_started activity</td>
+          <td>Waits PATCH; forecast + gates</td>
+        </tr>
+        <tr>
+          <td><strong>Mark N/A</strong></td>
+          <td><span class="mono">MarkNotApplicableDialog.handleSubmit</span></td>
+          <td><span class="mono">/api/tasks/[id]/not-applicable</span></td>
+          <td>POST</td>
+          <td>homeTask.update; audit; activity; recalc; <strong>computeHomeForecastAndPersist</strong></td>
+          <td>Waits POST; handleTaskUpdate → another /forecast + /gates</td>
+        </tr>
+        <tr>
+          <td><strong>Schedule</strong></td>
+          <td><span class="mono">TaskModal.handleSave</span>, Flow schedule</td>
+          <td><span class="mono">/api/tasks/[id]</span></td>
+          <td>PATCH</td>
+          <td>homeTask.update; category/gate guards; audit; recalc; task_scheduled activity</td>
+          <td>Waits PATCH; forecast + gates; modal may stay open for SMS</td>
+        </tr>
+        <tr>
+          <td><strong>Reschedule</strong></td>
+          <td><span class="mono">RescheduleTaskDialog.submit</span></td>
+          <td><span class="mono">/api/tasks/[id]/reschedule</span></td>
+          <td>POST</td>
+          <td>history.create + homeTask.update (tx); audit; activity; optional sync SMS</td>
+          <td>Waits POST; forecast + gates + history refresh</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">
+      Note: TaskModal.handleSave on an already-scheduled date change can PATCH without history — proper reschedule is only via RescheduleTaskDialog.
+      Handlers live under <span class="mono">app/api/tasks/[id]/</span>. No TaskCard component; tasks are inline Cards in HomeDetailPage.
+    </p>
+
+    <h2>3. Client-Side Waiting Analysis</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Waits for fetch?</th>
+          <th>Optimistic?</th>
+          <th>Loading UX</th>
+          <th>Refetch</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete (inline)</td>
+          <td>Yes — PATCH first</td>
+          <td>No (local patch is post-response)</td>
+          <td>Per-card “Saving…”</td>
+          <td>Forecast + gates (background)</td>
+        </tr>
+        <tr>
+          <td>Complete (modal)</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Modal loading</td>
+          <td>Forecast + gates; closes modal</td>
+        </tr>
+        <tr>
+          <td>Start (Flow)</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Sheet spinner</td>
+          <td>Full /api/flow</td>
+        </tr>
+        <tr>
+          <td>Start (modal)</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Modal loading</td>
+          <td>Forecast + gates</td>
+        </tr>
+        <tr>
+          <td>Mark N/A</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Dialog Loader2</td>
+          <td>Forecast + gates (double forecast)</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Modal/sheet loading</td>
+          <td>Forecast + gates</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>Dialog loading</td>
+          <td>Forecast + gates + history</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      No <span class="mono">router.refresh()</span> on House Details task mutations. No SWR/React Query — manual fetch + useState(home).
+    </p>
+    <p><strong>Perceived latency drivers:</strong> mutation RTT; no status change until response; forecast refetch often slower than mutation; full-page rerender after each setHome.</p>
+
+    <h2 class="section-break">4. Refetch / Refresh Analysis</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mutation path</th>
+          <th>Data refetched</th>
+          <th>Scope</th>
+          <th>Necessary?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>All via handleTaskUpdate / inline follow-up</td>
+          <td><span class="mono">GET /api/homes/[id]/forecast</span></td>
+          <td>Full home + all tasks; server CPM + N task updates</td>
+          <td>Partially — not needed before showing task status</td>
+        </tr>
+        <tr>
+          <td>Same</td>
+          <td><span class="mono">GET /api/homes/[id]/gates</span></td>
+          <td>All home tasks + per-gate punch counts</td>
+          <td>Unclear — only if unlock state changed</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td>reschedule history</td>
+          <td>History list</td>
+          <td>Yes for reschedule</td>
+        </tr>
+        <tr>
+          <td>Mark N/A</td>
+          <td>Server computeHomeForecastAndPersist in POST</td>
+          <td>Same as forecast GET</td>
+          <td><strong>Redundant</strong> with client forecast refetch</td>
+        </tr>
+        <tr>
+          <td>Flow start/schedule</td>
+          <td><span class="mono">GET /api/flow</span></td>
+          <td>Entire Flow queue</td>
+          <td>Necessary for Flow list</td>
+        </tr>
+        <tr>
+          <td>Dashboard / Calendar</td>
+          <td>Nothing</td>
+          <td>—</td>
+          <td>Stale until revisit / poll</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Completing one task effectively refetches the entire home graph via forecast and replaces home state.
+      Plans/thumbnail are not re-fetched, but full rerender still occurs.
+    </p>
+
+    <h2>5. Server Critical Paths</h2>
+
+    <h3>Complete — PATCH { status: "Completed" }</h3>
+    <pre>requireTenantContext                 [REQUIRED BEFORE RESPONSE]
+→ hasPermission(tasks:write)         [REQUIRED]
+→ homeTask.findFirst (+ home)        [REQUIRED]
+→ dependency guard (0–2 queries)     [REQUIRED — correctness]
+→ homeTask.update (+ includes)       [REQUIRED]
+→ contractorAssignment.upsert        [COULD AFTER]
+→ createAuditLog                     [COULD AFTER]
+→ recalculateHomeCompletion          [COULD AFTER]
+→ notifyTaskCompleted (no-op)        [D]
+→ return task JSON                   [REQUIRED]</pre>
+
+    <h3>Start — POST /start</h3>
+    <pre>requireTenantContext → permission → findFirst → dep guard → update → createTaskStartedEvent → return</pre>
+    <p class="small">Activity is awaited today. No audit/recalc. PATCH InProgress path differs: audit + recalc, no task_started activity.</p>
+
+    <h3>Mark N/A — POST /not-applicable</h3>
+    <pre>findFirst → update → audit → user.findUnique → activity → recalculateHomeCompletion
+→ computeHomeForecastAndPersist → return</pre>
+    <p>Forecast persist is the largest blocker — could be AFTER RESPONSE with immediate NA UI.</p>
+
+    <h3>Schedule — PATCH with scheduledDate</h3>
+    <pre>requireTenantContext → billing gates → findFirst
+→ homeTask.findMany (ALL tasks)              [REQUIRED for category gates]
+→ categoryGate.findMany + scan               [REQUIRED]
+→ checkGateBlocking (ALL tasks again + N)    [REQUIRED]
+→ update → upsert → audit → recalc → createTaskScheduledEvent (.catch) → return</pre>
+
+    <h3>Reschedule — POST /reschedule</h3>
+    <pre>findFirst → billing → gate check → $transaction(history + update)
+→ findUniqueOrThrow → audit → notify (no-op)
+→ optional sendTaskConfirmationInternal (SMS) [BLOCKS if resendSms]
+→ activity → return { task, smsResent, warnings }</pre>
+
+    <h2>6. Database Query Analysis</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Workflow</th>
+          <th>Approx. Prisma ops</th>
+          <th>Notable patterns</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete</td>
+          <td>6–10</td>
+          <td>Sequential: read → deps → update → upsert → audit → recalc (4 queries)</td>
+        </tr>
+        <tr>
+          <td>Start (POST)</td>
+          <td>4–5</td>
+          <td>Lighter; no audit/recalc</td>
+        </tr>
+        <tr>
+          <td>Start (PATCH)</td>
+          <td>6–10</td>
+          <td>Same as complete</td>
+        </tr>
+        <tr>
+          <td>Mark N/A</td>
+          <td>15+</td>
+          <td>Forecast: load home/tasks, deps, phase data, $transaction with N task updates + home</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td>12–20+</td>
+          <td>Duplicate homeTask.findMany; checkGateBlocking reloads all; per-gate punch counts</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td>8–15+</td>
+          <td>Transaction OK; redundant re-read; SMS path adds reads + Twilio</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      <strong>N+1:</strong> getHomeGateStatus / checkGateBlocking run one punch count per critical gate.
+      <strong>Forecast GET:</strong> access check → computeHomeForecastAndPersist again → full home.findUnique — triple work when N/A POST already persisted.
+    </p>
+
+    <h2>7. Auth / Tenant Cost</h2>
+    <p>Every mutation calls <span class="mono">requireTenantContext()</span>:</p>
+    <ul>
+      <li>getServerSession(authOptions)</li>
+      <li>Usually prisma.user.findUnique (+ company name)</li>
+      <li>Impersonation path may add lookup</li>
+    </ul>
+    <p>
+      Then hasPermission(role, "tasks:write") — in-memory, cheap.
+      Forecast refetch uses requireTenantPermission("homes:read") — session + user again + superintendent assignment check.
+      No per-request caching of tenant context. Redundant but likely small vs forecast/gates.
+    </p>
+
+    <h2 class="section-break">8. Side-Effect Classification</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Side effect</th>
+          <th>Complete</th>
+          <th>Start POST</th>
+          <th>Start PATCH</th>
+          <th>N/A</th>
+          <th>Schedule</th>
+          <th>Reschedule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Audit log</td>
+          <td>B</td>
+          <td>—</td>
+          <td>B</td>
+          <td>B</td>
+          <td>B</td>
+          <td>B</td>
+        </tr>
+        <tr>
+          <td>Activity</td>
+          <td>— (dead helper)</td>
+          <td>B</td>
+          <td>—</td>
+          <td>B</td>
+          <td>C/D</td>
+          <td>B</td>
+        </tr>
+        <tr>
+          <td>Notifications</td>
+          <td>D (no-op)</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>D</td>
+          <td>D</td>
+        </tr>
+        <tr>
+          <td>SMS</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>Separate send-confirmation</td>
+          <td><strong>B if resendSms</strong></td>
+        </tr>
+        <tr>
+          <td>Forecast persist</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td><strong>B</strong></td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>Home completion recalc</td>
+          <td>B</td>
+          <td>—</td>
+          <td>B</td>
+          <td>B</td>
+          <td>B</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">
+      A = atomic with mutation · B = before response today · C = could after response · D = already async / no-op
+    </p>
+
+    <h2>9. React Rendering Analysis</h2>
+    <p>
+      Single client component <span class="mono">HomeDetailPage</span> (~1,248 lines).
+      Tasks rendered inline as Cards inside category accordions — <strong>no TaskCard</strong>, <strong>no React.memo</strong>.
+    </p>
+    <p>On any setHome:</p>
+    <ul>
+      <li>Recomputes tasksByCategory, progress bars, blocked reasons</li>
+      <li>Rerenders all categories and all task cards</li>
+      <li>Rerenders HouseScheduleCard, header, plans consumers</li>
+      <li>useSession() on page — session updates also rerender whole tree</li>
+    </ul>
+    <p><strong>Estimate:</strong> Updating one HomeTask → entire House Details page rerenders.</p>
+
+    <h2>10. Payload Size</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Workflow</th>
+          <th>Request</th>
+          <th>Response</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete</td>
+          <td><span class="mono">{ status: "Completed" }</span> (~30 B)</td>
+          <td>Full HomeTask + contractor, home, subdivision (~2–5 KB+)</td>
+        </tr>
+        <tr>
+          <td>Start POST</td>
+          <td>empty</td>
+          <td>Same shape</td>
+        </tr>
+        <tr>
+          <td>N/A</td>
+          <td><span class="mono">{ reason, note? }</span></td>
+          <td>Full task + templateItem + NA metadata</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td>scheduledDate, contractorId?, notes?, confirmManually?</td>
+          <td>Full task graph</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td>scheduledDate, reason, note?, resendSms?</td>
+          <td><span class="mono">{ task, smsResent, warnings }</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Forecast GET returns entire home with all tasks — often <strong>50–200+ KB JSON</strong> on typical homes.
+      Could theoretically return a delta DTO.
+    </p>
+
+    <h2>11. Transaction Engine Coverage</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Workflow</th>
+          <th>Engine?</th>
+          <th>Migration would require</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete</td>
+          <td><strong>Legacy</strong></td>
+          <td>New transaction type, idempotent apply, client queue + reconcile, dependency validation</td>
+        </tr>
+        <tr>
+          <td>Start</td>
+          <td><strong>Legacy</strong></td>
+          <td>Same; unify POST /start and PATCH InProgress</td>
+        </tr>
+        <tr>
+          <td>N/A</td>
+          <td><strong>Legacy</strong></td>
+          <td>Forecast side-effect policy (sync vs deferred)</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td><strong>Legacy</strong></td>
+          <td>Gate/category guard snapshots or revalidation on apply</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td><strong>Legacy</strong></td>
+          <td>History + confirmation demotion + optional SMS outbox</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">Existing TE: punch create only (lib/transactions/, TransactionEngineProvider, IndexedDB queue).</p>
+
+    <h2>12. Offline / Conflict Implications</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Workflow</th>
+          <th>Classification</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Complete</td>
+          <td>Optimistic candidate; conflict-sensitive (dependency guard, 409)</td>
+        </tr>
+        <tr>
+          <td>Start</td>
+          <td>Optimistic candidate; dep guard; POST /start less strict than PATCH</td>
+        </tr>
+        <tr>
+          <td>Mark N/A</td>
+          <td>Needs server confirmation for forecast/completion; reversible via mark-applicable</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td>Conflict-sensitive (gates, category gates, billing); SMS external</td>
+        </tr>
+        <tr>
+          <td>Reschedule</td>
+          <td>Most conflict-sensitive (history, Confirmed→Scheduled demotion, SMS)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="section-break">13. Existing Instrumentation</h2>
+    <p><strong>Present (temporary/debug):</strong></p>
+    <ul>
+      <li>Date.now() + localhost ingest in handleMarkCompleted</li>
+      <li>debugLog + ingest in PATCH /api/tasks/[id], GET /forecast, GET /gates</li>
+    </ul>
+    <p><strong>Absent:</strong> performance.now() / Web Vitals / OpenTelemetry; Prisma query logging; Server-Timing; production T0–T6 marks.</p>
+    <p><strong>Proposed future measurement:</strong></p>
+    <ul>
+      <li>Client: tap → local patch → fetch start/end → reconcile</li>
+      <li>Server: auth, guards, mutation, side-effects</li>
+      <li>Log P50/P95 for PATCH vs forecast vs gates separately</li>
+    </ul>
+
+    <h2>14. Current Latency Models</h2>
+
+    <h3>Complete (inline — primary superintendent path)</h3>
+    <pre>Tap ───────────────────────────── USER WAITING (button "Saving…")
+  ↓
+PATCH /api/tasks/[id]
+  ├─ session + user lookup
+  ├─ task read + dep guard
+  ├─ update + audit + recalc
+  ↓
+Response → setHome (one task) ─── USER SEES COMPLETE (~PATCH RTT)
+  ↓ playTaskComplete + highlight
+GET /forecast (background) ───── USER MAY SEE JANK when setHome(full)
+GET /gates (background)
+  ↓
+Full page rerender ────────────── SECOND LARGE UPDATE</pre>
+
+    <h3>Mark N/A (worst case)</h3>
+    <pre>Tap → dialog loading
+POST /not-applicable
+  ├─ update + audit + activity + recalc
+  ├─ computeHomeForecastAndPersist (N updates) ── LONG SERVER WORK
+  ↓
+handleTaskUpdate → GET /forecast ── DUPLICATE CPM WORK
+→ GET /gates → full rerender</pre>
+
+    <h3>Reschedule (+ SMS)</h3>
+    <pre>Open dialog → GET reschedule-eligibility
+Submit → POST reschedule
+  ├─ gate check + transaction
+  ├─ optional Twilio SMS ───────── BLOCKS RESPONSE
+→ onUpdate → forecast + gates + history</pre>
+
+    <h2>15. Top 10 Bottlenecks (Ranked)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Bottleneck</th>
+          <th>Impact</th>
+          <th>Freq</th>
+          <th>Effort</th>
+          <th>Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rank">1</td>
+          <td>Post-mutation GET /forecast (full CPM + persist + huge payload)</td>
+          <td>Very high</td>
+          <td>Every mutation</td>
+          <td>Medium</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td class="rank">2</td>
+          <td>No true optimistic UI — wait for API before status change</td>
+          <td>Very high</td>
+          <td>Complete/start/schedule/NA</td>
+          <td>Medium</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td class="rank">3</td>
+          <td>setHome(full) → entire page rerender</td>
+          <td>High</td>
+          <td>Every mutation</td>
+          <td>Medium</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td class="rank">4</td>
+          <td>N/A double forecast (server persist + client refetch)</td>
+          <td>High</td>
+          <td>N/A</td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td class="rank">5</td>
+          <td>Schedule guard queries (2× full home task load + gate counts)</td>
+          <td>High</td>
+          <td>Schedule/reschedule</td>
+          <td>Medium</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td class="rank">6</td>
+          <td>Sync side effects before response (audit, recalc, activity, forecast on N/A)</td>
+          <td>Medium</td>
+          <td>All</td>
+          <td>Low–Med</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td class="rank">7</td>
+          <td>Reschedule SMS in-request</td>
+          <td>Medium</td>
+          <td>Reschedule w/ SMS</td>
+          <td>Medium</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td class="rank">8</td>
+          <td>Large mutation responses (full includes)</td>
+          <td>Medium</td>
+          <td>All</td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td class="rank">9</td>
+          <td>Gates refetch after every mutation</td>
+          <td>Medium</td>
+          <td>Most</td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <td class="rank">10</td>
+          <td>Flow full refetch on start/schedule</td>
+          <td>Medium</td>
+          <td>Flow users</td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>16. Recommended Optimization Sequence</h2>
+    <h3>Phase P1 — Client refetch/rerender (safest wins)</h3>
+    <ul>
+      <li>Patch local home.tasks from mutation response; stop awaiting forecast for status display</li>
+      <li>Defer /forecast and /gates (idle / background, coalesce rapid mutations)</li>
+      <li>Remove duplicate forecast on N/A (server OR client, not both)</li>
+      <li>Narrow rerender: split task list state or memoize rows carefully</li>
+    </ul>
+    <h3>Phase P2 — True optimistic UI</h3>
+    <ul>
+      <li>Complete/start: apply status on tap; rollback on 409/400</li>
+      <li>Keep dependency errors as server source of truth</li>
+    </ul>
+    <h3>Phase P3 — Server critical path</h3>
+    <ul>
+      <li>Move audit/activity/recalc to async jobs or waitUntil</li>
+      <li>Collapse schedule guard reads (single task load)</li>
+      <li>Slim PATCH response (TaskMutationResult DTO)</li>
+    </ul>
+    <h3>Phase P4 — Transaction Engine for status mutations</h3>
+    <ul>
+      <li>Complete/start/N/A first (highest frequency)</li>
+    </ul>
+    <h3>Phase P5 — Schedule/reschedule</h3>
+    <ul>
+      <li>Outbox SMS; optional optimistic date with server validation</li>
+    </ul>
+
+    <h2>17. Expected Perceived Improvements</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Change</th>
+          <th>Expected effect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Optimistic status on tap</td>
+          <td>100–300ms perceived → near &lt;100ms visual</td>
+        </tr>
+        <tr>
+          <td>Defer forecast/gates</td>
+          <td>Removes 500ms–2s+ blocking tail on most taps</td>
+        </tr>
+        <tr>
+          <td>Stop full-page rerender</td>
+          <td>Smoother UI; less main-thread work on large homes</td>
+        </tr>
+        <tr>
+          <td>N/A single forecast</td>
+          <td>~30–50% faster N/A server + client combined</td>
+        </tr>
+        <tr>
+          <td>Slim responses</td>
+          <td>Faster JSON parse + less rerender cost</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>18. Risks / Correctness Guardrails</h2>
+    <p>Do not optimize away without replacement:</p>
+    <ul>
+      <li>Tenant scoping on every mutation</li>
+      <li>Dependency guard (409 DEPENDENCY_BLOCKED)</li>
+      <li>Category/punch gate checks on schedule/reschedule</li>
+      <li>Reschedule history immutability</li>
+      <li>Confirmed → Scheduled demotion on reschedule</li>
+      <li>Contractor confirmation / SMS semantics</li>
+      <li>Audit/activity (can defer, not drop)</li>
+      <li>Forecast accuracy for portfolio/Dashboard (eventual consistency OK if labeled)</li>
+    </ul>
+    <p>
+      <strong>Risky ideas:</strong> optimistic schedule without gate revalidation; skipping forecast forever;
+      caching tenant context across users; batching mutations without version checks.
+    </p>
+
+    <h2>19. First Optimization to Implement</h2>
+    <div class="callout">
+      <p>
+        <strong>Defer and coalesce post-mutation /forecast + /gates refetches; patch task state immediately from the mutation response.</strong>
+      </p>
+      <ol>
+        <li>On PATCH/POST success, merge returned task into home.tasks (all entry points).</li>
+        <li>Fire /forecast + /gates in background; debounce if superintendent taps multiple tasks quickly.</li>
+        <li>For N/A, remove client forecast refetch (server already persists) or remove server persist from POST — pick one.</li>
+        <li>Add lightweight performance.mark for tap→patch→reconcile when implementing.</li>
+      </ol>
+    </div>
+
+    <h2>Final Status</h2>
+    <p>
+      <span class="verdict">READY TO OPTIMIZE</span>
+    </p>
+    <p>
+      No fundamental architectural flaw blocks incremental performance work.
+      The main issue is <strong>synchronous request chains and full-home reconciliation</strong>,
+      not missing indexes or Transaction Engine absence (yet).
+    </p>
+    <p class="small" style="margin-top: 0.35in;">
+      Target experience (evaluation only — not implemented): Tap → visible UI &lt;100ms;
+      durable local acceptance &lt;150ms where TE applies; normal server acknowledgement ideally &lt;500ms;
+      user blocked waiting as close to 0ms as safely possible.
+    </p>
+  </div>
+</body>
+</html>
