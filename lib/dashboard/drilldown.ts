@@ -20,12 +20,13 @@ import { compareWorkTemplatesForDisplay } from "@/lib/work-template-display-orde
 
 export const DASHBOARD_DRILLDOWN_SEARCH_MIN = 10
 
-export type DashboardDrilldownKind = "portfolio" | "timeline" | "pulse"
+export type DashboardDrilldownKind = "portfolio" | "timeline" | "pulse" | "delays"
 
 export type DashboardDrilldownContext =
   | { kind: "portfolio"; status: ScheduleStatus; title: string }
   | { kind: "timeline"; phaseKey: string; title: string }
   | { kind: "pulse"; subdivisionId: string; title: string }
+  | { kind: "delays"; contractorId: string; title: string }
 
 export type DashboardHouseRowData = {
   homeId: string
@@ -42,6 +43,12 @@ export type DashboardHouseRowData = {
   lastMilestoneCompletedAt: string | null
   status?: ScheduleStatus
   displayOrder: number
+  /** Delays Tracker: scheduled date of the delayed confirmed task. */
+  scheduledTaskDate?: string | null
+  /** Delays Tracker: contractor confirmation timestamp. */
+  confirmedAt?: string | null
+  contractorName?: string | null
+  daysDelayed?: number
 }
 
 export type DrilldownTaskInput = {
@@ -103,6 +110,7 @@ export function houseDetailsHref(homeId: string, taskId?: string | null): string
 export function serializeInspectParam(ctx: DashboardDrilldownContext): string {
   if (ctx.kind === "portfolio") return `status:${ctx.status}`
   if (ctx.kind === "timeline") return `phase:${ctx.phaseKey}`
+  if (ctx.kind === "delays") return `delays:${ctx.contractorId}`
   return `pulse:${ctx.subdivisionId}`
 }
 
@@ -125,6 +133,9 @@ export function parseInspectParam(
   }
   if (value.startsWith("phase:")) {
     return { kind: "timeline", key: value.slice("phase:".length) }
+  }
+  if (value.startsWith("delays:")) {
+    return { kind: "delays", key: value.slice("delays:".length) }
   }
   if (value.startsWith("pulse:")) {
     return { kind: "pulse", key: value.slice("pulse:".length) }

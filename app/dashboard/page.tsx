@@ -8,7 +8,7 @@ import { Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { WelcomeBanner } from "@/components/onboarding/welcome-banner"
 import { PortfolioOverviewCard } from "@/components/dashboard/portfolio-overview-card"
-import { BottleneckListCard } from "@/components/dashboard/bottleneck-list-card"
+import { DelaysTrackerCard } from "@/components/dashboard/delays-tracker-card"
 import { UpcomingInspectionsCard } from "@/components/dashboard/upcoming-inspections-card"
 import { KPIGrid } from "@/components/dashboard/kpi-grid"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
@@ -22,12 +22,13 @@ import {
   type DashboardHouseRowData,
 } from "@/lib/dashboard/drilldown"
 import type { ScheduleStatus } from "@/lib/schedule-status"
+import type { DelaysTrackerResult } from "@/lib/dashboard/delays-tracker"
 
 interface PortfolioData {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
   homesByStatus?: Record<ScheduleStatus, DashboardHouseRowData[]>
-  bottlenecks: Array<{ key: string; label: string; count: number }>
+  delaysTracker?: DelaysTrackerResult
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
 }
@@ -350,7 +351,10 @@ export default function DashboardPage() {
       at_risk: [],
       behind: [],
     },
-    bottlenecks: [],
+    delaysTracker: {
+      summary: { delayedTaskCount: 0, contractorCount: 0, homeCount: 0 },
+      contractors: [],
+    },
     inspectionsUpcoming: [],
     kpis: [
       { label: "% Homes on Track", value: "—", delta: null },
@@ -410,21 +414,45 @@ export default function DashboardPage() {
       })
       return
     }
+    if (parsed.kind === "delays") {
+      const group = (data.delaysTracker?.contractors ?? []).find(
+        (c) => c.contractorId === parsed.key
+      )
+      setDrilldown({
+        kind: "delays",
+        contractorId: parsed.key,
+        title: group?.contractorName ?? "Delays",
+      })
+      return
+    }
     const group = pulseGroups.find((g) => g.subdivisionId === parsed.key)
     setDrilldown({
       kind: "pulse",
       subdivisionId: parsed.key,
       title: group?.subdivisionName ?? "Field Pulse",
     })
-  }, [searchParams, phaseDistribution, pulseGroups])
+  }, [searchParams, phaseDistribution, pulseGroups, data.delaysTracker])
 
   const drilldownHouses: DashboardHouseRowData[] = (() => {
     if (!drilldown) return []
     if (drilldown.kind === "portfolio") return homesByStatus[drilldown.status] ?? []
     if (drilldown.kind === "timeline") return homesByPhase[drilldown.phaseKey] ?? []
+    if (drilldown.kind === "delays") {
+      const group = (data.delaysTracker?.contractors ?? []).find(
+        (c) => c.contractorId === drilldown.contractorId
+      )
+      return group?.tasks ?? []
+    }
     const group = pulseGroups.find((g) => g.subdivisionId === drilldown.subdivisionId)
     return group ? pulseHomesToRows(group) : []
   })()
+
+  const drilldownDescription =
+    drilldown?.kind === "delays"
+      ? `${drilldownHouses.length} confirmed task${
+          drilldownHouses.length === 1 ? "" : "s"
+        } not started`
+      : undefined
 
   if (portfolioLoading && !portfolio) {
     return (
@@ -476,7 +504,7 @@ export default function DashboardPage() {
             )}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Portfolio-level view of schedule health, bottlenecks, and live activity.
+            Portfolio-level view of schedule health, delays, and live activity.
           </p>
           {lastUpdated && (
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -552,8 +580,25 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 4) Bottlenecks */}
-          <BottleneckListCard bottlenecks={data.bottlenecks} />
+          {/* 4) Delays Tracker (replaces Top Bottlenecks) */}
+          <DelaysTrackerCard
+            delays={
+              data.delaysTracker ?? {
+                summary: { delayedTaskCount: 0, contractorCount: 0, homeCount: 0 },
+                contractors: [],
+              }
+            }
+            onContractorSelect={(group) =>
+              openDrilldown(
+                {
+                  kind: "delays",
+                  contractorId: group.contractorId,
+                  title: group.contractorName,
+                },
+                group.delayCount
+              )
+            }
+          />
 
           {/* 5) Upcoming Inspections */}
           <UpcomingInspectionsCard inspectionsUpcoming={data.inspectionsUpcoming} />
@@ -574,6 +619,7 @@ export default function DashboardPage() {
         title={drilldown?.title ?? ""}
         kind={drilldown?.kind ?? "portfolio"}
         houses={drilldownHouses}
+        subtitle={drilldownDescription}
       />
     </div>
   )

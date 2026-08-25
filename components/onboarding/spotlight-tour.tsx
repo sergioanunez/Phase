@@ -93,7 +93,7 @@ const STEP_CONFIG: Record<
   dashboard: {
     title: "Dashboard",
     description:
-      "Get a portfolio-level view of schedule health, bottlenecks, and your construction pipeline.",
+      "Get a portfolio-level view of schedule health, delays, and your construction pipeline.",
     selector: "[data-onboarding=dashboard]",
     route: "/dashboard",
   },

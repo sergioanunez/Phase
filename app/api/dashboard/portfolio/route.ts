@@ -8,6 +8,11 @@ import {
   type DashboardHouseRowData,
   type DrilldownHomeInput,
 } from "@/lib/dashboard/drilldown"
+import {
+  buildDelaysTracker,
+  type DelaysTrackerResult,
+  type DelayedTaskInput,
+} from "@/lib/dashboard/delays-tracker"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -18,7 +23,7 @@ export interface PortfolioResponse {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
   homesByStatus: Record<"not_started" | "on_track" | "at_risk" | "behind", DashboardHouseRowData[]>
-  bottlenecks: Array<{ key: string; label: string; count: number }>
+  delaysTracker: DelaysTrackerResult
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
 }
@@ -112,34 +117,59 @@ export async function GET(request: NextRequest) {
 
     const activeHomesCount = homes.length
 
-    // Bottlenecks: categories with overdue tasks (scheduled in past, not completed) — count distinct homes
-    const overdueByCategory = new Map<string, Set<string>>()
-    for (const home of homes) {
-      for (const task of home.tasks) {
-        if (
-          isTaskIncompleteForProgress(task.status) &&
-          task.scheduledDate &&
-          new Date(task.scheduledDate) < today
-        ) {
-          const category = task.templateItem.optionalCategory || "Other"
-          if (!overdueByCategory.has(category)) {
-            overdueByCategory.set(category, new Set())
-          }
-          overdueByCategory.get(category)!.add(home.id)
-        }
-      }
+    // Delays Tracker: confirmed + scheduled before today + not started.
+    // Qualification also requires ≥1 working day past schedule (excludes weekends / “due today”).
+    let delaysTracker: DelaysTrackerResult = {
+      summary: { delayedTaskCount: 0, contractorCount: 0, homeCount: 0 },
+      contractors: [],
     }
-    const bottlenecks: Array<{ key: string; label: string; count: number }> = []
-    overdueByCategory.forEach((homeIds, category) => {
-      if (homeIds.size > 0) {
-        bottlenecks.push({
-          key: category.replace(/\s+/g, "-").toLowerCase(),
-          label: category,
-          count: homeIds.size,
-        })
-      }
-    })
-    bottlenecks.sort((a, b) => b.count - a.count)
+    const homeIds = homes.map((h) => h.id)
+    if (homeIds.length > 0) {
+      const delayedTasksRaw = await prisma.homeTask.findMany({
+        where: {
+          companyId: ctx.companyId,
+          status: "Confirmed",
+          startedAt: null,
+          scheduledDate: { lt: today },
+          contractorId: { not: null },
+          homeId: { in: homeIds },
+        },
+        select: {
+          id: true,
+          status: true,
+          scheduledDate: true,
+          confirmedAt: true,
+          startedAt: true,
+          nameSnapshot: true,
+          contractorId: true,
+          contractor: { select: { id: true, companyName: true } },
+          home: {
+            select: {
+              id: true,
+              addressOrLot: true,
+              displayOrder: true,
+              subdivision: { select: { name: true } },
+            },
+          },
+        },
+      })
+
+      const delayedInputs: DelayedTaskInput[] = delayedTasksRaw.map((t) => ({
+        id: t.id,
+        status: t.status,
+        scheduledDate: t.scheduledDate,
+        confirmedAt: t.confirmedAt,
+        startedAt: t.startedAt,
+        name: t.nameSnapshot,
+        contractorId: t.contractorId ?? t.contractor?.id ?? null,
+        contractorName: t.contractor?.companyName ?? null,
+        homeId: t.home.id,
+        address: t.home.addressOrLot,
+        subdivisionName: t.home.subdivision?.name ?? "",
+        displayOrder: t.home.displayOrder,
+      }))
+      delaysTracker = buildDelaysTracker(delayedInputs, today)
+    }
 
     // Upcoming inspections: next 7–10 days — group by inspection-like categories
     // TODO: Map template categories to "Foundation Inspections", "Framing Inspections", "Final Inspections" when inspection types are defined
@@ -238,7 +268,7 @@ export async function GET(request: NextRequest) {
       activeHomesCount,
       statusCounts: { notStarted, onTrack, atRisk, behind },
       homesByStatus,
-      bottlenecks,
+      delaysTracker,
       inspectionsUpcoming,
       kpis,
     }

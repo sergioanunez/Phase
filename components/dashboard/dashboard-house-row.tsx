@@ -3,7 +3,12 @@
 import Link from "next/link"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { houseDetailsHref, type DashboardDrilldownKind, type DashboardHouseRowData } from "@/lib/dashboard/drilldown"
+import {
+  houseDetailsHref,
+  type DashboardDrilldownKind,
+  type DashboardHouseRowData,
+} from "@/lib/dashboard/drilldown"
+import { delaySeverity } from "@/lib/dashboard/delays-tracker"
 
 function formatShort(iso: string | null | undefined): string | null {
   if (!iso) return null
@@ -26,6 +31,11 @@ export function DashboardHouseRow({
   const forecast = formatShort(house.forecastDate)
   const target = formatShort(house.targetDate)
   const milestoneDate = formatShort(house.lastMilestoneCompletedAt)
+  const scheduled = formatShort(house.scheduledTaskDate)
+  const confirmed = formatShort(house.confirmedAt)
+  const daysDelayed = house.daysDelayed ?? house.daysBehind
+  const severity =
+    kind === "delays" && daysDelayed != null ? delaySeverity(daysDelayed) : null
 
   return (
     <Link
@@ -75,6 +85,30 @@ export function DashboardHouseRow({
             ? `${house.lastMilestoneName}${milestoneDate ? ` · ${milestoneDate}` : ""}`
             : "—"}
         </p>
+      )}
+
+      {kind === "delays" && (
+        <>
+          {house.nextCriticalTaskName ? (
+            <p className="mt-1.5 text-sm font-medium text-foreground break-words">
+              {house.nextCriticalTaskName}
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs text-muted-foreground">
+            Scheduled {scheduled ?? "—"}
+            {confirmed ? ` · Confirmed ${confirmed}` : ""}
+          </p>
+          {daysDelayed != null && daysDelayed > 0 ? (
+            <p
+              className={cn(
+                "mt-1 text-xs font-medium",
+                severity === "red" ? "text-red-700" : "text-amber-800"
+              )}
+            >
+              {daysDelayed} working day{daysDelayed === 1 ? "" : "s"} delayed
+            </p>
+          ) : null}
+        </>
       )}
 
       {(kind === "portfolio" || kind === "timeline" || kind === "pulse") &&

@@ -27,6 +27,7 @@ export function DashboardHouseDrilldown({
   kind,
   houses,
   loading,
+  subtitle,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -34,6 +35,8 @@ export function DashboardHouseDrilldown({
   kind: DashboardDrilldownKind
   houses: DashboardHouseRowData[]
   loading?: boolean
+  /** Overrides the default “N homes” description. */
+  subtitle?: string
 }) {
   const [query, setQuery] = useState("")
   const listRef = useRef<HTMLDivElement>(null)
@@ -53,7 +56,11 @@ export function DashboardHouseDrilldown({
     [houses, query]
   )
   const showSearch = houses.length >= DASHBOARD_DRILLDOWN_SEARCH_MIN
-  const countLabel = `${houses.length} home${houses.length === 1 ? "" : "s"}`
+  const countLabel =
+    subtitle ??
+    (kind === "delays"
+      ? `${houses.length} confirmed task${houses.length === 1 ? "" : "s"} not started`
+      : `${houses.length} home${houses.length === 1 ? "" : "s"}`)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
