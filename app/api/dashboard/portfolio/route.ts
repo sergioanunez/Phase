@@ -37,7 +37,12 @@ export async function GET(request: NextRequest) {
     const { getAverageDelayPerHomeKpi } = await import("@/lib/dashboard/averageDelayPerHome")
     const ctx = await requireTenantPermission("dashboard:view")
 
-    const where: Record<string, unknown> = { companyId: ctx.companyId }
+    const where: Record<string, unknown> = {
+      companyId: ctx.companyId,
+      // Active homes only — matches Construction Timeline / billing semantics.
+      // Completed homes must not inflate On Track / At Risk / Behind counts.
+      isComplete: false,
+    }
     if (ctx.role === "Superintendent") {
       const assignments = await prisma.homeAssignment.findMany({
         where: { superintendentUserId: ctx.userId },

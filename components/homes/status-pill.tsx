@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, AlertTriangle, XCircle, Circle } from "lucide-react"
+import { Check, AlertTriangle, XCircle, Circle, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 
@@ -10,6 +10,11 @@ const config: Record<
   ScheduleStatus,
   { label: string; icon: typeof Check; className: string }
 > = {
+  completed: {
+    label: "Completed",
+    icon: CheckCircle2,
+    className: "bg-green-600 text-white border-transparent",
+  },
   not_started: {
     label: "Not started",
     icon: Circle,

@@ -27,7 +27,10 @@ import type { DelaysTrackerResult } from "@/lib/dashboard/delays-tracker"
 interface PortfolioData {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
-  homesByStatus?: Record<ScheduleStatus, DashboardHouseRowData[]>
+  homesByStatus?: Record<
+    "not_started" | "on_track" | "at_risk" | "behind",
+    DashboardHouseRowData[]
+  >
   delaysTracker?: DelaysTrackerResult
   inspectionsUpcoming: Array<{ type: string; count: number }>
   kpis: Array<{ label: string; value: string; delta?: "up" | "down" | null }>
@@ -365,7 +368,10 @@ export default function DashboardPage() {
   }
   const data = portfolio ?? portfolioFallback
 
-  const emptyHomesByStatus: Record<ScheduleStatus, DashboardHouseRowData[]> = {
+  const emptyHomesByStatus: Record<
+    "not_started" | "on_track" | "at_risk" | "behind",
+    DashboardHouseRowData[]
+  > = {
     not_started: [],
     on_track: [],
     at_risk: [],
@@ -435,7 +441,11 @@ export default function DashboardPage() {
 
   const drilldownHouses: DashboardHouseRowData[] = (() => {
     if (!drilldown) return []
-    if (drilldown.kind === "portfolio") return homesByStatus[drilldown.status] ?? []
+    if (drilldown.kind === "portfolio") {
+      return (
+        homesByStatus[drilldown.status as keyof typeof homesByStatus] ?? []
+      )
+    }
     if (drilldown.kind === "timeline") return homesByPhase[drilldown.phaseKey] ?? []
     if (drilldown.kind === "delays") {
       const group = (data.delaysTracker?.contractors ?? []).find(

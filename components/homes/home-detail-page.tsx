@@ -14,7 +14,7 @@ import { format, isBefore, isAfter, startOfDay } from "date-fns"
 import { normalizeStoredScheduledDate } from "@/lib/calendar-date"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { ProgressBar } from "@/components/homes/progress-bar"
-import { getScheduleStatus as getBarScheduleStatus } from "@/lib/schedule-status"
+import { getScheduleStatus as getBarScheduleStatus, formatCompletionVsTarget } from "@/lib/schedule-status"
 import { ClipboardList, Lock, FileText, Upload, Check, ChevronRight, Mail, MapPin, Ban } from "lucide-react"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { buildWorkItemWhatsAppText, openWhatsAppShare, openEmailShare } from "@/lib/share/whatsapp"
@@ -114,6 +114,9 @@ interface Home {
   forecastCompletionDate?: string | null
   forecastTotalWorkingDays?: number | null
   forecastComputedAt?: string | null
+  /** Authoritative: set by recalculateHomeCompletion when all applicable tasks are done. */
+  isComplete?: boolean
+  completedAt?: string | null
   hasPlan?: boolean
   hasThumbnail?: boolean
   planName?: string | null
@@ -648,10 +651,18 @@ export function HomeDetailPage() {
   const barStatus = getBarScheduleStatus(
     home.forecastCompletionDate ?? null,
     home.targetCompletionDate ?? null,
-    { startDate: home.startDate, scheduledTaskCount }
+    {
+      startDate: home.startDate,
+      scheduledTaskCount,
+      isComplete: Boolean(home.isComplete),
+    }
   )
 
   const scheduleStatus: ScheduleStatus | null = barStatus
+  const completionSummary =
+    barStatus === "completed"
+      ? formatCompletionVsTarget(home.completedAt, home.targetCompletionDate)
+      : null
   const today = startOfDay(new Date())
 
   // Sort categories - Preliminary work always first, then by predefined order
@@ -734,6 +745,11 @@ export function HomeDetailPage() {
                 <div className="mt-3 flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     {scheduleStatus && <StatusPill status={scheduleStatus} />}
+                    {completionSummary && (
+                      <span className="text-sm text-muted-foreground">
+                        {completionSummary.label}
+                      </span>
+                    )}
                     {plansLoading && legacyPlanHint && (
                       <Button
                         type="button"
@@ -883,7 +899,7 @@ export function HomeDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Timeline: Start / Forecast / Target in chronological order */}
+        {/* Timeline: Start / Forecast / Target — historical language when complete */}
         {home.startDate && (home.forecastCompletionDate || home.targetCompletionDate) && (
           <Card className="mb-4 overflow-hidden">
             <CardContent className="relative p-4 overflow-hidden">
@@ -893,6 +909,8 @@ export function HomeDetailPage() {
                   targetDate={home.targetCompletionDate ?? null}
                   forecastDate={home.forecastCompletionDate ?? null}
                   today={today}
+                  isComplete={Boolean(home.isComplete)}
+                  completedAt={home.completedAt ?? null}
                 />
               </div>
             </CardContent>

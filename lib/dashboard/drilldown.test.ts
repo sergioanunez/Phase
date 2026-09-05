@@ -145,13 +145,37 @@ describe("dashboard drill-down — portfolio", () => {
       const status = getScheduleStatus(
         h.forecastCompletionDate?.toISOString() ?? null,
         h.targetCompletionDate?.toISOString() ?? null,
-        { startDate: h.startDate, scheduledTaskCount }
+        {
+          startDate: h.startDate,
+          scheduledTaskCount,
+          isComplete: h.isComplete,
+        }
       )
       expect(grouped[status].some((row) => row.homeId === h.id)).toBe(true)
     }
-    expect(grouped.not_started.length + grouped.on_track.length + grouped.at_risk.length + grouped.behind.length).toBe(
-      homes.length
-    )
+  })
+
+  it("completed homes are not classified as Behind", () => {
+    const done = home({
+      id: "done",
+      addressOrLot: "Done Ln",
+      isComplete: true,
+      forecastCompletionDate: new Date("2026-10-24"),
+      targetCompletionDate: new Date("2026-10-10"),
+      tasks: [
+        task({
+          id: "t-done",
+          name: "Final",
+          status: "Completed",
+          scheduledDate: new Date("2026-08-01"),
+          completedAt: new Date("2026-08-24"),
+        }),
+      ],
+    })
+    const grouped = groupHomesByScheduleStatus([done, behind])
+    expect(grouped.completed.map((h) => h.homeId)).toEqual(["done"])
+    expect(grouped.behind.map((h) => h.homeId)).toEqual(["bh"])
+    expect(grouped.behind.every((h) => h.homeId !== "done")).toBe(true)
   })
 
   it("sorts Behind most-behind first", () => {

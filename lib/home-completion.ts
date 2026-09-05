@@ -1,10 +1,11 @@
 import type { PrismaClient } from "@prisma/client"
 
 /**
- * A home is COMPLETE when ALL its schedule tasks have status Completed.
+ * A home is COMPLETE when every schedule task is Completed, Canceled, or NotApplicable
+ * (same incomplete filter as progress / scheduling resolution).
  * - 0 tasks => treat as active (isComplete = false).
- * - All tasks Completed => isComplete = true, completedAt = now.
- * - Any task not Completed => isComplete = false, completedAt = null.
+ * - No incomplete tasks => isComplete = true, completedAt = now (if newly complete).
+ * - Any incomplete task => isComplete = false, completedAt = null.
  * Scoped by tenant (companyId); no cross-tenant leakage.
  */
 export async function recalculateHomeCompletion(

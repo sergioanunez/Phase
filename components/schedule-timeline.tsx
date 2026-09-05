@@ -9,6 +9,7 @@ import {
   getTimelineLabelLayout,
   type TimelineLabelLayout,
 } from "@/lib/schedule-timeline"
+import { formatCompletionVsTarget } from "@/lib/schedule-status"
 import { cn } from "@/lib/utils"
 
 export type ScheduleTimelineProps = {
@@ -17,6 +18,9 @@ export type ScheduleTimelineProps = {
   forecastDate: string | null
   /** Optional: today for "Today" label on forecast */
   today?: Date
+  /** When true, show historical completion vs target — not operational "behind". */
+  isComplete?: boolean
+  completedAt?: string | null
 }
 
 const ANCHOR_SIZE = 10
@@ -87,6 +91,8 @@ export function ScheduleTimeline({
   targetDate,
   forecastDate,
   today = startOfDay(new Date()),
+  isComplete = false,
+  completedAt = null,
 }: ScheduleTimelineProps) {
   const start = startDate ? startOfDay(new Date(startDate)) : null
   const target = targetDate ? startOfDay(new Date(targetDate)) : null
@@ -96,12 +102,15 @@ export function ScheduleTimeline({
   const diffDays = hasAll ? getDeltaDays(forecast, target) : 0
   const status = getScheduleStatus(diffDays)
   const forecastPercent = hasAll ? getForecastPercent(start, target, forecast) : 50
+  const completionSummary = isComplete
+    ? formatCompletionVsTarget(completedAt, targetDate)
+    : null
 
   const renderForecastPercent = Math.max(
     CLAMP_MIN,
     Math.min(CLAMP_MAX, forecastPercent)
   )
-  const isBehind = hasAll && diffDays > 0
+  const isBehind = !isComplete && hasAll && diffDays > 0
 
   const trackRef = useRef<HTMLDivElement>(null)
   const [trackWidthPx, setTrackWidthPx] = useState(0)
@@ -135,8 +144,9 @@ export function ScheduleTimeline({
   // Extra headroom when Forecast label sits above the track.
   const trackTopPx = labelLayout === "split" ? 78 : 52
 
-  const forecastMarkerColor =
-    status === "ahead" || status === "on-time"
+  const forecastMarkerColor = isComplete
+    ? "bg-green-600"
+    : status === "ahead" || status === "on-time"
       ? "bg-green-500"
       : diffDays <= 7
         ? "bg-amber-500"
@@ -156,27 +166,36 @@ export function ScheduleTimeline({
       className="relative w-full overflow-hidden px-8 pb-5 min-w-0 transition-[min-height] duration-200 ease-out"
       style={{ minHeight }}
     >
-      {hasAll && (
+      {(hasAll || (isComplete && completionSummary)) && (
         <div className="flex flex-col items-center gap-0.5 pb-2">
-          <span
-            className={cn(
-              "text-sm font-medium tabular-nums text-center break-words max-w-full",
-              (diffDays < 0 || diffDays === 0) && "text-green-600 dark:text-green-400",
-              diffDays > 0 && diffDays <= 7 && "text-amber-600 dark:text-amber-400",
-              diffDays > 7 && "text-destructive"
-            )}
-            aria-label={
-              diffDays < 0
-                ? `${Math.abs(diffDays)} days ahead`
-                : diffDays === 0
-                  ? "On target"
-                  : `${diffDays} days behind target`
-            }
-          >
-            {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
-            {diffDays === 0 && "On target"}
-            {diffDays > 0 && `${diffDays} days behind target`}
-          </span>
+          {isComplete && completionSummary ? (
+            <span
+              className="text-sm font-medium tabular-nums text-center break-words max-w-full text-green-700 dark:text-green-400"
+              aria-label={completionSummary.label}
+            >
+              {completionSummary.label}
+            </span>
+          ) : (
+            <span
+              className={cn(
+                "text-sm font-medium tabular-nums text-center break-words max-w-full",
+                (diffDays < 0 || diffDays === 0) && "text-green-600 dark:text-green-400",
+                diffDays > 0 && diffDays <= 7 && "text-amber-600 dark:text-amber-400",
+                diffDays > 7 && "text-destructive"
+              )}
+              aria-label={
+                diffDays < 0
+                  ? `${Math.abs(diffDays)} days ahead`
+                  : diffDays === 0
+                    ? "On target"
+                    : `${diffDays} days behind target`
+              }
+            >
+              {diffDays < 0 && `${Math.abs(diffDays)} days ahead of target`}
+              {diffDays === 0 && "On target"}
+              {diffDays > 0 && `${diffDays} days behind target`}
+            </span>
+          )}
         </div>
       )}
 

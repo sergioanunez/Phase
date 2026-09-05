@@ -79,7 +79,10 @@ export type DrilldownHomeInput = {
   tasks: DrilldownTaskInput[]
 }
 
-export const PORTFOLIO_STATUS_TITLES: Record<ScheduleStatus, string> = {
+export const PORTFOLIO_STATUS_TITLES: Record<
+  Exclude<ScheduleStatus, "completed">,
+  string
+> = {
   not_started: "Not Started",
   on_track: "On Track",
   at_risk: "At Risk",
@@ -233,6 +236,7 @@ export function groupHomesByScheduleStatus(
   homes: DrilldownHomeInput[]
 ): Record<ScheduleStatus, DashboardHouseRowData[]> {
   const buckets: Record<ScheduleStatus, DashboardHouseRowData[]> = {
+    completed: [],
     not_started: [],
     on_track: [],
     at_risk: [],
@@ -244,7 +248,11 @@ export function groupHomesByScheduleStatus(
     const status = getScheduleStatus(
       home.forecastCompletionDate?.toISOString() ?? null,
       home.targetCompletionDate?.toISOString() ?? null,
-      { startDate: home.startDate, scheduledTaskCount }
+      {
+        startDate: home.startDate,
+        scheduledTaskCount,
+        isComplete: home.isComplete,
+      }
     )
     buckets[status].push(toDashboardHouseRow(home, { status }))
   }
@@ -329,7 +337,7 @@ export function compareBuilderHouseOrder(
 
 export function sortPortfolioHouses(
   houses: DashboardHouseRowData[],
-  status: ScheduleStatus
+  status: Exclude<ScheduleStatus, "completed">
 ): DashboardHouseRowData[] {
   const copy = [...houses]
   if (status === "behind" || status === "at_risk") {

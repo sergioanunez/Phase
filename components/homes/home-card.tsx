@@ -72,10 +72,18 @@ export interface HomeCardProps {
   home: HomeCardHome
   status: ScheduleStatus
   progress: number
+  /** Historical completion line when status is completed. */
+  completionLabel?: string | null
   onNavigate?: () => void
 }
 
-export function HomeCard({ home, status, progress, onNavigate }: HomeCardProps) {
+export function HomeCard({
+  home,
+  status,
+  progress,
+  completionLabel,
+  onNavigate,
+}: HomeCardProps) {
   const criticalIds = home.criticalPathTaskIds ?? []
   const lastCriticalScheduledTask = home.tasks
     .filter(
@@ -123,10 +131,18 @@ export function HomeCard({ home, status, progress, onNavigate }: HomeCardProps) 
         <StatusPill status={status} className="shrink-0" />
       </div>
 
-      {/* Dates: Forecast | Target */}
+      {/* Dates: Forecast | Target — or historical completion when done */}
       <div className="mb-3 text-sm">
-        <span className="font-medium text-foreground">Forecast: {forecastStr}</span>
-        <span className="text-muted-foreground"> | Target: {targetStr}</span>
+        {status === "completed" ? (
+          <span className="font-medium text-foreground">
+            {completionLabel ?? "Completed"}
+          </span>
+        ) : (
+          <>
+            <span className="font-medium text-foreground">Forecast: {forecastStr}</span>
+            <span className="text-muted-foreground"> | Target: {targetStr}</span>
+          </>
+        )}
       </div>
 
       {/* Progress bar + percent + chevron */}

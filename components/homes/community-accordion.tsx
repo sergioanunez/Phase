@@ -35,7 +35,12 @@ export interface CommunityAccordionProps {
   communities: Array<{
     id: string
     name: string
-    homes: Array<{ home: CommunityHome; status: ScheduleStatus; progress: number }>
+    homes: Array<{
+      home: CommunityHome
+      status: ScheduleStatus
+      progress: number
+      completionLabel?: string | null
+    }>
   }>
   openSubdivisions?: string[]
   onOpenSubdivisionsChange?: (value: string[]) => void
@@ -61,6 +66,7 @@ export function CommunityAccordion({
         const notStarted = homes.filter((h) => h.status === "not_started").length
         const atRisk = homes.filter((h) => h.status === "at_risk").length
         const behind = homes.filter((h) => h.status === "behind").length
+        const completed = homes.filter((h) => h.status === "completed").length
 
         return (
           <AccordionItem
@@ -81,6 +87,12 @@ export function CommunityAccordion({
                 <span className="font-medium text-foreground">{community.name}</span>
                 {" · "}
                 <span>{total} homes</span>
+                {completed > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-green-700">{completed} completed</span>
+                  </>
+                )}
                 {notStarted > 0 && (
                   <>
                     {" · "}
@@ -107,12 +119,13 @@ export function CommunityAccordion({
                     No homes in this community yet
                   </p>
                 ) : (
-                  homes.map(({ home, status, progress }) => (
+                  homes.map(({ home, status, progress, completionLabel }) => (
                     <HomeCard
                       key={home.id}
                       home={home}
                       status={status}
                       progress={progress}
+                      completionLabel={completionLabel}
                       onNavigate={
                         onHomeNavigate
                           ? () => onHomeNavigate(home.id, community.id)

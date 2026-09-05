@@ -8,7 +8,7 @@ import { Search } from "lucide-react"
 import { TaskStatus } from "@prisma/client"
 import { PlanViewer } from "@/components/plan-viewer"
 import { CommunityAccordion } from "@/components/homes/community-accordion"
-import { getScheduleStatus } from "@/lib/schedule-status"
+import { getScheduleStatus, formatCompletionVsTarget } from "@/lib/schedule-status"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import type { CommunityHome } from "@/components/homes/community-accordion"
 import { compareHomesByDisplayOrder } from "@/lib/homes/display-order"
@@ -27,6 +27,8 @@ interface Home {
   forecastCompletionDate: string | null
   forecastTotalWorkingDays: number | null
   criticalPathTaskIds?: string[]
+  isComplete?: boolean
+  completedAt?: string | null
   hasPlan?: boolean
   hasThumbnail?: boolean
   thumbnailUrl?: string | null
@@ -90,7 +92,7 @@ function toCommunityHome(home: Home): CommunityHome {
   }
 }
 
-type StatusFilter = "not_started" | "on_track" | "at_risk" | "behind"
+type StatusFilter = "completed" | "not_started" | "on_track" | "at_risk" | "behind"
 
 export default function HomesPage() {
   const { data: session, status: sessionStatus } = useSession()
@@ -196,7 +198,9 @@ export default function HomesPage() {
   }, [subdivisions, homes])
 
   const communities = useMemo(() => {
-    const validStatus = statusFilter && ["not_started", "on_track", "at_risk", "behind"].includes(statusFilter)
+    const validStatus =
+      statusFilter &&
+      ["completed", "not_started", "on_track", "at_risk", "behind"].includes(statusFilter)
     const q = searchQuery.trim().toLowerCase()
     const scheduledCount = (home: Home) =>
       (home.tasks ?? []).filter((t) => t.scheduledDate != null).length
@@ -207,9 +211,17 @@ export default function HomesPage() {
         status: getScheduleStatus(
           home.forecastCompletionDate,
           home.targetCompletionDate,
-          { startDate: home.startDate, scheduledTaskCount: scheduledCount(home) }
+          {
+            startDate: home.startDate,
+            scheduledTaskCount: scheduledCount(home),
+            isComplete: Boolean(home.isComplete),
+          }
         ) as ScheduleStatus,
         progress: calculateProgress(home),
+        completionLabel:
+          home.isComplete
+            ? formatCompletionVsTarget(home.completedAt, home.targetCompletionDate).label
+            : null,
       }))
       const sorted = [...withStatus].sort((a, b) => {
         const orderCmp = compareHomesByDisplayOrder(
@@ -293,7 +305,9 @@ export default function HomesPage() {
   }, [loading, openSubdivisions, searchQuery, visibleCommunities.length, router])
 
   const filterLabel =
-    statusFilter === "not_started"
+    statusFilter === "completed"
+      ? "Completed"
+      : statusFilter === "not_started"
       ? "Not started"
       : statusFilter === "on_track"
         ? "On Track"

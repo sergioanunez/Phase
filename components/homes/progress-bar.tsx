@@ -12,6 +12,7 @@ export interface ProgressBarProps {
 }
 
 const fillByStatus: Record<ScheduleStatus, string> = {
+  completed: "bg-green-600",
   not_started: "bg-gray-300",
   on_track: "bg-green-500",
   at_risk: "bg-amber-500",
