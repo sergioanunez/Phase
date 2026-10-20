@@ -170,13 +170,11 @@ export function HomeDetailPage() {
   } | null>(null)
   const activePerfRef = useRef<MutationPerfSession | null>(null)
 
-  const applyLocalTaskPatch = (updated: { id: string; [key: string]: unknown }) => {
+  const applyLocalTaskPatch = (updated: { id: string }) => {
     mutationGenRef.current += 1
-    setHome((prev) => patchHomeTask(prev, updated) as Home | null)
+    setHome((prev) => patchHomeTask(prev, updated))
     setSelectedTask((prev) =>
-      prev && prev.id === updated.id
-        ? (mergeHomeTask(prev, updated) as HomeTask)
-        : prev
+      prev && prev.id === updated.id ? mergeHomeTask(prev, updated) : prev
     )
   }
 
@@ -216,7 +214,7 @@ export function HomeDetailPage() {
         // already preserves mutation-confirmed status fields.
         void startedGen
         setHome((prev) =>
-          prev ? (applyForecastReconcileToHome(prev, data) as Home) : prev
+          prev ? applyForecastReconcileToHome(prev, data) : prev
         )
         activePerfRef.current?.mark("t5")
         activePerfRef.current?.finish()

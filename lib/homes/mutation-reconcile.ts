@@ -19,7 +19,11 @@ export type TaskMutationKind =
   | "other"
 
 export type TaskMutationClientResult = {
-  task?: { id: string; [key: string]: unknown }
+  /**
+   * Concrete Task shapes are allowed — no index signature required.
+   * `status` is optional so callers can branch (e.g. play complete sound).
+   */
+  task?: { id: string; status?: string | null }
   kind: TaskMutationKind
   /** When true, close TaskModal (default true for modal paths). */
   closeModal?: boolean

@@ -1,11 +1,23 @@
 /**
  * Local House Details task patch helpers (P1 performance).
  * Pure functions — no React, no network.
+ *
+ * Concrete UI types (e.g. HomeTask) often lack string index signatures, so
+ * PatchableTask / HomeWithTasks only require `id` + `tasks` — not `[key: string]`.
  */
 
+/** Minimum shape for a task that can be patched in place. */
 export type PatchableTask = {
   id: string
-  [key: string]: unknown
+}
+
+/**
+ * Mutation / server payload merged into a local task.
+ * No index signature — concrete UI `Task` types must remain assignable.
+ * Extra fields are still read at runtime via Object.entries.
+ */
+export type TaskPatch = {
+  id: string
 }
 
 export type HomeWithTasks<T extends PatchableTask = PatchableTask> = {
@@ -14,7 +26,17 @@ export type HomeWithTasks<T extends PatchableTask = PatchableTask> = {
   forecastCompletionDate?: string | null
   forecastTotalWorkingDays?: number | null
   forecastComputedAt?: string | null
-  [key: string]: unknown
+}
+
+/** Remote home payload used for forecast reconciliation. */
+export type HomePatch = {
+  id: string
+  tasks: Array<{ id: string }>
+  forecastCompletionDate?: string | null
+  forecastTotalWorkingDays?: number | null
+  forecastComputedAt?: string | null
+  isComplete?: boolean | null
+  completedAt?: string | null
 }
 
 /** Fields that background forecast reconciliation may safely overwrite on each task. */
@@ -39,18 +61,20 @@ export const FORECAST_HOME_FIELDS = [
  * Merge server task payload into an existing local task.
  * Server fields win for keys present on the update; local-only keys are preserved.
  */
-export function mergeHomeTask<T extends PatchableTask>(
+export function mergeHomeTask<T extends PatchableTask, U extends PatchableTask>(
   local: T,
-  updated: PatchableTask
+  updated: U
 ): T {
   if (local.id !== updated.id) return local
   const next = { ...local } as T
-  for (const [key, value] of Object.entries(updated)) {
+  const nextRec = next as Record<string, unknown>
+  const localRec = local as Record<string, unknown>
+  for (const [key, value] of Object.entries(updated as Record<string, unknown>)) {
     if (key === "home" || key === "templateItem") {
       // Prefer nested objects when provided; keep local if update omits useful shape.
       if (value != null && typeof value === "object") {
-        const localNested = (local as Record<string, unknown>)[key]
-        ;(next as Record<string, unknown>)[key] =
+        const localNested = localRec[key]
+        nextRec[key] =
           localNested && typeof localNested === "object"
             ? { ...(localNested as object), ...(value as object) }
             : value
@@ -58,7 +82,7 @@ export function mergeHomeTask<T extends PatchableTask>(
       continue
     }
     if (value !== undefined) {
-      ;(next as Record<string, unknown>)[key] = value
+      nextRec[key] = value
     }
   }
   return next
@@ -68,10 +92,10 @@ export function mergeHomeTask<T extends PatchableTask>(
  * Patch a single task inside a home without replacing unrelated home/task data.
  * Returns the previous home unchanged if task id is not found (still immutable).
  */
-export function patchHomeTask<T extends PatchableTask>(
-  home: HomeWithTasks<T> | null | undefined,
-  updated: PatchableTask
-): HomeWithTasks<T> | null {
+export function patchHomeTask<H extends HomeWithTasks, U extends PatchableTask>(
+  home: H | null | undefined,
+  updated: U
+): H | null {
   if (!home) return null
   const idx = home.tasks.findIndex((t) => t.id === updated.id)
   if (idx < 0) {
@@ -86,35 +110,40 @@ export function patchHomeTask<T extends PatchableTask>(
  * Apply a background forecast/home GET without clobbering mutation-confirmed task state.
  * Updates home-level forecast fields and per-task forecast-derived fields only.
  */
-export function applyForecastReconcileToHome<T extends PatchableTask>(
-  prev: HomeWithTasks<T>,
-  remote: HomeWithTasks<PatchableTask>
-): HomeWithTasks<T> {
-  const remoteById = new Map(remote.tasks.map((t) => [t.id, t]))
+export function applyForecastReconcileToHome<H extends HomeWithTasks>(
+  prev: H,
+  remote: HomePatch
+): H {
+  const remoteRec = remote as HomePatch & Record<string, unknown>
+  const remoteById = new Map(
+    remote.tasks.map((t) => [t.id, t as TaskPatch & Record<string, unknown>])
+  )
   const tasks = prev.tasks.map((local) => {
     const remoteTask = remoteById.get(local.id)
     if (!remoteTask) return local
-    const next = { ...local } as T
+    const next = { ...local }
+    const nextRec = next as Record<string, unknown>
     for (const field of FORECAST_TASK_FIELDS) {
       if (field in remoteTask) {
-        ;(next as Record<string, unknown>)[field] = remoteTask[field]
+        nextRec[field] = remoteTask[field]
       }
     }
     return next
   })
 
-  const nextHome: HomeWithTasks<T> = { ...prev, tasks }
+  const nextHome = { ...prev, tasks } as H
+  const nextHomeRec = nextHome as Record<string, unknown>
   for (const field of FORECAST_HOME_FIELDS) {
-    if (field in remote) {
-      ;(nextHome as Record<string, unknown>)[field] = remote[field]
+    if (field in remoteRec) {
+      nextHomeRec[field] = remoteRec[field]
     }
   }
   // Home completion flags may change after Complete / N/A
-  if ("isComplete" in remote) {
-    ;(nextHome as Record<string, unknown>).isComplete = remote.isComplete
+  if ("isComplete" in remoteRec) {
+    nextHomeRec.isComplete = remoteRec.isComplete
   }
-  if ("completedAt" in remote) {
-    ;(nextHome as Record<string, unknown>).completedAt = remote.completedAt
+  if ("completedAt" in remoteRec) {
+    nextHomeRec.completedAt = remoteRec.completedAt
   }
   return nextHome
 }

@@ -18,10 +18,10 @@ import {
   canOpenDrilldown,
   parseInspectParam,
   serializeInspectParam,
+  type ActiveScheduleStatus,
   type DashboardDrilldownContext,
   type DashboardHouseRowData,
 } from "@/lib/dashboard/drilldown"
-import type { ScheduleStatus } from "@/lib/schedule-status"
 import type { DelaysTrackerResult } from "@/lib/dashboard/delays-tracker"
 
 interface PortfolioData {
@@ -403,7 +403,7 @@ export default function DashboardPage() {
       return
     }
     if (parsed.kind === "portfolio") {
-      const status = parsed.key as ScheduleStatus
+      const status = parsed.key as ActiveScheduleStatus
       setDrilldown({
         kind: "portfolio",
         status,

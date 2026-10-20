@@ -22,8 +22,10 @@ export const DASHBOARD_DRILLDOWN_SEARCH_MIN = 10
 
 export type DashboardDrilldownKind = "portfolio" | "timeline" | "pulse" | "delays"
 
+export type ActiveScheduleStatus = Exclude<ScheduleStatus, "completed">
+
 export type DashboardDrilldownContext =
-  | { kind: "portfolio"; status: ScheduleStatus; title: string }
+  | { kind: "portfolio"; status: ActiveScheduleStatus; title: string }
   | { kind: "timeline"; phaseKey: string; title: string }
   | { kind: "pulse"; subdivisionId: string; title: string }
   | { kind: "delays"; contractorId: string; title: string }
@@ -79,10 +81,7 @@ export type DrilldownHomeInput = {
   tasks: DrilldownTaskInput[]
 }
 
-export const PORTFOLIO_STATUS_TITLES: Record<
-  Exclude<ScheduleStatus, "completed">,
-  string
-> = {
+export const PORTFOLIO_STATUS_TITLES: Record<ActiveScheduleStatus, string> = {
   not_started: "Not Started",
   on_track: "On Track",
   at_risk: "At Risk",
@@ -337,7 +336,7 @@ export function compareBuilderHouseOrder(
 
 export function sortPortfolioHouses(
   houses: DashboardHouseRowData[],
-  status: Exclude<ScheduleStatus, "completed">
+  status: ActiveScheduleStatus
 ): DashboardHouseRowData[] {
   const copy = [...houses]
   if (status === "behind" || status === "at_risk") {

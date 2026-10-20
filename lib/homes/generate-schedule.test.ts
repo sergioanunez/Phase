@@ -67,7 +67,7 @@ describe("buildSchedulePreview", () => {
       respectExistingScheduledDates: true,
     })
     const scheduledRow = preview.rows.find((r) => r.taskId === "scheduled")
-    expect(scheduledRow?.proposedStart.slice(0, 10)).toBe("2026-07-10")
+    expect(scheduledRow?.proposedStart?.slice(0, 10)).toBe("2026-07-10")
     expect(scheduledRow?.currentScheduledDate?.slice(0, 10)).toBe("2026-07-10")
   })
 

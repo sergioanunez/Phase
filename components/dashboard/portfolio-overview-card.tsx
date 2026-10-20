@@ -6,10 +6,12 @@ import Link from "next/link"
 import { CountUpNumber } from "./count-up-number"
 import type { ScheduleStatus } from "@/lib/schedule-status"
 
+type ActiveScheduleStatus = Exclude<ScheduleStatus, "completed">
+
 export interface PortfolioOverviewCardProps {
   activeHomesCount: number
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
-  onStatusSelect?: (status: ScheduleStatus, count: number) => void
+  onStatusSelect?: (status: ActiveScheduleStatus, count: number) => void
 }
 
 export function PortfolioOverviewCard({

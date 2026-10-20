@@ -3,9 +3,11 @@
 import type { ScheduleStatus } from "@/lib/schedule-status"
 import { canOpenDrilldown } from "@/lib/dashboard/drilldown"
 
+type ActiveScheduleStatus = Exclude<ScheduleStatus, "completed">
+
 export interface StatusSegmentChipsProps {
   statusCounts: { notStarted: number; onTrack: number; atRisk: number; behind: number }
-  onStatusSelect?: (status: ScheduleStatus, count: number) => void
+  onStatusSelect?: (status: ActiveScheduleStatus, count: number) => void
 }
 
 export function StatusSegmentChips({
@@ -13,7 +15,7 @@ export function StatusSegmentChips({
   onStatusSelect,
 }: StatusSegmentChipsProps) {
   const segments: Array<{
-    status: ScheduleStatus
+    status: ActiveScheduleStatus
     label: string
     count: number
     dotClass: string
